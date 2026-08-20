@@ -21,6 +21,9 @@ var _tick_budget_ms: float = 0.0
 ## Сколько событий не нашли своего сигнала. Этапу 19 это даёт бесплатную
 ## «санитарию сигналов»: прогон забега с проверкой, что счётчик остался нулём.
 var _error_count: int = 0
+## Поднят на время промотки времени дебаг-панелью: View-ноды пропускают
+## анимации и создают/удаляют себя без Tween'ов.
+var fast_forwarding: bool = false
 
 func _physics_process(delta: float) -> void:
 	if speed == 0 or world == null:
@@ -69,6 +72,34 @@ func sim_seconds() -> float:
 	if world == null:
 		return 0.0
 	return float(world.clock.total_ticks()) * STEP + _accum
+
+## Промотка времени для дебаг-панели (этап 03). Гейт стоит здесь, а не только
+## в панели: один рубеж защиты — это ноль рубежей.
+func debug_fast_forward(ticks: int) -> void:
+	if not OS.is_debug_build() or world == null:
+		return
+	# View-ноды по этому флагу пропускают анимации: 3000 пачек сигналов подряд
+	# иначе захлебнут UI созданием Tween'ов (research/13 §8).
+	fast_forwarding = true
+	for i: int in ticks:
+		world.tick()
+		_flush_events()
+	fast_forwarding = false
+
+## Тиков до ближайшей границы фазы / цикла — для кнопок «+1 фаза» и «+1 цикл».
+func debug_ticks_to_next_phase() -> int:
+	if world == null:
+		return 0
+	return maxi(1, world.clock.phase_len(world.clock.phase) - world.clock.tick_in_phase)
+
+func debug_ticks_to_next_cycle() -> int:
+	if world == null:
+		return 0
+	var left: int = debug_ticks_to_next_phase()
+	var p: int = int(world.clock.phase)
+	for i: int in range(p + 1, SimTypes.PHASE_ORDER.size()):
+		left += world.clock.phase_len(i as SimTypes.Phase)
+	return left
 
 func tick_budget_ms() -> float:
 	return _tick_budget_ms

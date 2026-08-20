@@ -19,6 +19,14 @@ const EMIT_EPS: float = 0.01
 var _ticks_since_emit: int = 0
 var _last_emitted: float = Balance.HIGH_LEVEL
 
+## Дебаг-оверрайд уровня (этап 03). NAN = выключено; сравнивать только через
+## is_nan(), потому что NAN == NAN даёт false.
+##
+## РЕШЕНИЕ: в сейв НЕ попадает и после загрузки всегда NAN. JSON не умеет
+## non-finite числа (NAN стал бы null, а float(null) = 0.0 — вода залипла бы
+## на нуле), и загруженный забег не должен уметь «застрять» в дебаг-режиме.
+var level_override: float = NAN
+
 ## Пересчитывает уровень по фазе и её прогрессу; возвращает события наружу.
 func update(clock: SimClock) -> Array[SimEvent]:
 	level = _level_for(clock)
@@ -33,6 +41,8 @@ func update(clock: SimClock) -> Array[SimEvent]:
 ## Кривая воды. Ключевые точки — docs/00 §4; между ними smoothstep,
 ## кроме Сигнала (там спека требует линейного подъёма).
 func _level_for(clock: SimClock) -> float:
+	if not is_nan(level_override):
+		return level_override
 	var p: float = clock.phase_progress()
 	match clock.phase:
 		SimTypes.Phase.EBB:

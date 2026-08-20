@@ -120,6 +120,33 @@ static func test_tide_plateaus_are_mutable(t: TestCtx) -> void:
 	t.run_ticks(w, 750 + 300 + 750)
 	t.check_approx(w.tide.level, 2.0, 0.01, "сизигия: плато HIGH +2")
 
+## Дебаг-оверрайд уровня (этап 03): подменяет кривую и НЕ попадает в сейв.
+static func test_level_override(t: TestCtx) -> void:
+	var w: SimWorld = _world(1)
+	t.run_ticks(w, 450 + 750)
+	t.check_approx(w.tide.level, -8.0, 0.01, "без оверрайда работает кривая")
+
+	w.tide.level_override = 2.5
+	t.run_ticks(w, 1)
+	t.check_approx(w.tide.level, 2.5, 0.001, "оверрайд подменяет уровень")
+	t.run_ticks(w, 500)
+	t.check_approx(w.tide.level, 2.5, 0.001, "и держится через смену фаз")
+
+	# NAN сравнивается только через is_nan: NAN == NAN даёт false.
+	var d: Dictionary = w.to_dict()
+	t.check(not d["tide"].has("level_override"), "оверрайд в сейв не попадает")
+	var restored: SimWorld = SimWorld.new()
+	restored.from_dict(d, _cliff())
+	t.check(is_nan(restored.tide.level_override),
+		"после загрузки оверрайд выключен — забег не застревает в дебаг-режиме")
+	t.run_ticks(restored, 1)
+	t.check(absf(restored.tide.level - 2.5) > 0.01,
+		"и уровень возвращается на кривую")
+
+	w.tide.level_override = NAN
+	t.run_ticks(w, 1)
+	t.check(absf(w.tide.level - 2.5) > 0.01, "снятие оверрайда возвращает кривую")
+
 # --- Детерминизм и сериализация -------------------------------------------
 
 static func test_determinism(t: TestCtx) -> void:

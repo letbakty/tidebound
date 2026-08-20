@@ -25,7 +25,22 @@ func _ready() -> void:
 	Game.cmd_new_run(DEV_SEED)
 	world_view = (load(WORLD_SCENE) as PackedScene).instantiate() as Node2D
 	world_viewport.add_child(world_view)
+	_spawn_debug_panel()
 	Game.cmd_set_speed(1)
+
+## Дебаг-панель именно СОЗДАЁТСЯ по гейту, а не прячется: скрытая утащила бы
+## в релиз сцену, скрипт и все подписки на Events.
+## load(), а не preload(): preload разрешается на этапе компиляции и попал бы
+## в сборку независимо от условия (research/13 §3).
+func _spawn_debug_panel() -> void:
+	if not OS.is_debug_build():
+		return
+	var scn: PackedScene = load("res://debug/debug_panel.tscn") as PackedScene
+	if scn == null:
+		return                      # release-пресет вырезает res://debug/*
+	var panel: Control = scn.instantiate() as Control
+	debug_layer.add_child(panel)
+	panel.call("setup", world_view)
 
 func _on_phase_changed(phase: int, cycle: int) -> void:
 	print("[sim] цикл %d, фаза %s, вода %.2f" % [
