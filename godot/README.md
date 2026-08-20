@@ -1,0 +1,44 @@
+# Tidebound — Godot-проект
+
+Движок: **Godot 4.7.2 stable**, рендерер **Mobile**, GDScript со статической типизацией.
+Правила игры — `../docs/00-functional-spec.md`, интерфейс — `../docs/01-ui-spec.md`, архитектура — `../docs/02-architecture.md`.
+Этапы разработки — `../prompts/`, технический ресерч — `../research/`.
+
+## Состояние
+
+Выполнен **этап 00** (каркас). Следующий шаг — `../prompts/01-sim-clock-and-bus.md`.
+
+Готово: структура папок по docs/02 §2 · настройки проекта (гибридный вьюпорт, Nearest, snap, warnings-as-errors на `untyped_declaration`) · 6 автолоадов-заглушек · главная сцена со слоями · Input Map (16 действий, `physical_keycode`) · i18n RU/EN · headless-раннер тестов · `.gitignore`.
+
+## Команды
+
+```bash
+GODOT="/Users/bakti/Library/Application Support/Steam/steamapps/common/Godot Engine/Godot.app/Contents/MacOS/Godot"
+
+# Прогрев импорта (обязательно перед первым прогоном тестов и в CI)
+"$GODOT" --headless --import --quit
+
+# Тесты
+"$GODOT" --headless -s res://tests/run_all.gd ; echo "exit=$?"
+
+# Смоук главной сцены
+"$GODOT" --headless --quit-after 120
+
+# Перегенерация Input Map (после правки таблицы в скрипте)
+"$GODOT" --headless -s res://tools/gen_input_map.gd
+
+# Аудит детерминизма sim/ (этапы 01 и 19)
+./tools/audit_sim.sh
+```
+
+## Принятые решения этапа 00
+
+- **Зум мира — камерой, не `stretch_shrink`.** `stretch_shrink` зафиксирован на 2: 1280/3 = 426.67, на shrink=3 контейнер не делится нацело и появляется полупиксельный шов. `Main.set_world_zoom()` пока заглушка, на этапе 02 станет вызовом `CameraRig.set_zoom_step()`. → `../research/10-project-setup-viewport-scaling.md` §1
+- **`physical_keycode` в Input Map.** Иначе WASD не работает на кириллической раскладке.
+- **Автолоадам не давать `class_name`** — имя синглтона и так глобально, иначе конфликт парсера.
+- **`stretch/scale_mode` оставлен `fractional`.** На нецелых окнах (1366×768) мировой пиксель будет дробным. Проверить руками и, если плохо, переключить на `integer` (появятся чёрные поля). → `../research/10` §1
+- **`assert()` в тестах запрещён** — вырезается в release-сборках. Только `check()` из `tests/test_ctx.gd`.
+
+## Известная особенность приёмки
+
+В headless окна нет: `get_window().size` возвращает фиктивные 64×64, корневой Control растягивается до 1280×1280, и `WorldViewport.size` печатается как **640×640**. Это не баг — `stretch_shrink = 2` отрабатывает верно. **Проверку «в окне 1280×720 вьюпорт равен 640×360» делать только в редакторе или в оконной сборке.**

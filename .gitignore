@@ -1,0 +1,11 @@
+# Godot 4
+godot/.godot/
+godot/android/
+godot/*.translation
+
+# Экспорт
+godot/build/
+
+# ОС
+.DS_Store
+Thumbs.db

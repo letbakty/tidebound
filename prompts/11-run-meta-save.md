@@ -1,0 +1,32 @@
+# Этап 11 — Забег, метапрогрессия, сейвы
+
+**Модель:** Opus 5 или Fable 5 (сериализация всего мира — аккуратная работа).
+**Зависит от:** 10. **Читать:** docs/00 §11, §14; docs/02 §6.
+**Результат:** забег имеет начало и три конца; очки считаются; Журнал копит разблокировки; сейв/лоад полный.
+**Ресерч:** [research/18-save-serialization.md](../research/18-save-serialization.md) — **четыре ловушки JSON** (float-типы, `full_precision`, NAN, атомарность), безопасность, `rebroadcast_state`, подсчёт очков. Дополнительно: [research/11](../research/11-sim-core-determinism.md) §8.
+**Готовый код:** `research/code/save_io.gd` → `autoload/save_io.gd` (или внутрь `save_service.gd`) — переноси, а не пиши с нуля (черновики под контракты docs/02, но не компилировались: сверь имена полей с тем, что реально сделали прошлые этапы).
+
+## Задача
+1. `sim/run_state.gd` — доукомплектовать: счёт цикла, условия конца (docs/00 §11.2): судно на 12-м (в начале HIGH — событие ship_arrived, транслируется сигналом Events.ship_arrived; в конце HIGH — run_ended(SHIP)); вайп (агентов 0) → run_ended(WIPE) немедленно; `cmd_leave_early` (с 8-го цикла) → флаг, судно в следующем цикле, множитель очков 0.75.
+   - Подсчёт очков (docs/00 §11.2): Σ ship_points стаков со складов, НЕ затопленных в момент прибытия судна (12-й цикл — сизигия: склады на +1..+2 под водой — это спроектированное финальное испытание), + 5 × живой агент, + 10 × relic (сверх ship_points). WIPE — 30% от суммы. Отчёт: разбивка по категориям.
+2. `data/defs/unlock_def.gd` + `data/unlocks/*.tres` — 12 разблокировок docs/00 §11.3 (id, display_key, desc_key, cost: int, grants: Dictionary — {"building": id} / {"card": id} / {"start_bonus": key} / {"draft_size": 4} / {"upgrade": key}).
+3. `autoload/meta.gd` — профиль: `points_total: int`, `unlocked: Array[String]`, `relics_total: int`, статистика (docs/00 §11.3: забегов / побед судном / циклов суммарно / агентов погибло / лучший счёт), история забегов (номер, очки, исход, циклов прожито, погибшие с эпитафиями), `buy_unlock(id) -> bool`. ВАЖНО (граница слоёв): sim НЕ читает Meta — `Game.cmd_new_run(seed)` сам берёт Meta.unlocked и передаёт в `SimWorld.setup(seed, unlocked)`; RunState хранит копию в поле `unlocks` (заведено этапом 10), все проверки построек/карт/крафтов (этапы 07/08/10) читают её. Применение апгрейдов: u_hearth_big → HEAT_RADIUS 6, u_lantern_bright → радиус фонаря 5, u_start_* → стартовые бонусы при new_run.
+   Дополнительно: `Game.cmd_surrender()` — немедленный run_ended(WIPE) по решению игрока (для PausePanel до 8-го цикла); **автопауза Итога цикла**: Game на cycle_ended сохраняет скорость и ставит speed=0; `Game.resume_prev_speed()` возвращает (вызовет CycleSummary).
+4. `autoload/save_service.gd` — по docs/02 §6. ⚠️ **Четыре ловушки JSON, каждая валит приёмку** ([research/18](../research/18-save-serialization.md) §1–4, готовый `research/code/save_io.gd`): (1) `JSON.parse` возвращает **все** числа как float — при `from_dict` целые поля надо явно приводить `int()`; (2) `JSON.stringify` по умолчанию `full_precision = false` и усекает float — **для файла сейва передавать `full_precision = true`**, иначе save→load разойдётся с непрерывным прогоном; (3) NAN/INF сериализуются в `null`; (4) запись неатомарна — писать во временный файл и переименовывать.
+   - `save_run()`: `user://save_run.json` = {save_version:1, seed, world: SimWorld.to_dict(), ui: {shown_banners: [...], shown_hints: [...]}} (ui-секцию наполняет Game из своих словарей — банеры этапа 13, хинты этапа 15). Вызовы: конец каждого цикла (после cycle_ended), выход из игры.
+   - `load_run() -> bool`: валидация версии, восстановление SimWorld.from_dict, повторная эмиссия стартовых событий для UI (agent_spawned для всех живых и т.д. — сделай `Game.rebroadcast_state()`).
+   - `save_profile()/load_profile()`: `user://profile.json`, автосейв при изменении Meta.
+   - Vector2i сериализовать как [x, y]; никаких Object/Resource в сейве.
+   - Удаление сейва забега при run_ended.
+5. `Game.cmd_new_run(seed)`: если сейв есть — он затирается (подтверждение — забота UI). `Game.has_save() -> bool`.
+6. Дебаг: кнопки save/load/wipe-профиля в панели.
+
+## Приёмка (tests/test_save.gd)
+- [ ] Полный автопилотный забег headless: 12 циклов → run_ended(SHIP), очки > 0, разбивка сходится с суммой.
+- [ ] Round-trip: save на цикле 5 → load → to_dict идентичен (стабильный stringify) и симуляция продолжается детерминированно (сравнение хеша через 2 цикла с непрерывным прогоном).
+- [ ] leave_early с 8-го работает, множитель применён; на 7-м — отклоняется.
+- [ ] Затопленный склад в момент судна не даёт очков.
+- [ ] buy_unlock списывает очки, повторная покупка невозможна, профиль переживает перезапуск (write→read файла).
+
+## Не делать
+UI итогов/журнала (этап 15), облачные сейвы, миграции версий (только каркас save_version).
