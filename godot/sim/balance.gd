@@ -44,6 +44,30 @@ const CRISIS_ANNOUNCE_LEAD: int = 1
 ## Шторм укорачивает LOW на 30% (docs/00 §9.4) — множитель для phase_scale.
 const STORM_LOW_SCALE: float = 0.7
 
+# --- Депозиты (docs/00 §3.2) ----------------------------------------------
+## kind -> {item, capacity, refill (за отлив), marks (допустимый диапазон)}.
+## refill = 0 значит «не восполняется»: ближние руины кончаются к 4–5 циклу,
+## и это главный источник давления в забеге.
+const DEPOSIT_KINDS: Dictionary = {
+	"ruins_near": {"item": "scrap", "capacity": 12, "refill": 0, "mark_hi": -2, "mark_lo": -4},
+	"ruins_deep": {"item": "scrap", "capacity": 20, "refill": 0, "mark_hi": -5, "mark_lo": -8},
+	"shallow": {"item": "catch", "capacity": 8, "refill": 4, "mark_hi": -1, "mark_lo": -5},
+	"kelp": {"item": "kelp", "capacity": 10, "refill": 2, "mark_hi": -2, "mark_lo": -5},
+	"driftwood": {"item": "driftwood", "capacity": 1, "refill": 0, "mark_hi": 1, "mark_lo": 0},
+}
+## Реликвия: 15% на депозит глубоких руин, но только на −7..−8, 1 штука.
+const RELIC_CHANCE: float = 0.15
+const RELIC_MARK_MAX: int = -7             # реликвия возможна на отметке ≤ этой
+## Плавник после каждой Высокой воды: 3–6 штук вдоль отметок 0..+1.
+const DRIFTWOOD_MIN: int = 3
+const DRIFTWOOD_MAX: int = 6
+
+## Затопление: клетка мокрая, если её отметка НИЖЕ уровня воды.
+## Эпсилон обязателен — уровень считается по smoothstep и на плато даёт
+## −7.9999999, а не −8.0. Без него нижняя ступень мигала бы от float-шума,
+## и склад на −8 «затапливался» бы по нескольку раз за цикл (research/12 §5).
+const FLOOD_EPS: float = 0.001
+
 # --- Геометрия мира (docs/00 §3.1) ----------------------------------------
 # Здесь, а не в game/world_geo.gd: sim и презентация обязаны видеть одни числа.
 const TILE_PX: int = 32
@@ -51,3 +75,21 @@ const TOP_MARK: int = 6                    # верх утёса
 const BOTTOM_MARK: int = -8                # дальнее дно
 const TILES_PER_MARK: int = 3              # ярус = 3 тайла (docs/00 §2)
 const PX_PER_MARK: int = TILE_PX * TILES_PER_MARK
+
+## Сетка ↔ отметки. Статические функции, а не const — но правило «только const»
+## они не нарушают: изменяемого состояния тут нет, а формула обязана быть ОДНА
+## на оба слоя. Terrain (sim) и WorldGeo (game) зовут отсюда; дубликат формулы
+## означал бы, что вода и площадки однажды разъедутся на ярус (research/12 §3).
+## floori, а не int(): int(-0.5) == 0, а нужно −1 — ниже отметки 0 лежит
+## вся вторая половина карты.
+static func cell_to_mark(cell: Vector2i) -> int:
+	return TOP_MARK - floori(float(cell.y) / float(TILES_PER_MARK))
+
+## Верхняя строка яруса; ярус занимает [first_y, first_y + 2].
+static func mark_to_first_cell_y(mark: int) -> int:
+	return (TOP_MARK - mark) * TILES_PER_MARK
+
+## Пол яруса — НИЖНЯЯ его строка: над ней две строки свободного пространства
+## (docs/00 §2 «площадка + пространство над ней»). Агент стоит здесь.
+static func mark_to_floor_cell_y(mark: int) -> int:
+	return mark_to_first_cell_y(mark) + TILES_PER_MARK - 1

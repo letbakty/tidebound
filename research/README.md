@@ -23,24 +23,24 @@
 |---|---|---|---|
 | 00 | project-setup | [10](10-project-setup-viewport-scaling.md) | [24](24-testing-headless-hardening.md) (раннер) |
 | 01 | sim-clock-and-bus | [11](11-sim-core-determinism.md) | [25](25-cross-engine-patterns.md) §2.1 |
-| 02 | terrain-water | [12](12-terrain-tilemap-camera.md) | [01](01-water-shader.md), [06](06-pixel-art-pitfalls.md) |
+| 02 | terrain-water | [12](12-terrain-tilemap-camera.md) | [01](01-water-shader.md), [06](06-pixel-art-pitfalls.md), [29](29-art-pipeline.md), [33](33-mobile-gpu-water-shader.md) §6 |
 | 03 | debug-tools | [13](13-debug-overlays-drawing.md) | [11](11-sim-core-determinism.md) §10 |
 | 04 | items-storage | [14](14-data-resources-tres.md) | [12](12-terrain-tilemap-camera.md) §5 (затопление) |
-| 05 | agents-core | [15](15-agents-fsm-views.md) | [11](11-sim-core-determinism.md) §1.3 |
+| 05 | agents-core | [15](15-agents-fsm-views.md) | [11](11-sim-core-determinism.md) §1.3, [29](29-art-pipeline.md) §5 |
 | 06 | jobs-policies | [16](16-jobs-utility-ai-reservation.md) | [25](25-cross-engine-patterns.md) |
 | 07 | buildings-construction | [17](17-buildings-production.md) | [14](14-data-resources-tres.md), [16](16-jobs-utility-ai-reservation.md) §9 |
 | 08 | production | [17](17-buildings-production.md) §7 | [14](14-data-resources-tres.md) |
 | 09 | crises | [16](16-jobs-utility-ai-reservation.md) §8 | [04](04-weather-particles-vignette.md), [17](17-buildings-production.md) §8 |
 | 10 | expedition-cards | [14](14-data-resources-tres.md) | [25](25-cross-engine-patterns.md) §2.4 (blackboard) |
-| 11 | run-meta-save | [18](18-save-serialization.md) | [11](11-sim-core-determinism.md) §8 |
-| 12 | ui-foundation | [19](19-ui-theme-components.md) | [20](20-input-gestures-gamepad.md) |
+| 11 | run-meta-save | [18](18-save-serialization.md) | **[27](27-steam-integration.md) §2–3 (отчёт и user://)**, [30](30-balancing-methodology.md) §3 |
+| 12 | ui-foundation | [19](19-ui-theme-components.md) | [20](20-input-gestures-gamepad.md), **[28](28-fonts-localization-process.md) (шрифт!)**, [32](32-accessibility-remap.md) |
 | 13 | ui-hud | [21](21-hud-panels-tween.md) | [06](06-pixel-art-pitfalls.md) §9 |
 | 14 | ui-panels-game | [21](21-hud-panels-tween.md) | [17](17-buildings-production.md) §3 (призрак) |
-| 15 | ui-screens | [22](22-screens-routing-i18n.md) | [21](21-hud-panels-tween.md) |
-| 16 | touch-gamepad | [20](20-input-gestures-gamepad.md) | [10](10-project-setup-viewport-scaling.md) §1, [26](26-build-size-and-optimization.md) §2 (пресеты) |
+| 15 | ui-screens | [22](22-screens-routing-i18n.md) | [28](28-fonts-localization-process.md) §4, [32](32-accessibility-remap.md) |
+| 16 | touch-gamepad | [20](20-input-gestures-gamepad.md) | [27](27-steam-integration.md) §4 (Deck), [26](26-build-size-and-optimization.md) §2, [33](33-mobile-gpu-water-shader.md) |
 | 17 | audio | [23](23-audio-architecture.md) | — |
-| 18 | visual-polish | [07](07-stage-18-plan.md) | [00](00-godot-4.7-api-facts.md)–[06](06-pixel-art-pitfalls.md) — весь блок шейдеров |
-| 19 | release-hardening | [24](24-testing-headless-hardening.md) + [26](26-build-size-and-optimization.md) | [11](11-sim-core-determinism.md) §10 |
+| 18 | visual-polish | [07](07-stage-18-plan.md) | [00](00-godot-4.7-api-facts.md)–[06](06-pixel-art-pitfalls.md) — весь блок шейдеров; [29](29-art-pipeline.md), [33](33-mobile-gpu-water-shader.md) |
+| 19 | release-hardening | [24](24-testing-headless-hardening.md) + [26](26-build-size-and-optimization.md) | [30](30-balancing-methodology.md), [27](27-steam-integration.md) §7 |
 
 ---
 
@@ -78,6 +78,25 @@
 | [24-testing-headless-hardening.md](24-testing-headless-hardening.md) | `assert` вырезается в release, свой раннер, soak-тест с CSV, память и орфаны, санитария сигналов, краевые случаи, CI | 00, 19 |
 | [25-cross-engine-patterns.md](25-cross-engine-patterns.md) | 20 приёмов из других движков и игр (Unity, Unreal, Factorio, RimWorld, The Sims, ONI) + **что НЕ брать и почему** | сквозной |
 | [26-build-size-and-optimization.md](26-build-size-and-optimization.md) | **Размер сборки и релизная оптимизация:** что реально весит, настройки импорта/экспорта, `strip` и архив, кастомный шаблон `scons`, почему UPX — нет, рантайм-настройки | 19, 16, 18 |
+
+---
+
+## Блок 3 — платформы, продакшн, релиз (решения принимаются рано, работа делается поздно)
+
+Эти документы не привязаны к одному этапу. Их читают **до** соответствующего этапа, потому что каждый содержит решение, которое потом дорого менять.
+
+| Файл | О чём | Решение принимается на этапе |
+|---|---|---|
+| [27-steam-integration.md](27-steam-integration.md) | GodotSteam, достижения из отчётов забега без протечки в `sim/`, Steam Cloud и `use_custom_user_dir`, критерии Steam Deck Verified, демо через feature-флаги | **00** (`use_custom_user_dir`), **11** (поля отчёта), **12** (кегль ≥12 px), 15, 16 |
+| [28-fonts-localization-process.md](28-fonts-localization-process.md) | Пиксельный шрифт с кириллицей **и** CJK, fallback vs один шрифт, субсеттинг, встроенная псевдолокализация, CSV→PO, бюджет переводов | **12** (выбор шрифта), 13–15, перед 3-м языком |
+| [29-art-pipeline.md](29-art-pipeline.md) | Размеры и origin как контракт, Aseprite → Godot, палитра как данные, атласы, `AnimatedSprite2D` vs `AnimationPlayer`, лицензии ассетов | **02**, **05**, 07, 09, 12, 18 |
+| [30-balancing-methodology.md](30-balancing-methodology.md) | Стратегические профили вместо одного автопилота, метрики забега и `timeline`, sweep-раннер, чтение CSV, поиск доминирующих стратегий | **01** (два RNG), **05–11** (счётчики), после 15 |
+| [31-web-export-itch.md](31-web-export-itch.md) | Тянет ли Godot 4.7 Web наш проект: только Compatibility, однопоточный экспорт по умолчанию, IndexedDB-сейвы, вердикт и запасной план | до недели 7 |
+| [32-accessibility-remap.md](32-accessibility-remap.md) | AccessKit в 4.5+, «не только цветом», контраст палитры, `reduce_motion`, архитектура под будущий ремап | **12**, 15, 18 |
+| [33-mobile-gpu-water-shader.md](33-mobile-gpu-water-shader.md) | Цена бэкбуфера на тайловых GPU, фиксы Foundation после Kamaeru и Rift Riff, `water_lite`, точность float и `sim_time`, чек-лист замеров | замерять с **02**, решать на 18 |
+
+⚠️ **Чего в ресерче сознательно нет:** модинг, мультиплеер, процедурная генерация утёсов, облачные сейвы помимо Steam, подпись iOS/TestFlight/App Store, глубокое профилирование через Tracy, план Б на GDExtension/C#, телеметрия плейтестов. Первые четыре — в списке «не входит никогда» из ТЗ, остальные — фаза 2. Ресерч по ним породил бы соблазн их сделать.
+
 
 ---
 
@@ -125,6 +144,10 @@
 12. **`assert` вырезается в release-сборках.** Тесты пишутся на своём `check()`. → [24](24-testing-headless-hardening.md) §1
 13. **90% размера билда — это шаблон движка, а не наш контент.** Настройки экспорта и импорта режут pck, но общий размер меняют мало; серьёзное сокращение даёт только кастомный шаблон `scons` — с постоянной стоимостью пересборки при каждом апдейте движка. → [26](26-build-size-and-optimization.md) §0
 14. **UPX не использовать:** ломает Embed PCK, вызывает ложные срабатывания антивирусов и добавляет ~20 МБ RAM в рантайме. → [26](26-build-size-and-optimization.md) §4
+15. **Steam живёт ровно в одном файле** (`autoload/platform.gd`), достижения — чистые функции от отчёта забега. Grep `Steam` по проекту обязан давать одно совпадение. → [27](27-steam-integration.md) §2
+16. **Шрифт обязан покрывать кириллицу И CJK в одной пиксельной сетке.** monogram/Press Start 2P из промпта 12 ведут в тупик при ZH-Hans; кандидат — Ark Pixel 12 px (OFL). → [28](28-fonts-localization-process.md) §2
+17. **Размеры спрайтов и origin — контракт, а не вкус.** Заглушки этапов 02–09 задают сетку, в которую обязан встать финальный арт без правки кода. → [29](29-art-pipeline.md) §1
+18. **Баланс измеряется профилями стратегий, а не одним автопилотом.** Один профиль, выигрывающий более чем в половине сидов, — доминирующая стратегия. → [30](30-balancing-methodology.md) §2
 
 ---
 
@@ -133,11 +156,12 @@
 Дёшево сейчас, дорого потом. Ничего из списка не нарушает разделы «Не делать» соответствующих промптов.
 
 **Этап 00.**
+- ⚠️ **`use_custom_user_dir = true` + `custom_user_dir_name = "Tidebound"`.** Меняется только до первого релиза: потом сейвы игроков осиротеют. → [27](27-steam-integration.md) §3.1
 - Зум мира делать камерой, а не `stretch_shrink`: 1280/3 не делится нацело и даёт полупиксельный шов. → [10](10-project-setup-viewport-scaling.md) §1
 - `physical_keycode` вместо `keycode` в Input Map: иначе WASD не работает на кириллической раскладке. → [10](10-project-setup-viewport-scaling.md) §5
 - Раннер тестов должен пропускать отсутствующие сьюты, иначе сломается до этапа 01. → [24](24-testing-headless-hardening.md) §2
 
-**Этап 01.** Шесть вещей на несколько строк каждая, которые нужны шести последующим этапам: `sim_seconds()`, `total_ticks()`, `graph_version`, `cycle_modifiers`, `phase_scale`, счётчик ошибок `Log.err`. Плюс `prev` в данных события `phase_changed` — без него этап 08 не отличит «конец LOW» от «начала SIGNAL». → [11](11-sim-core-determinism.md) §11, [17](17-buildings-production.md) §7.1
+**Этап 01.** Семь вещей на несколько строк каждая, которые нужны шести последующим этапам: `sim_seconds()`, `total_ticks()`, `graph_version`, `cycle_modifiers`, `phase_scale`, счётчик ошибок `Log.err`. Плюс `prev` в данных события `phase_changed` — без него этап 08 не отличит «конец LOW» от «начала SIGNAL». → [11](11-sim-core-determinism.md) §11, [17](17-buildings-production.md) §7.1 Седьмая — **два потока RNG** (`rng_world` и `rng_ai`): без них любая правка ИИ сдвигает генерацию мира при том же сиде, и все прошлые баланс-прогоны становятся несравнимы. → [30](30-balancing-methodology.md) §4
 
 **Этап 02.**
 - Заглушку-`ColorRect` воды сразу на `CanvasLayer` внутри WorldViewport (`layer = 10`, `follow_viewport_enabled = true`), Full Rect, позиция кромки — числом. На 18-м останется надеть материал. → [12](12-terrain-tilemap-camera.md) §7
@@ -149,6 +173,8 @@
 **Этап 09.** `Tide` должен хранить максимум уровня за цикл (`last_high_level`) — он и так нужен сизигии. Тогда мокрые тайлы на 18-м делаются без единой правки sim. → [03](03-wet-tiles-reflections.md) §1
 
 **Этап 12.**
+- ⚠️ **Шрифт: Ark Pixel 12 px (пан-CJK, OFL), а не monogram/Press Start 2P.** И `FONT_S = 12`, а не 8 — иначе Steam Deck Verified не пройти (минимум 9 px при 1280×800). → [28](28-fonts-localization-process.md) §2, [27](27-steam-integration.md) §4.2
+- Ни одна информация в UI не передаётся ТОЛЬКО цветом; тест контраста палитры — 20 строк. → [32](32-accessibility-remap.md) §2
 - Ветка `USE_ATLAS: bool = false` в `theme_builder.gd` — не забыть.
 - `keep_rounding_remainders = false` и subpixel positioning disabled у шрифта, иначе текст поедет на полпикселя. → [19](19-ui-theme-components.md) §4
 

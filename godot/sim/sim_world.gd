@@ -12,6 +12,7 @@ const SAVE_VERSION: int = 1
 var clock: SimClock = SimClock.new()
 var tide: Tide = Tide.new()
 var rng: SimRNG = SimRNG.new()
+var terrain: Terrain = Terrain.new()
 
 ## Разбирается Game после tick(); Game обязан очистить массив.
 var events_out: Array[SimEvent] = []
@@ -19,7 +20,12 @@ var events_out: Array[SimEvent] = []
 ## Версия графа навигации: инкремент при любом изменении (лестница построена
 ## или смыта). Кэш путей агентов (этапы 05/06) и оверлей дебага (03) сравнивают
 ## её со своей, чтобы не пересчитывать путь каждый тик (research/11 §7).
-var graph_version: int = 0
+##
+## Только чтение, сквозь Terrain. Хранить здесь СВОЮ копию нельзя: она отстаёт
+## от рельефа между тиками (лестницу поставили — счётчик мира ещё старый),
+## и сейв получается несогласованным сам с собой.
+var graph_version: int:
+	get: return terrain.graph_version
 
 ## Модификаторы текущего цикла (карты вылазки, кризисы). Заведён пустым уже
 ## сейчас, чтобы этапы 05/06/08/10 читали его, а не хардкод (research/11 §11).
@@ -32,23 +38,31 @@ var command_log: Array[Dictionary] = []
 
 var _commands: Array[Dictionary] = []
 var _record: bool = false
+## Деф карты: нужен, чтобы восстановить площадки при загрузке.
+var _cliff: CliffDef = null
 
 func _init(record: bool = false) -> void:
 	_record = record
 
 # --- Забег ----------------------------------------------------------------
 
-func new_run(seed_value: int) -> void:
+## cliff — карта утёса. Загружает её Game/тест: ResourceLoader в sim/ не место.
+func new_run(seed_value: int, cliff: CliffDef) -> void:
 	clock = SimClock.new()
 	tide = Tide.new()
 	rng = SimRNG.new()
 	rng.setup(seed_value)
+	terrain = Terrain.new()
+	_cliff = cliff
 	events_out.clear()
 	_commands.clear()
 	command_log.clear()
-	graph_version = 0
 	cycle_modifiers.clear()
 	tide.reset(clock)
+	if cliff == null:
+		push_error("SimWorld.new_run: карта утёса не передана")
+	else:
+		terrain.build(cliff, rng)
 	events_out.append(SimEvent.make("run_started", {"seed": seed_value}))
 	events_out.append(SimEvent.make("cycle_started", {"cycle": clock.cycle}))
 
@@ -77,7 +91,13 @@ func _consume_commands() -> void:
 ## меняет результат при том же сиде.
 func tick() -> void:
 	_consume_commands()
-	events_out.append_array(clock.tick())
+	var clock_events: Array[SimEvent] = clock.tick()
+	events_out.append_array(clock_events)
+	# Восполнение депозитов и плавник — на границе цикла, до всех остальных
+	# систем: иначе первый тик нового цикла увидел бы пустую отмель.
+	for e: SimEvent in clock_events:
+		if e.type == "cycle_started":
+			events_out.append_array(terrain.on_cycle_started(rng))
 	events_out.append_array(tide.update(clock))
 	# Заглушки будущих систем — порядок задан здесь, чтобы этапы 05–11
 	# вставляли вызовы на готовые места, а не спорили об очерёдности.
@@ -115,9 +135,10 @@ func _tick_run_state() -> void:
 
 ## Воспроизводит забег из сида и журнала команд: сид + килобайты лога вместо
 ## полного сейва (research/25 §2.1). Нужен баг-репортам и сценарным тестам.
-static func replay(seed_value: int, log: Array[Dictionary], until_tick: int) -> SimWorld:
+static func replay(seed_value: int, log: Array[Dictionary], until_tick: int,
+		cliff: CliffDef) -> SimWorld:
 	var w: SimWorld = SimWorld.new()
-	w.new_run(seed_value)
+	w.new_run(seed_value, cliff)
 	w.events_out.clear()
 	var i: int = 0
 	while w.clock.total_ticks() < until_tick:
@@ -136,11 +157,15 @@ func to_dict() -> Dictionary:
 		"clock": clock.to_dict(),
 		"tide": tide.to_dict(),
 		"rng": rng.to_dict(),
-		"graph_version": graph_version,
 		"cycle_modifiers": cycle_modifiers.duplicate(true),
+		"terrain": terrain.to_dict(),
 	}
 
-func from_dict(d: Dictionary) -> void:
+## Требует, чтобы деф карты был известен: либо мир уже прошёл new_run,
+## либо деф передан явно.
+func from_dict(d: Dictionary, cliff: CliffDef = null) -> void:
+	if cliff != null:
+		_cliff = cliff
 	var v: int = int(d.get("save_version", 0))
 	if v != SAVE_VERSION:
 		push_error("SimWorld.from_dict: версия сейва %d, ожидалась %d" % [v, SAVE_VERSION])
@@ -148,7 +173,10 @@ func from_dict(d: Dictionary) -> void:
 	clock.from_dict(d.get("clock", {}) as Dictionary)
 	tide.from_dict(d.get("tide", {}) as Dictionary)
 	rng.from_dict(d.get("rng", {}) as Dictionary)
-	graph_version = int(d.get("graph_version", 0))
 	cycle_modifiers = (d.get("cycle_modifiers", {}) as Dictionary).duplicate(true)
+	# Площадки берутся из дефа, из сейва — только лестницы и депозиты.
+	if _cliff != null:
+		terrain.build_static(_cliff)
+	terrain.from_dict(d.get("terrain", {}) as Dictionary)
 	events_out.clear()
 	_commands.clear()

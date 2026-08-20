@@ -2,9 +2,14 @@ extends RefCounted
 ## Приёмка этапа 01: границы фаз, кривая воды, детерминизм, round-trip сейва.
 
 ## Мир для тестов: без записи журнала команд, с фиксированным сидом.
+const CLIFF: String = "res://data/cliffs/cliff_01.tres"
+
+static func _cliff() -> CliffDef:
+	return load(CLIFF) as CliffDef
+
 static func _world(seed_value: int) -> SimWorld:
 	var w: SimWorld = SimWorld.new()
-	w.new_run(seed_value)
+	w.new_run(seed_value, _cliff())
 	w.events_out.clear()
 	return w
 
@@ -45,9 +50,10 @@ static func test_cycle_boundary_events(t: TestCtx) -> void:
 	w.tick()
 	var kinds: Array[String] = []
 	for e: SimEvent in w.events_out:
-		if e.type == "water_level_changed" or e.type == "sim_ticked":
-			continue
-		kinds.append(e.type)
+		# Интересен порядок именно событий границы; вода, тик и депозиты
+		# (восполнение и плавник) на этой границе тоже идут — они не про порядок.
+		if e.type in ["cycle_ended", "cycle_started", "phase_changed"]:
+			kinds.append(e.type)
 	t.check_eq(kinds, ["cycle_ended", "cycle_started", "phase_changed"] as Array[String],
 		"порядок событий границы цикла")
 	for e: SimEvent in w.events_out:
@@ -141,7 +147,7 @@ static func test_dict_roundtrip(t: TestCtx) -> void:
 	t.run_ticks(w, 4321)
 	var d1: Dictionary = w.to_dict()
 	var restored: SimWorld = SimWorld.new()
-	restored.from_dict(d1)
+	restored.from_dict(d1, _cliff())
 	t.check_eq(JSON.stringify(restored.to_dict()), JSON.stringify(d1),
 		"to_dict → from_dict → to_dict совпадает")
 	t.check_eq(restored.clock.total_ticks(), 4321, "счётчик тиков восстановлен")
@@ -154,7 +160,7 @@ static func test_save_load_continues_identically(t: TestCtx) -> void:
 	var snapshot: Dictionary = live.to_dict()
 
 	var restored: SimWorld = SimWorld.new()
-	restored.from_dict(snapshot)
+	restored.from_dict(snapshot, _cliff())
 	for i: int in 2000:
 		t.run_ticks(live, 1)
 		t.run_ticks(restored, 1)
@@ -171,7 +177,7 @@ static func test_json_roundtrip(t: TestCtx) -> void:
 	var parsed: Variant = JSON.parse_string(text)
 	t.check(parsed is Dictionary, "JSON состояния разбирается обратно")
 	var restored: SimWorld = SimWorld.new()
-	restored.from_dict(parsed as Dictionary)
+	restored.from_dict(parsed as Dictionary, _cliff())
 	# JSON.parse отдаёт ВСЕ числа как float — без int() в from_dict счётчики
 	# стали бы 12.0 и хеш перестал бы совпадать (research/11 §8).
 	t.check_eq(typeof(restored.to_dict()["clock"]["cycle"]), TYPE_INT,
@@ -188,7 +194,7 @@ static func test_json_save_continues_identically(t: TestCtx) -> void:
 	var text: String = JSON.stringify(live.to_dict(), "", true, true)
 
 	var restored: SimWorld = SimWorld.new()
-	restored.from_dict(JSON.parse_string(text) as Dictionary)
+	restored.from_dict(JSON.parse_string(text) as Dictionary, _cliff())
 	for i: int in 500:
 		restored.rng.randi_range(0, 1_000_000)
 		live.rng.randi_range(0, 1_000_000)
@@ -205,7 +211,7 @@ static func test_json_save_continues_identically(t: TestCtx) -> void:
 ## разбора: WARNING «неизвестная команда» в выводе теста — ожидаемый.
 static func test_command_log_replay(t: TestCtx) -> void:
 	var w: SimWorld = SimWorld.new(true)
-	w.new_run(555)
+	w.new_run(555, _cliff())
 	w.events_out.clear()
 	t.run_ticks(w, 100)
 	w.apply_command({"kind": "noop"})
@@ -213,7 +219,7 @@ static func test_command_log_replay(t: TestCtx) -> void:
 	t.check_eq(w.command_log.size(), 1, "команда попала в журнал")
 	t.check_eq(int(w.command_log[0]["t"]), 100, "журнал помнит тик команды")
 
-	var replayed: SimWorld = SimWorld.replay(555, w.command_log, 200)
+	var replayed: SimWorld = SimWorld.replay(555, w.command_log, 200, _cliff())
 	t.check_eq(TestCtx.state_hash(replayed), TestCtx.state_hash(w),
 		"реплей по сиду и журналу воспроизводит состояние")
 
@@ -223,6 +229,6 @@ static func test_rng_state_survives_save(t: TestCtx) -> void:
 		w.rng.randi_range(0, 1000)
 	var d: Dictionary = w.to_dict()
 	var restored: SimWorld = SimWorld.new()
-	restored.from_dict(d)
+	restored.from_dict(d, _cliff())
 	t.check_eq(restored.rng.randi_range(0, 1000), w.rng.randi_range(0, 1000),
 		"после загрузки RNG продолжает последовательность, а не начинает заново")

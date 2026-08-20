@@ -40,9 +40,16 @@ func _physics_process(delta: float) -> void:
 
 # --- Команды игрока (единственный вход в sim) -----------------------------
 
+## Карта утёса №1. Загружает её Game, а не sim: ResourceLoader — движковая
+## вещь, в ядре её быть не должно (docs/02 §1).
+const CLIFF_PATH: String = "res://data/cliffs/cliff_01.tres"
+
+func cliff_def() -> CliffDef:
+	return load(CLIFF_PATH) as CliffDef
+
 func cmd_new_run(seed_value: int = 0) -> void:
 	world = SimWorld.new(OS.is_debug_build())
-	world.new_run(seed_value)
+	world.new_run(seed_value, cliff_def())
 	_accum = 0.0
 	_error_count = 0
 	_flush_events()
@@ -90,6 +97,8 @@ func _flush_events() -> void:
 				Events.cycle_ended.emit(e.data as Dictionary)
 			"run_started":
 				Events.run_started.emit(int(e.data["seed"]))
+			"deposit_changed":
+				Events.deposit_changed.emit(int(e.data["id"]))
 			_:
 				_error_count += 1
 				push_error("SimEvent без маппинга: %s" % e.type)

@@ -1,0 +1,135 @@
+[gd_resource type="Resource" script_class="CliffDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/cliff_def.gd" id="1_0mlgl"]
+
+[resource]
+script = ExtResource("1_0mlgl")
+id = "cliff_01"
+platforms = Array[Dictionary]([{
+"mark": 6,
+"x0": 0,
+"x1": 8
+}, {
+"mark": 5,
+"x0": 0,
+"x1": 9
+}, {
+"mark": 4,
+"x0": 0,
+"x1": 10
+}, {
+"mark": 3,
+"x0": 0,
+"x1": 11
+}, {
+"mark": 2,
+"x0": 0,
+"x1": 12
+}, {
+"mark": 1,
+"x0": 0,
+"x1": 13
+}, {
+"mark": 0,
+"x0": 0,
+"x1": 16
+}, {
+"mark": -1,
+"x0": 13,
+"x1": 22
+}, {
+"mark": -2,
+"x0": 18,
+"x1": 27
+}, {
+"mark": -3,
+"x0": 23,
+"x1": 32
+}, {
+"mark": -4,
+"x0": 27,
+"x1": 36
+}, {
+"mark": -5,
+"x0": 30,
+"x1": 40
+}, {
+"mark": -6,
+"x0": 33,
+"x1": 43
+}, {
+"mark": -7,
+"x0": 36,
+"x1": 45
+}, {
+"mark": -8,
+"x0": 38,
+"x1": 47
+}])
+start_ladders = Array[Dictionary]([{
+"mark_top": 6,
+"x": 4
+}, {
+"mark_top": 5,
+"x": 4
+}, {
+"mark_top": 4,
+"x": 4
+}, {
+"mark_top": 3,
+"x": 4
+}, {
+"mark_top": 2,
+"x": 4
+}, {
+"mark_top": 1,
+"x": 4
+}, {
+"mark_top": 0,
+"x": 14
+}, {
+"mark_top": -1,
+"x": 20
+}])
+deposit_slots = Array[Dictionary]([{
+"kind": "shallow",
+"mark": -1,
+"x": 21
+}, {
+"kind": "kelp",
+"mark": -2,
+"x": 22
+}, {
+"kind": "ruins_near",
+"mark": -2,
+"x": 26
+}, {
+"kind": "shallow",
+"mark": -3,
+"x": 24
+}, {
+"kind": "ruins_near",
+"mark": -3,
+"x": 31
+}, {
+"kind": "ruins_near",
+"mark": -4,
+"x": 35
+}, {
+"kind": "kelp",
+"mark": -5,
+"x": 39
+}, {
+"kind": "ruins_deep",
+"mark": -6,
+"x": 42
+}, {
+"kind": "ruins_deep",
+"mark": -7,
+"x": 44
+}, {
+"kind": "ruins_deep",
+"mark": -8,
+"x": 46
+}])
+spawn_cell = Vector2i(6, 14)
