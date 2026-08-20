@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/item_def.gd" id="1_u6ino"]
+
+[resource]
+script = ExtResource("1_u6ino")
+id = "rations"
+display_key = "ITEM_RATIONS"
+stack_size = 10
+spoil_cycles = 12
+flood_rule = 2
+ship_points = 1

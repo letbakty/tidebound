@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/item_def.gd" id="1_3wahj"]
+
+[resource]
+script = ExtResource("1_3wahj")
+id = "driftwood"
+display_key = "ITEM_DRIFTWOOD"
+stack_size = 10
+flood_rule = 1

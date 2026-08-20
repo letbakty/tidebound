@@ -1,2 +1,15 @@
 keys,ru,en
 APP_NAME,Отлив,Tidebound
+ITEM_SCRAP,Утиль,Scrap
+ITEM_CATCH,Сырая добыча,Raw catch
+ITEM_DRIFTWOOD,Плавник,Driftwood
+ITEM_KELP,Водоросли,Kelp
+ITEM_FRESHWATER,Пресная вода,Fresh water
+ITEM_SALT,Соль,Salt
+ITEM_INGOT,Слиток,Ingot
+ITEM_FIBER,Волокно,Fiber
+ITEM_RATIONS,Провизия,Rations
+ITEM_PART,Деталь,Part
+ITEM_ROPE,Трос,Rope
+ITEM_GEAR,Снаряжение,Gear
+ITEM_RELIC,Реликвия,Relic

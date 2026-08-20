@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/item_def.gd" id="1_dlfqf"]
+
+[resource]
+script = ExtResource("1_dlfqf")
+id = "gear"
+display_key = "ITEM_GEAR"
+ship_points = 4

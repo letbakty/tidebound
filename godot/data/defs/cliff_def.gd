@@ -26,6 +26,8 @@ extends Resource
 
 ## Клетка, вокруг которой начинается колония (камера стартует здесь).
 @export var spawn_cell: Vector2i = Vector2i.ZERO
+## Стартовый склад забега (docs/00 §11.1). Постройкой станет на этапе 07.
+@export var start_storage_cell: Vector2i = Vector2i.ZERO
 
 func platform_for_mark(mark: int) -> Dictionary:
 	for p: Dictionary in platforms:

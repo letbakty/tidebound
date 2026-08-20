@@ -64,6 +64,7 @@ func _initialize() -> void:
 	def.width = 48
 	def.height = 45
 	def.spawn_cell = Vector2i(6, Balance.mark_to_floor_cell_y(2))
+	def.start_storage_cell = Vector2i(9, Balance.mark_to_floor_cell_y(2))
 
 	var ok: bool = true
 	for p: Variant in PLATFORMS:

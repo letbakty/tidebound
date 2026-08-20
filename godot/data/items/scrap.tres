@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/item_def.gd" id="1_257np"]
+
+[resource]
+script = ExtResource("1_257np")
+id = "scrap"
+display_key = "ITEM_SCRAP"
+stack_size = 10

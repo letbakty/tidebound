@@ -139,7 +139,7 @@ func platform_of_mark(mark: int) -> int:
 	return _mark_to_platform.get(mark, -1)
 
 func is_flooded(cell: Vector2i, water_level: float) -> bool:
-	return float(mark_of_cell(cell)) < water_level - Balance.FLOOD_EPS
+	return Balance.is_mark_flooded(mark_of_cell(cell), water_level)
 
 ## Расстояние в тайлах до ближайшей лестницы (манхэттен: агент идёт по
 ## горизонтали, потом лезет). Ограничение политики Жадность считается по нему.
@@ -248,34 +248,16 @@ func on_cycle_started(rng: SimRNG) -> Array[SimEvent]:
 		if now != was:
 			deposits[i]["amount"] = now
 			out.append(SimEvent.make("deposit_changed", {"id": int(deposits[i]["id"])}))
-	out.append_array(_spawn_driftwood(rng))
+	# Плавник с этапа 04 — настоящие предметы на земле, его спавнит
+	# StorageSystem: депозит-одноразка была временной формой.
 	return out
 
-## Плавник, вынесенный водой: 3–6 штук вдоль отметок 0..+1.
-## TODO(этап 04): это станут настоящие предметы на земле; депозит-одноразка —
-## временная форма, чтобы уже сейчас было что подбирать.
-func _spawn_driftwood(rng: SimRNG) -> Array[SimEvent]:
-	var out: Array[SimEvent] = []
-	# Старый плавник уносит обратно той же водой — иначе он копился бы весь забег.
-	var kept: Array[Dictionary] = []
-	for d: Dictionary in deposits:
-		if str(d["kind"]) != "driftwood":
-			kept.append(d)
-	deposits = kept
-
-	var n: int = rng.randi_range(Balance.DRIFTWOOD_MIN, Balance.DRIFTWOOD_MAX)
-	for i: int in n:
-		var mark: int = rng.randi_range(0, 1)
-		var pid: int = _mark_to_platform.get(mark, -1)
-		if pid < 0:
-			continue
-		var p: Dictionary = platforms[pid]
-		var x: int = rng.randi_range(int(p["x0"]), int(p["x1"]))
-		var cell: Vector2i = Vector2i(x, Balance.mark_to_floor_cell_y(mark))
-		var id: int = _add_deposit("driftwood", cell, false)
-		if id >= 0:
-			out.append(SimEvent.make("deposit_changed", {"id": id}))
-	return out
+## Диапазон x площадки отметки, или пустой массив.
+func platform_x_range(mark: int) -> Array[int]:
+	var id: int = _mark_to_platform.get(mark, -1)
+	if id < 0:
+		return []
+	return [int(platforms[id]["x0"]), int(platforms[id]["x1"])]
 
 # --- Сериализация ---------------------------------------------------------
 # Карта (площадки) — из дефа, её не сохраняем. Сохраняем только изменяемое:

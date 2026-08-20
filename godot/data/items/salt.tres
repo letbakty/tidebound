@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/item_def.gd" id="1_j522s"]
+
+[resource]
+script = ExtResource("1_j522s")
+id = "salt"
+display_key = "ITEM_SALT"
+stack_size = 10
+flood_rule = 3
+ship_points = 1

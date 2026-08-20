@@ -213,30 +213,7 @@ static func test_ruins_do_not_refill(t: TestCtx) -> void:
 	t.check_eq(int(w.terrain.deposits[w.terrain.deposit_index(id)]["amount"]), 0,
 		"руины остаются пустыми")
 
-static func test_driftwood_after_high(t: TestCtx) -> void:
-	var w: SimWorld = _world(7)
-	t.check_eq(_count_kind(w, "driftwood"), 0, "на старте плавника на земле нет")
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE)
-	var n: int = _count_kind(w, "driftwood")
-	t.check(n >= Balance.DRIFTWOOD_MIN and n <= Balance.DRIFTWOOD_MAX,
-		"после Высокой воды вынесло 3–6 плавника (было %d)" % n)
-	for d: Dictionary in w.terrain.deposits:
-		if str(d["kind"]) != "driftwood":
-			continue
-		var mark: int = w.terrain.mark_of_cell(d["cell"] as Vector2i)
-		t.check(mark >= 0 and mark <= 1, "плавник лежит на отметке 0..+1, а не %d" % mark)
-	# Старый плавник уносит следующей водой, иначе он копился бы весь забег.
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE)
-	var n2: int = _count_kind(w, "driftwood")
-	t.check(n2 >= Balance.DRIFTWOOD_MIN and n2 <= Balance.DRIFTWOOD_MAX,
-		"на втором цикле плавник не накопился (стало %d)" % n2)
-
-static func _count_kind(w: SimWorld, kind: String) -> int:
-	var n: int = 0
-	for d: Dictionary in w.terrain.deposits:
-		if str(d["kind"]) == kind:
-			n += 1
-	return n
+# Плавник переехал в StorageSystem (этап 04) — его тесты в test_storage.gd.
 
 # --- Сериализация ---------------------------------------------------------
 

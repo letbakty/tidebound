@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/item_def.gd" id="1_v5c64"]
+
+[resource]
+script = ExtResource("1_v5c64")
+id = "fiber"
+display_key = "ITEM_FIBER"
+stack_size = 10
+flood_rule = 1
+ship_points = 1

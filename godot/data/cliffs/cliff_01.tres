@@ -133,3 +133,4 @@ deposit_slots = Array[Dictionary]([{
 "x": 46
 }])
 spawn_cell = Vector2i(6, 14)
+start_storage_cell = Vector2i(9, 14)

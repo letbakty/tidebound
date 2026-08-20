@@ -130,6 +130,10 @@ func _flush_events() -> void:
 				Events.run_started.emit(int(e.data["seed"]))
 			"deposit_changed":
 				Events.deposit_changed.emit(int(e.data["id"]))
+			"storage_changed":
+				Events.storage_changed.emit(int(e.data["id"]))
+			"resources_changed":
+				Events.resources_changed.emit(e.data["totals"] as Dictionary)
 			_:
 				_error_count += 1
 				push_error("SimEvent без маппинга: %s" % e.type)

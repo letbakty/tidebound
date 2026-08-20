@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/item_def.gd" id="1_vnimb"]
+
+[resource]
+script = ExtResource("1_vnimb")
+id = "catch"
+display_key = "ITEM_CATCH"
+stack_size = 10
+spoil_cycles = 3
+flood_rule = 2

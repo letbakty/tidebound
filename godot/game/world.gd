@@ -22,7 +22,6 @@ const DEPOSIT_COLORS: Dictionary = {
 	"ruins_deep": Color("6f7f8a"),
 	"shallow": Color("c9a26b"),
 	"kelp": Color("4f7a4a"),
-	"driftwood": Color("9a7346"),
 }
 
 @onready var ground: TileMapLayer = $Ground

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ItemDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/item_def.gd" id="1_6tsoy"]
+
+[resource]
+script = ExtResource("1_6tsoy")
+id = "rope"
+display_key = "ITEM_ROPE"
+stack_size = 5
+ship_points = 2

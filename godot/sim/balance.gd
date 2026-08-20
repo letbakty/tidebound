@@ -53,20 +53,39 @@ const DEPOSIT_KINDS: Dictionary = {
 	"ruins_deep": {"item": "scrap", "capacity": 20, "refill": 0, "mark_hi": -5, "mark_lo": -8},
 	"shallow": {"item": "catch", "capacity": 8, "refill": 4, "mark_hi": -1, "mark_lo": -5},
 	"kelp": {"item": "kelp", "capacity": 10, "refill": 2, "mark_hi": -2, "mark_lo": -5},
-	"driftwood": {"item": "driftwood", "capacity": 1, "refill": 0, "mark_hi": 1, "mark_lo": 0},
 }
 ## Реликвия: 15% на депозит глубоких руин, но только на −7..−8, 1 штука.
 const RELIC_CHANCE: float = 0.15
 const RELIC_MARK_MAX: int = -7             # реликвия возможна на отметке ≤ этой
-## Плавник после каждой Высокой воды: 3–6 штук вдоль отметок 0..+1.
+## Плавник после каждой Высокой воды: 3–6 стаков на земле вдоль отметок 0..+1
+## (docs/00 §3.2). Спавнит StorageSystem — это предметы, а не депозит.
 const DRIFTWOOD_MIN: int = 3
 const DRIFTWOOD_MAX: int = 6
+const DRIFTWOOD_MARK_LO: int = 0
+const DRIFTWOOD_MARK_HI: int = 1
+
+# --- Предметы и склады (docs/00 §7, §11.1) --------------------------------
+const STORAGE_SLOTS: int = 12              # слот = один стак
+## Мокрый стак сохнет 2 полных цикла на складе не ниже DRY_MIN_MARK.
+const DRY_CYCLES: int = 2
+const DRY_MIN_MARK: int = 2
+## Старт забега (docs/00 §11.1): 8 провизии, 6 сухого плавника, 4 утиля.
+## Массив пар, а не словарь: порядок раскладки по складу обязан быть
+## детерминированным, а порядок обхода словаря зависит от порядка вставки.
+const START_ITEMS: Array[Array] = [
+	["rations", 8], ["driftwood", 6], ["scrap", 4],
+]
 
 ## Затопление: клетка мокрая, если её отметка НИЖЕ уровня воды.
 ## Эпсилон обязателен — уровень считается по smoothstep и на плато даёт
 ## −7.9999999, а не −8.0. Без него нижняя ступень мигала бы от float-шума,
 ## и склад на −8 «затапливался» бы по нескольку раз за цикл (research/12 §5).
 const FLOOD_EPS: float = 0.001
+
+## Единственная формула затопления на весь проект: Terrain.is_flooded и
+## StorageSystem зовут её, а не пишут своё сравнение.
+static func is_mark_flooded(mark: int, water_level: float) -> bool:
+	return float(mark) < water_level - FLOOD_EPS
 
 # --- Геометрия мира (docs/00 §3.1) ----------------------------------------
 # Здесь, а не в game/world_geo.gd: sim и презентация обязаны видеть одни числа.
