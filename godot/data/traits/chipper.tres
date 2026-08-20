@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/trait_def.gd" id="1_ntmee"]
+
+[resource]
+script = ExtResource("1_ntmee")
+id = "chipper"
+display_key = "TRAIT_CHIPPER"
+desc_key = "TRAIT_CHIPPER_D"
+modifiers = Dictionary[String, float]({
+"no_rest_cycles": 4.0
+})

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/trait_def.gd" id="1_qsuv8"]
+
+[resource]
+script = ExtResource("1_qsuv8")
+id = "sleepy"
+display_key = "TRAIT_SLEEPY"
+desc_key = "TRAIT_SLEEPY_D"
+modifiers = Dictionary[String, float]({
+"rest_need_mult": 1.5
+})

@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/trait_def.gd" id="1_3v6hd"]
+
+[resource]
+script = ExtResource("1_3v6hd")
+id = "veteran"
+display_key = "TRAIT_VETERAN"
+desc_key = "TRAIT_VETERAN_D"
+modifiers = Dictionary[String, float]({
+"no_panic": 1.0
+})

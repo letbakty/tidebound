@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/trait_def.gd" id="1_irp3a"]
+
+[resource]
+script = ExtResource("1_irp3a")
+id = "sinew"
+display_key = "TRAIT_SINEW"
+desc_key = "TRAIT_SINEW_D"
+modifiers = Dictionary[String, float]({
+"bag_slots_add": 1.0
+})

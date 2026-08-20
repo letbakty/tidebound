@@ -29,7 +29,7 @@ var level_override: float = NAN
 
 ## Пересчитывает уровень по фазе и её прогрессу; возвращает события наружу.
 func update(clock: SimClock) -> Array[SimEvent]:
-	level = _level_for(clock)
+	level = Balance.quant(_level_for(clock))
 	var out: Array[SimEvent] = []
 	_ticks_since_emit += 1
 	if _ticks_since_emit >= EMIT_EVERY and absf(level - _last_emitted) > EMIT_EPS:
@@ -65,7 +65,7 @@ func _level_for(clock: SimClock) -> float:
 
 ## Сбрасывает уровень к началу забега/цикла без эмиссии события.
 func reset(clock: SimClock) -> void:
-	level = _level_for(clock)
+	level = Balance.quant(_level_for(clock))
 	_last_emitted = level
 	_ticks_since_emit = 0
 

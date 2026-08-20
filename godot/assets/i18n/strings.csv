@@ -13,3 +13,73 @@ ITEM_PART,Деталь,Part
 ITEM_ROPE,Трос,Rope
 ITEM_GEAR,Снаряжение,Gear
 ITEM_RELIC,Реликвия,Relic
+BIO_01,Выросла на маяке и с детства знает голос колокола,Grew up on a lighthouse; knows the bell by heart
+BIO_02,Пришёл с материка за долгами, остался за отливом,Came ashore over debts, stayed for the ebb
+BIO_03,Считает, что вода помнит имена утонувших,Believes the water remembers drowned names
+BIO_04,Собирал руины до того, как это стало работой,Picked the ruins before it was a job
+BIO_05,Не спит в высокую воду — привычка с прошлой колонии,Never sleeps at high water — a habit from the last colony
+BIO_06,Единственный выживший из артели у дальних руин,Sole survivor of a crew lost at the deep ruins
+BIO_07,Умеет читать погоду по цвету пены,Reads the weather in the colour of the foam
+BIO_08,Ушла из города, чтобы не видеть больше стен,Left the city to stop seeing walls
+BIO_09,Держит счёт каждому найденному слитку,Keeps a tally of every ingot ever found
+BIO_10,Верит, что колокол зовёт не только людей,Thinks the bell calls more than people
+BIO_11,Знал прежнего смотрителя утёса лично,Knew the previous keeper of the cliff
+BIO_12,Ходит по лестницам быстрее, чем по площадке,Climbs ladders faster than they walk
+BIO_13,Прячет реликвии и никому не показывает,Hides relics and shows them to no one
+BIO_14,Родился в год Великого отлива,Born in the year of the Great Ebb
+BIO_15,Не спускается ниже, чем нужно, и гордится этим,Never goes deeper than needed, and is proud of it
+BIO_16,Носит верёвку даже во сне,Carries rope even while asleep
+BIO_17,Считала дни до судна ещё до высадки,Counted days to the ship before ever landing
+BIO_18,Пришёл сам, по берегу, без объяснений,Walked in along the shore, explaining nothing
+BIO_19,Помнит вкус солёного хлеба с прошлой зимы,Remembers the taste of salt bread from last winter
+BIO_20,Ведёт список погибших и добавляет туда себя карандашом,Keeps a list of the dead and pencils themself in
+BIO_21,Уверен, что руины кто-то строил не для людей,Certain the ruins were not built for people
+BIO_22,Спорит с приливом вслух,Argues with the tide out loud
+BIO_23,Собирает водоросли аккуратнее всех,Gathers kelp more carefully than anyone
+BIO_24,Была кузнецом, пока не кончился уголь,Was a smith until the coal ran out
+BIO_25,Не боится глубины, боится тишины,Not afraid of the deep, afraid of the silence
+BIO_26,Носит в котомке чужой медальон,Carries someone else's locket in their bag
+BIO_27,Первым слышит шум прихода,First to hear the visit coming
+BIO_28,Считает утёс живым,Considers the cliff a living thing
+BIO_29,Ушла в отлив и вернулась другой,Went out at ebb and came back changed
+BIO_30,Работает молча и уходит последним,Works in silence and leaves last
+TRAIT_DIVER,Ныряльщик,Diver
+TRAIT_DIVER_D,Задерживает дыхание 10 секунд вместо 5,Holds breath 10 seconds instead of 5
+TRAIT_DEEP_FEAR,Боязнь глубины,Fear of the deep
+TRAIT_DEEP_FEAR_D,Не спускается ниже отметки −5,Will not go below mark −5
+TRAIT_SINEW,Жила,Sinew
+TRAIT_SINEW_D,На один слот котомки больше,One extra bag slot
+TRAIT_GLUTTON,Прожорливый,Glutton
+TRAIT_GLUTTON_D,Сытость падает быстрее,Satiety drops faster
+TRAIT_SMITH,Кузнец,Smith
+TRAIT_SMITH_D,Работает у Горна на четверть быстрее,A quarter faster at the Forge
+TRAIT_SALTER,Солевар,Salter
+TRAIT_SALTER_D,Работает в Солильне на четверть быстрее,A quarter faster at the Saltery
+TRAIT_CLIMBER,Верхолаз,Climber
+TRAIT_CLIMBER_D,Лазает по лестницам заметно быстрее,Climbs ladders noticeably faster
+TRAIT_CLUMSY,Неуклюжий,Clumsy
+TRAIT_CLUMSY_D,Иногда роняет груз на обратном пути,Sometimes drops cargo on the way back
+TRAIT_HARDY,Стойкий,Hardy
+TRAIT_HARDY_D,Мёрзнет медленнее,Loses warmth more slowly
+TRAIT_CHILLY,Мерзляк,Chilly
+TRAIT_CHILLY_D,Мёрзнет быстрее,Loses warmth faster
+TRAIT_CHEERFUL,Весельчак,Cheerful
+TRAIT_CHEERFUL_D,Поднимает дух соседям по ярусу,Lifts the mood of tier neighbours
+TRAIT_GLOOMY,Угрюмый,Gloomy
+TRAIT_GLOOMY_D,Портит дух соседям по ярусу,Sours the mood of tier neighbours
+TRAIT_SHARP_EYE,Зоркий,Sharp-eyed
+TRAIT_SHARP_EYE_D,Чаще находит реликвии,Finds relics more often
+TRAIT_SKITTISH,Пугливый,Skittish
+TRAIT_SKITTISH_D,Пугается существ издалека,Panics at creatures from afar
+TRAIT_GRINDER,Трудяга,Grinder
+TRAIT_GRINDER_D,Работает быстрее, но тоскует без дела,Works faster, but pines without work
+TRAIT_SLEEPY,Соня,Sleepy
+TRAIT_SLEEPY_D,Устаёт быстрее обычного,Tires faster than most
+TRAIT_VETERAN,Ветеран отливов,Ebb veteran
+TRAIT_VETERAN_D,Не паникует никогда,Never panics
+TRAIT_LIGHT_SLEEP,Лёгкий сон,Light sleeper
+TRAIT_LIGHT_SLEEP_D,Отдыхает эффективнее,Rests more efficiently
+TRAIT_THRIFTY,Запасливый,Thrifty
+TRAIT_THRIFTY_D,Переносит груз быстрее,Carries loads faster
+TRAIT_CHIPPER,Бодряк,Chipper
+TRAIT_CHIPPER_D,Первые четыре цикла не нуждается в отдыхе,Needs no rest for the first four cycles

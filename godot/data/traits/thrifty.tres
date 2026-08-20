@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/trait_def.gd" id="1_0mss1"]
+
+[resource]
+script = ExtResource("1_0mss1")
+id = "thrifty"
+display_key = "TRAIT_THRIFTY"
+desc_key = "TRAIT_THRIFTY_D"
+modifiers = Dictionary[String, float]({
+"carry_mult": 1.15
+})

@@ -8,6 +8,7 @@ extends RefCounted
 ## headless-тест, где никакого _ready не было.
 
 static var _items: Dictionary[String, ItemDef] = {}
+static var _traits: Dictionary[String, TraitDef] = {}
 static var _loaded: bool = false
 
 # Задел под этапы 07/08/05/10/11 — папки уже существуют, загрузчик один и тот же.
@@ -25,10 +26,12 @@ static func ensure_loaded() -> void:
 		return
 	_loaded = true
 	_load_dir(str(DIRS["items"]), _items)
+	_load_dir(str(DIRS["traits"]), _traits)
 
 ## Сбрасывает кэш. Нужен только тестам, которые проверяют сам загрузчик.
 static func reload() -> void:
 	_items.clear()
+	_traits.clear()
 	_loaded = false
 	ensure_loaded()
 
@@ -72,4 +75,23 @@ static func item_ids() -> Array[String]:
 	var ids: Array[String] = []
 	ids.assign(_items.keys())
 	ids.sort()                        # детерминированный обход
+	return ids
+
+## trait_def, а не trait: trait — зарезервированное слово в GDScript.
+static func trait_def(id: String) -> TraitDef:
+	ensure_loaded()
+	var d: TraitDef = _traits.get(id, null)
+	if d == null:
+		push_error("DB: нет черты '%s'" % id)
+	return d
+
+static func has_trait(id: String) -> bool:
+	ensure_loaded()
+	return _traits.has(id)
+
+static func trait_ids() -> Array[String]:
+	ensure_loaded()
+	var ids: Array[String] = []
+	ids.assign(_traits.keys())
+	ids.sort()
 	return ids

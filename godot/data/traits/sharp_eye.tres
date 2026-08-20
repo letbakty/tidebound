@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/trait_def.gd" id="1_hjfrd"]
+
+[resource]
+script = ExtResource("1_hjfrd")
+id = "sharp_eye"
+display_key = "TRAIT_SHARP_EYE"
+desc_key = "TRAIT_SHARP_EYE_D"
+modifiers = Dictionary[String, float]({
+"relic_chance_mult": 1.5
+})

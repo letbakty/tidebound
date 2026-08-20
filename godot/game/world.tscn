@@ -20,6 +20,9 @@ collision_enabled = false
 
 [node name="Deposits" type="Node2D" parent="."]
 
+[node name="Agents" type="Node2D" parent="."]
+y_sort_enabled = true
+
 [node name="CameraRig" type="Camera2D" parent="."]
 script = ExtResource("3_cam")
 

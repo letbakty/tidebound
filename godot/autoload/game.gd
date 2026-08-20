@@ -58,6 +58,12 @@ func cmd_new_run(seed_value: int = 0) -> void:
 	_flush_events()
 	cmd_set_speed(1)
 
+## Единственная прямая команда агентам (docs/00 §6.7).
+func cmd_recall(hard: bool = false) -> void:
+	if world == null:
+		return
+	world.apply_command({"kind": "recall", "hard": hard})
+
 func cmd_set_speed(mult: int) -> void:
 	var m: int = clampi(mult, 0, 3)
 	if m == speed:
@@ -101,6 +107,36 @@ func debug_ticks_to_next_cycle() -> int:
 		left += world.clock.phase_len(i as SimTypes.Phase)
 	return left
 
+## ЕДИНСТВЕННЫЙ разрешённый синхронный «pull» из sim (docs/02 §3.3):
+## срез данных агента для View и карточки. Только чтение, только через Game.
+func query_agent(id: int) -> Dictionary:
+	if world == null:
+		return {}
+	var a: SimAgent = world.agents.agent(id)
+	if a == null:
+		return {}
+	return {
+		"id": a.id, "name": a.agent_name, "bio": a.bio_key,
+		"traits": a.trait_ids.duplicate(),
+		"state": int(a.state), "facing": a.facing, "wet": a.wet,
+		"satiety": a.satiety(), "warmth": a.warmth(), "mood": a.mood(),
+		"fatigue": a.fatigue(), "has_gear": a.has_gear,
+		"mark": world.agents.agent_mark_f(a, world),
+		"bag": a.bag.duplicate(true),
+	}
+
+## Мировая позиция агента в пикселях — для AgentView каждый кадр.
+func query_agent_pos(id: int) -> Vector2:
+	if world == null:
+		return Vector2.ZERO
+	var a: SimAgent = world.agents.agent(id)
+	if a == null:
+		return Vector2.ZERO
+	var mark: float = world.agents.agent_mark_f(a, world)
+	# Ноги агента на полу яруса: WorldGeo даёт верх яруса, добавляем два тайла.
+	var y: float = WorldGeo.mark_to_world_y(mark) 		+ float((Balance.TILES_PER_MARK - 1) * WorldGeo.TILE)
+	return Vector2(a.x * float(WorldGeo.TILE) + float(WorldGeo.TILE) * 0.5, y)
+
 func tick_budget_ms() -> float:
 	return _tick_budget_ms
 
@@ -134,6 +170,16 @@ func _flush_events() -> void:
 				Events.storage_changed.emit(int(e.data["id"]))
 			"resources_changed":
 				Events.resources_changed.emit(e.data["totals"] as Dictionary)
+			"agent_spawned":
+				Events.agent_spawned.emit(int(e.data["id"]))
+			"agent_updated":
+				Events.agent_updated.emit(int(e.data["id"]))
+			"agent_died":
+				Events.agent_died.emit(int(e.data["id"]), str(e.data["cause"]))
+			"agent_drowning":
+				Events.agent_drowning.emit(int(e.data["id"]))
+			"recall_issued":
+				Events.recall_issued.emit(bool(e.data["hard"]))
 			_:
 				_error_count += 1
 				push_error("SimEvent без маппинга: %s" % e.type)

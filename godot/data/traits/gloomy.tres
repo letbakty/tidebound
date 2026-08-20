@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TraitDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/trait_def.gd" id="1_rox1v"]
+
+[resource]
+script = ExtResource("1_rox1v")
+id = "gloomy"
+display_key = "TRAIT_GLOOMY"
+desc_key = "TRAIT_GLOOMY_D"
+modifiers = Dictionary[String, float]({
+"mood_aura": -2.0
+})

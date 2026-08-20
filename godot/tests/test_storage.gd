@@ -9,6 +9,10 @@ static func _cliff() -> CliffDef:
 static func _world(seed_value: int) -> SimWorld:
 	var w: SimWorld = SimWorld.new()
 	w.new_run(seed_value, _cliff())
+	# Агентов убираем: этот сьют про склады. Живые агенты ходят и едят
+	# провизию, и тест порчи мерил бы их аппетит, а не срок годности.
+	# Поведение агентов вокруг складов проверяет test_agents.
+	w.agents.agents.clear()
 	w.events_out.clear()
 	return w
 

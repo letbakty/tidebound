@@ -76,16 +76,98 @@ const START_ITEMS: Array[Array] = [
 	["rations", 8], ["driftwood", 6], ["scrap", 4],
 ]
 
+# --- Агенты (docs/00 §6) --------------------------------------------------
+const START_AGENTS: int = 6
+const MAX_AGENTS: int = 12                 # MVP; релиз — 16
+const BAG_SLOTS: int = 4
+const WALK_SPEED: float = 2.0              # тайлов/с по площадке
+const LADDER_SPEED: float = 1.2            # тайлов/с по лестнице
+## Отметка, выше которой Отзыв считает агента в безопасности. +3, а не 0:
+## в сизигию плато высокой воды поднимается до +2.
+const SAFE_MARK: int = 3
+const HARD_RECALL_SPEED_MULT: float = 1.15
+
+## Потребности хранятся в МИЛЛИ-единицах (0..100000) и меняются целочисленно
+## с накоплением остатка. Наивное «X за цикл / 3000 тиков» даёт бесконечную
+## дробь, ошибка копится, и приёмка save→load этапа 11 не проходит
+## (research/11 §1.3). Наружу отдаётся float через SimAgent.satiety() и т.п.
+const NEED_MAX_MILLI: int = 100_000
+const SATIETY_PER_CYCLE_MILLI: int = 18_000       # −18 за цикл
+const WARMTH_PER_CYCLE_MILLI: int = 10_000        # −10 за цикл
+const WARMTH_WET_PER_CYCLE_MILLI: int = 25_000    # −25 если мокрый
+const WARMTH_HEAT_PER_CYCLE_MILLI: int = 30_000   # +30 у очага
+## РЕШЕНИЕ: усталость в docs/00 §6.3 названа «скрытой шкалой» без чисел.
+## Берём −20 за цикл и +60 за цикл отдыха: полный отдых занимает треть цикла.
+const FATIGUE_PER_CYCLE_MILLI: int = 20_000
+const FATIGUE_REST_PER_CYCLE_MILLI: int = 60_000
+
+## Порог «плохо» — 30 (docs/00 §6.3). Выход из состояния ВЫШЕ порога входа:
+## без гистерезиса агент дребезжит на границе каждый тик (research/15 §4).
+const NEED_LOW_ENTER_MILLI: int = 30_000
+const NEED_LOW_EXIT_MILLI: int = 55_000
+const NEED_SLOW_MULT: float = 0.75         # скорость при потребности <30
+const NEED_SICK_MULT: float = 0.5          # «болезнь» при тепле = 0
+
+## Еда (docs/00 §6.3). Сырая добыча даёт меньше и портит настроение.
+const EAT_RATIONS_MILLI: int = 60_000
+const EAT_CATCH_MILLI: int = 30_000
+
+## События Духа (docs/00 §6.3).
+const MOOD_START_MILLI: int = 70_000
+const MOOD_DEATH_MILLI: int = 25_000       # −25 всем за смерть агента
+const MOOD_RAW_FOOD_MILLI: int = 5_000
+const MOOD_STORAGE_FLOODED_MILLI: int = 10_000
+const MOOD_WARM_MEAL_MILLI: int = 5_000
+const MOOD_NEW_AGENT_MILLI: int = 5_000
+const MOOD_COLD_PER_CYCLE_MILLI: int = 5_000   # −5 за цикл при тепле <30
+
+## Утопление (docs/00 §6.3). Снаряжение даёт +15 с к базовым 5.
+const DROWN_SEC: float = 5.0
+const DROWN_GEAR_SEC: float = 20.0
+const DROWN_WARN_SEC: float = 2.0
+## Мокрый флаг снимается у очага за 30 с или сам к концу цикла.
+const WET_DRY_SEC_AT_HEAT: float = 30.0
+const HEAT_RADIUS: int = 4
+
+## Пополнение колонии (docs/00 §6.1).
+const NEWCOMER_CHANCE: float = 0.25
+const NEWCOMER_MOOD_MIN: float = 60.0
+const NEWCOMER_COOLDOWN_CYCLES: int = 2
+
 ## Затопление: клетка мокрая, если её отметка НИЖЕ уровня воды.
 ## Эпсилон обязателен — уровень считается по smoothstep и на плато даёт
 ## −7.9999999, а не −8.0. Без него нижняя ступень мигала бы от float-шума,
 ## и склад на −8 «затапливался» бы по нескольку раз за цикл (research/12 §5).
 const FLOOD_EPS: float = 0.001
 
+## Шаг квантования дробных величин, попадающих в сейв.
+##
+## ⚠️ JSON.stringify даже с full_precision=true печатает 16 значащих цифр —
+## для double этого НЕ хватает: 0.9999999999999969 читается обратно как
+## ...68, и продолжение после загрузки расходится с непрерывным прогоном.
+## Поэтому каждая дробная величина состояния (позиция агента, доля подъёма
+## по лестнице, уровень воды) квантуется в момент изменения. 1e-4 тайла —
+## сотая доля пикселя, для игры незаметно, зато представление короткое и
+## переживает round-trip точно.
+const QUANT_STEPS: float = 10000.0
+
+## ⚠️ Именно деление целого на QUANT_STEPS, а НЕ snappedf(v, 0.0001):
+## snappedf умножает на 0.0001, а это число само не представимо точно, и
+## результат получается 3.8000000000000003 вместо канонического 3.8 —
+## то есть ровно та величина, которая не переживает round-trip.
+## Деление же даёт корректно округлённый ближайший double к k/10000.
+static func quant(v: float) -> float:
+	return float(roundi(v * QUANT_STEPS)) / QUANT_STEPS
+
 ## Единственная формула затопления на весь проект: Terrain.is_flooded и
 ## StorageSystem зовут её, а не пишут своё сравнение.
 static func is_mark_flooded(mark: int, water_level: float) -> bool:
-	return float(mark) < water_level - FLOOD_EPS
+	return is_markf_flooded(float(mark), water_level)
+
+## Дробная отметка нужна агенту на лестнице: он между двумя ярусами, и вода
+## достаёт его раньше, чем он долез.
+static func is_markf_flooded(mark: float, water_level: float) -> bool:
+	return mark < water_level - FLOOD_EPS
 
 # --- Геометрия мира (docs/00 §3.1) ----------------------------------------
 # Здесь, а не в game/world_geo.gd: sim и презентация обязаны видеть одни числа.

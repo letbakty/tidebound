@@ -27,14 +27,19 @@ const DEPOSIT_COLORS: Dictionary = {
 @onready var ground: TileMapLayer = $Ground
 @onready var ladders: TileMapLayer = $Ladders
 @onready var deposits_root: Node2D = $Deposits
+@onready var agents_root: Node2D = $Agents
 @onready var camera: CameraRig = $CameraRig
 
 var _deposit_nodes: Dictionary[int, Node2D] = {}
+var _agent_views: Dictionary[int, AgentView] = {}
 var _drawn_graph_version: int = -1
 
 func _ready() -> void:
 	Events.run_started.connect(_on_run_started)
 	Events.deposit_changed.connect(_on_deposit_changed)
+	Events.agent_spawned.connect(_on_agent_spawned)
+	Events.agent_died.connect(_on_agent_died)
+	Events.run_ended.connect(_clear_agent_views.unbind(1))
 	if _terrain() != null:
 		_rebuild_all()
 
@@ -60,6 +65,7 @@ func _rebuild_all() -> void:
 	_draw_ground(t)
 	_draw_ladders(t)
 	_rebuild_deposits(t)
+	_rebuild_agents()
 	camera.setup(Game.cliff_def())
 
 # --- Отрисовка рельефа ----------------------------------------------------
@@ -188,6 +194,40 @@ func _sync_removed(t: Terrain) -> void:
 		if not _deposit_nodes.has(int(d2["id"])):
 			_add_deposit_node(d2)
 
+# --- Агенты ---------------------------------------------------------------
+
+func _rebuild_agents() -> void:
+	_clear_agent_views()
+	if Game.world == null:
+		return
+	for a: SimAgent in Game.world.agents.agents:
+		if a.is_alive():
+			_on_agent_spawned(a.id)
+
+## Полная очистка, а не по одному: утечки View рождаются именно здесь
+## (research/15 §6.2), и границы забега — единственное надёжное место чистки.
+func _clear_agent_views() -> void:
+	for v: AgentView in _agent_views.values():
+		v.queue_free()
+	_agent_views.clear()
+
+func _on_agent_spawned(id: int) -> void:
+	if _agent_views.has(id):
+		return
+	var v: AgentView = AgentView.new()
+	v.setup(id)
+	agents_root.add_child(v)
+	_agent_views[id] = v
+
+func _on_agent_died(id: int, cause: String) -> void:
+	var v: AgentView = _agent_views.get(id, null)
+	if v == null:
+		return
+	# Стереть из словаря ДО анимации: иначе повторная эмиссия agent_spawned
+	# после загрузки создаст второй view, пока первый ещё доигрывает.
+	_agent_views.erase(id)
+	v.play_death_and_free(cause)
+
 # --- Координаты и хит-тест ------------------------------------------------
 # ЕДИНСТВЕННЫЙ хелпер конверсии экран↔мир на весь проект (docs/01 §1.1).
 # Конвертировать «на месте» в других файлах запрещено.
@@ -198,15 +238,40 @@ func screen_to_world(viewport_pos: Vector2) -> Vector2:
 func world_to_screen(world_pos: Vector2) -> Vector2:
 	return get_viewport().get_canvas_transform() * world_pos
 
-## Один хит-тест без физики на все будущие этапы (05, 07, 09, 14).
+## Один хит-тест без физики на все будущие этапы (07, 09, 14).
 ## Приоритет целей: агент → постройка → склад → депозит → пустая клетка.
-## Сущности выше депозита появятся на этапах 05/07 — их ветки добавляются сюда,
+## Постройки и существа появятся на этапах 07/09 — их ветки добавляются СЮДА,
 ## а не отдельными хит-тестами в панелях (research/15 §7).
 func pick_at(world_pos: Vector2) -> Dictionary:
 	var cell: Vector2i = WorldGeo.world_to_cell(world_pos)
+	# Проверка по убыванию Y: клик попадает в того, кто нарисован сверху,
+	# а не «сквозь» ближнего агента в дальнего.
+	var hit_id: int = -1
+	var best_y: float = -INF
+	for id: int in _agent_views:
+		var v: AgentView = _agent_views[id]
+		if v.hit_rect().has_point(world_pos) and v.position.y > best_y:
+			best_y = v.position.y
+			hit_id = id
+	if hit_id >= 0:
+		return {"kind": "agent", "id": hit_id, "cell": cell}
 	var t: Terrain = _terrain()
 	if t != null:
 		var dep: int = t.deposit_at(cell)
 		if dep >= 0:
 			return {"kind": "deposit", "id": dep, "cell": cell}
 	return {"kind": "cell", "id": -1, "cell": cell}
+
+
+## Тап/клик по миру. Полноценные жесты — этап 12; здесь минимум, чтобы
+## хит-тест агентов было чем проверить.
+func _unhandled_input(event: InputEvent) -> void:
+	var mb: InputEventMouseButton = event as InputEventMouseButton
+	if mb == null or not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	var hit: Dictionary = pick_at(screen_to_world(mb.position))
+	if str(hit["kind"]) != "agent":
+		return
+	var info: Dictionary = Game.query_agent(int(hit["id"]))
+	print("[world] выбран агент: ", info.get("name", "?"))
+	Events.ui_panel_opened.emit("agent_stub")   # карточка — этап 14

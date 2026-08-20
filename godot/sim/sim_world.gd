@@ -14,6 +14,7 @@ var tide: Tide = Tide.new()
 var rng: SimRNG = SimRNG.new()
 var terrain: Terrain = Terrain.new()
 var storage: StorageSystem = StorageSystem.new()
+var agents: AgentSystem = AgentSystem.new()
 
 ## Разбирается Game после tick(); Game обязан очистить массив.
 var events_out: Array[SimEvent] = []
@@ -55,6 +56,7 @@ func new_run(seed_value: int, cliff: CliffDef) -> void:
 	rng.setup(seed_value)
 	terrain = Terrain.new()
 	storage = StorageSystem.new()
+	agents = AgentSystem.new()
 	_cliff = cliff
 	events_out.clear()
 	_commands.clear()
@@ -66,6 +68,7 @@ func new_run(seed_value: int, cliff: CliffDef) -> void:
 	else:
 		terrain.build(cliff, rng)
 		storage.new_run(cliff)
+		agents.new_run(self)
 	events_out.append(SimEvent.make("run_started", {"seed": seed_value}))
 	events_out.append(SimEvent.make("cycle_started", {"cycle": clock.cycle}))
 
@@ -82,8 +85,12 @@ func _consume_commands() -> void:
 	for cmd: Dictionary in _commands:
 		var kind: String = str(cmd.get("kind", ""))
 		match kind:
-			# Команды появятся на этапах 06 (политики), 07 (стройка),
-			# 10 (карты), 11 (отзыв/маяк). Ветка _: намеренно шумит.
+			"recall":
+				var hard: bool = bool(cmd.get("hard", false))
+				agents.recall(hard, self)
+				events_out.append(SimEvent.make("recall_issued", {"hard": hard}))
+			# Остальные команды появятся на этапах 06 (политики), 07 (стройка),
+			# 10 (карты). Ветка _: намеренно шумит.
 			_:
 				push_warning("SimWorld: неизвестная команда '%s'" % kind)
 	_commands.clear()
@@ -103,9 +110,11 @@ func tick() -> void:
 			# Порча и сушка считаются ДО того, как отчёт уйдёт наружу:
 			# иначе итог цикла показал бы вчерашние числа.
 			e.data.merge(storage.on_cycle_ended(), true)
+			e.data.merge(agents.on_cycle_ended(self), true)
 		elif e.type == "cycle_started":
 			events_out.append_array(terrain.on_cycle_started(rng))
 			storage.spawn_driftwood(terrain, rng)
+			agents.on_cycle_started(self)
 	events_out.append_array(tide.update(clock))
 	# Заглушки будущих систем — порядок задан здесь, чтобы этапы 05–11
 	# вставляли вызовы на готовые места, а не спорили об очерёдности.
@@ -116,6 +125,7 @@ func tick() -> void:
 	_tick_agents()
 	_tick_storage()
 	_tick_run_state()
+	events_out.append_array(agents.drain_events())
 	events_out.append_array(storage.drain_events())
 	events_out.append(SimEvent.make("sim_ticked", {"tick": clock.total_ticks()}))
 
@@ -132,13 +142,29 @@ func _tick_jobs() -> void:
 	pass    # этап 06
 
 func _tick_agents() -> void:
-	pass    # этап 05
+	agents.tick(self)
 
 func _tick_storage() -> void:
 	storage.on_tick(tide.level)
 
 func _tick_run_state() -> void:
 	pass    # этап 11
+
+## Клетка старта колонии. Систему агентов деф карты напрямую не касается.
+func cliff_spawn_cell() -> Vector2i:
+	return _cliff.spawn_cell if _cliff != null else Vector2i.ZERO
+
+## Источники тепла (радиус Balance.HEAT_RADIUS).
+## TODO(этап 07): заменить на клетки построенных очагов. Пока это «костёр
+## лагеря» на клетке спавна плюс список, который наполняет тест.
+var debug_heat_sources: Array[Vector2i] = []
+
+func heat_sources() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if _cliff != null:
+		out.append(_cliff.spawn_cell)
+	out.append_array(debug_heat_sources)
+	return out
 
 # --- Реплей ---------------------------------------------------------------
 
@@ -169,6 +195,7 @@ func to_dict() -> Dictionary:
 		"cycle_modifiers": cycle_modifiers.duplicate(true),
 		"terrain": terrain.to_dict(),
 		"storage": storage.to_dict(),
+		"agents": agents.to_dict(),
 	}
 
 ## Требует, чтобы деф карты был известен: либо мир уже прошёл new_run,
@@ -189,5 +216,6 @@ func from_dict(d: Dictionary, cliff: CliffDef = null) -> void:
 		terrain.build_static(_cliff)
 	terrain.from_dict(d.get("terrain", {}) as Dictionary)
 	storage.from_dict(d.get("storage", {}) as Dictionary)
+	agents.from_dict(d.get("agents", {}) as Dictionary)
 	events_out.clear()
 	_commands.clear()
