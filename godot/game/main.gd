@@ -2,6 +2,10 @@ extends Control
 ## Корень игры: гибридный вьюпорт (мир в SubViewport 640x360) + слои UI.
 ## Дерево и обоснование — docs/01 §1.1, research/10 §4.
 
+## Сид автостарта до появления главного меню (этап 15). Фиксированный —
+## чтобы прогон «запустил и посмотрел» был воспроизводимым.
+const DEV_SEED: int = 20260821
+
 @onready var world_container: SubViewportContainer = $WorldContainer
 @onready var world_viewport: SubViewport = $WorldContainer/WorldViewport
 @onready var hud_layer: CanvasLayer = $HUDLayer
@@ -10,10 +14,18 @@ extends Control
 @onready var debug_layer: CanvasLayer = $DebugLayer
 
 func _ready() -> void:
-	# Смоук-проверка локализации (этап 00): должно печатать «Отлив», а не ключ.
-	print("[main] tr(APP_NAME) = ", tr("APP_NAME"))
-	print("[main] window size = ", get_window().size, "  container = ", world_container.size)
-	print("[main] world viewport size = ", world_viewport.size, " (ожидается половина контейнера)")
+	# TODO(этап 15): забег начинает MainMenu, автостарт убрать.
+	Events.phase_changed.connect(_on_phase_changed)
+	Events.cycle_ended.connect(_on_cycle_ended)
+	Game.cmd_new_run(DEV_SEED)
+	Game.cmd_set_speed(1)
+
+func _on_phase_changed(phase: int, cycle: int) -> void:
+	print("[sim] цикл %d, фаза %s, вода %.2f" % [
+		cycle, SimTypes.phase_name(phase), Game.world.tide.level])
+
+func _on_cycle_ended(report: Dictionary) -> void:
+	print("[sim] итог цикла: ", report)
 
 ## Зум мира ступенями 2..4.
 ## РЕШЕНИЕ (research/10 §1): stretch_shrink держим константой 2, зум делает камера.

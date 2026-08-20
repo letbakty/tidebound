@@ -6,9 +6,11 @@ FAIL=0
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT/godot" 2>/dev/null || cd "$ROOT" || exit 1
 
-check() {  # check <regex> <описание> [soft]
+check() {  # check <regex> <описание> [soft] [файл-исключение]
 	local hits
-	hits=$(grep -rnE "$1" sim/ --include='*.gd' 2>/dev/null | grep -vE '^\s*[^:]+:[0-9]+:\s*#' || true)
+	hits=$(grep -rnE "$1" sim/ --include='*.gd' 2>/dev/null \
+		| grep -vE '^\s*[^:]+:[0-9]+:\s*#' \
+		| { if [ -n "${4:-}" ]; then grep -vE "$4" || true; else cat; fi } || true)
 	if [ -n "$hits" ]; then
 		if [ "${3:-hard}" = "soft" ]; then
 			echo "⚠️  $2"
@@ -21,7 +23,10 @@ check() {  # check <regex> <описание> [soft]
 }
 
 echo "=== аудит res://sim/ ==="
-check '\brandi\(|\brandf\(|\brandomize\(|\brand_range|\brandi_range\(|\brandf_range\(' 'глобальный RNG (только через SimRNG)'
+# Ловим только БЕЗ точки слева: bare randf() запрещён, а rng.randf() (вызов
+# метода SimRNG) законен. Сама обёртка исключена: её объявления func randf()
+# и обращения к _rng — и есть тот единственный легальный мост к движку.
+check '(^|[^.[:alnum:]_])(randi|randf|randomize|rand_range|randi_range|randf_range)\(' 'глобальный RNG (только через SimRNG)' hard '^sim/sim_rng\.gd:'
 check '\bTime\.'                        'Time.* (время — только номер тика)'
 check '\bawait\b'                       'await'
 check '\bget_tree\(|\bget_node\(|\$'    'доступ к дереву нод'
