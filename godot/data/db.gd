@@ -11,6 +11,7 @@ static var _items: Dictionary[String, ItemDef] = {}
 static var _traits: Dictionary[String, TraitDef] = {}
 static var _buildings: Dictionary[String, BuildingDef] = {}
 static var _recipes: Dictionary[String, RecipeDef] = {}
+static var _cards: Dictionary[String, CardDef] = {}
 static var _loaded: bool = false
 
 # Задел под этапы 07/08/05/10/11 — папки уже существуют, загрузчик один и тот же.
@@ -31,6 +32,7 @@ static func ensure_loaded() -> void:
 	_load_dir(str(DIRS["traits"]), _traits)
 	_load_dir(str(DIRS["buildings"]), _buildings)
 	_load_dir(str(DIRS["recipes"]), _recipes)
+	_load_dir(str(DIRS["cards"]), _cards)
 
 ## Сбрасывает кэш. Нужен только тестам, которые проверяют сам загрузчик.
 static func reload() -> void:
@@ -38,6 +40,7 @@ static func reload() -> void:
 	_traits.clear()
 	_buildings.clear()
 	_recipes.clear()
+	_cards.clear()
 	_loaded = false
 	ensure_loaded()
 
@@ -128,6 +131,24 @@ static func recipe_ids() -> Array[String]:
 	ensure_loaded()
 	var ids: Array[String] = []
 	ids.assign(_recipes.keys())
+	ids.sort()
+	return ids
+
+static func card(id: String) -> CardDef:
+	ensure_loaded()
+	var c: CardDef = _cards.get(id, null)
+	if c == null:
+		push_error("DB: нет карты '%s'" % id)
+	return c
+
+static func has_card(id: String) -> bool:
+	ensure_loaded()
+	return _cards.has(id)
+
+static func card_ids() -> Array[String]:
+	ensure_loaded()
+	var ids: Array[String] = []
+	ids.assign(_cards.keys())
 	ids.sort()
 	return ids
 

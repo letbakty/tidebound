@@ -15,6 +15,19 @@ static func _world(seed_value: int) -> SimWorld:
 static func _cell_on(mark: int, x: int, height: int) -> Vector2i:
 	return Vector2i(x, Balance.mark_to_floor_cell_y(mark) - height)
 
+## Прокручивает мир до нужного цикла и фазы. Считать тики нельзя: карты
+## вылазки и шторм меняют длительность отлива, и фиксированное смещение
+## после них разъезжается.
+static func _until(t: TestCtx, w: SimWorld, cycle: int, phase: SimTypes.Phase,
+		into_phase: int = 5) -> void:
+	var guard: int = 0
+	while guard < Balance.TICKS_PER_CYCLE * 20:
+		if w.clock.cycle == cycle and w.clock.phase == phase:
+			break
+		t.run_ticks(w, 1)
+		guard += 1
+	t.run_ticks(w, into_phase)
+
 ## Достраивает спуск: без лестниц существам некуда плыть, а игроку — нечего
 ## терять на дне.
 static func _ladders_down_to(w: SimWorld, bottom: int) -> void:
@@ -75,19 +88,18 @@ static func test_spring_tide_floods_plus_one(t: TestCtx) -> void:
 	var w: SimWorld = _world(3)
 	var b: int = w.buildings.place("bunk", _cell_on(1, 4, 1), w, true)
 	t.check(b > 0, "койка на +1 стоит")
-	# Обычный цикл: +1 сухо.
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE - 1)
+	# Обычный цикл: +1 сухо даже в разгар прилива.
+	_until(t, w, 1, SimTypes.Phase.HIGH, 500)
 	t.check(not bool(w.buildings.buildings[b]["flooded"]),
 		"в обычный прилив койка на +1 суха")
-	# Досюда — до сизигии 6-го цикла.
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE * 4 + 1)
+	_until(t, w, 6, SimTypes.Phase.EBB, 5)
 	t.check_eq(w.clock.cycle, 6, "мы в цикле сизигии")
 	t.check_approx(w.tide.high_plateau, Balance.HIGH_LEVEL + Balance.SPRING_BONUS,
 		0.01, "плато высокой воды поднято до +2")
-	t.run_ticks(w, 450 + 1500 + 300 + 400)
+	_until(t, w, 6, SimTypes.Phase.HIGH, 500)
 	t.check(bool(w.buildings.buildings[b]["flooded"]), "сизигия накрыла койку на +1")
 	# И плато возвращается на следующем цикле.
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE)
+	_until(t, w, 7, SimTypes.Phase.EBB, 5)
 	t.check_approx(w.tide.high_plateau, Balance.HIGH_LEVEL, 0.01,
 		"после сизигии плато вернулось")
 
@@ -105,19 +117,24 @@ static func test_storm_shortens_low_and_breaks(t: TestCtx) -> void:
 	var w: SimWorld = _world(7)
 	var dryer: int = w.buildings.place("dryer", _cell_on(5, 4, 2), w, true)
 	# Доходим до штормового цикла 10.
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE * 9 + 1)
+	_until(t, w, 10, SimTypes.Phase.EBB, 5)
 	t.check_eq(w.clock.cycle, 10, "цикл шторма")
 	t.check(w.is_storm, "is_storm поднят")
-	t.check_eq(w.clock.phase_len(SimTypes.Phase.LOW), 1050, "отлив короче на 30%")
+	# Карта цикла тоже влияет на длину отлива, поэтому сравниваем с базой ×0.7.
+	var card_mult: float = float(w.cycle_modifiers.get("low_time_mult", 1.0))
+	t.check_eq(w.clock.phase_len(SimTypes.Phase.LOW),
+		int(round(1500.0 * card_mult * Balance.STORM_LOW_SCALE)),
+		"отлив короче на 30%")
 	# До пика (начало Высокой воды) сушила ещё целы.
 	t.check(w.buildings.buildings.has(dryer), "сушила пока стоят")
-	t.run_ticks(w, 450 + 1050 + 300 + 5)
-	t.check_eq(int(w.clock.phase), int(SimTypes.Phase.HIGH), "пик шторма")
+	_until(t, w, 10, SimTypes.Phase.HIGH, 5)
 	t.check(not w.buildings.buildings.has(dryer), "сушила сорвало на +5")
 	# И после цикла всё возвращается.
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE)
+	_until(t, w, 11, SimTypes.Phase.EBB, 5)
 	t.check(not w.is_storm, "шторм кончился")
-	t.check_eq(w.clock.phase_len(SimTypes.Phase.LOW), 1500, "длительность отлива вернулась")
+	t.check_eq(w.clock.phase_len(SimTypes.Phase.LOW),
+		int(round(1500.0 * float(w.cycle_modifiers.get("low_time_mult", 1.0)))),
+		"множитель шторма снят")
 
 ## Пик шторма: ниже +1 гибель, на +1..+2 — мокрый и −15 духа.
 static func test_storm_peak_hits_agents(t: TestCtx) -> void:
@@ -130,13 +147,13 @@ static func test_storm_peak_hits_agents(t: TestCtx) -> void:
 	for pol: int in SimTypes.POLICY_ORDER:
 		w.policies.set_value(pol, 0)
 	w.jobs.mark_dirty()
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE * 9 + 450 + 1050 + 200)
+	_until(t, w, 10, SimTypes.Phase.SIGNAL, 200)
 	t.check(w.is_storm, "мы в штормовом цикле")
 	_put(w, low, -2, 20)
 	_put(w, mid, 2, 6)
 	_put(w, safe, 5, 4)
 	var mid_mood: float = mid.mood()
-	t.run_ticks(w, 300)
+	_until(t, w, 10, SimTypes.Phase.HIGH, 5)
 	t.check_eq(int(w.clock.phase), int(SimTypes.Phase.HIGH), "дошли до пика")
 	t.check(not low.is_alive(), "агент на −2 погиб в шторм")
 	t.check(mid.is_alive(), "агент на +2 выжил")
@@ -173,7 +190,7 @@ static func test_is_storm_only_in_storm_cycle(t: TestCtx) -> void:
 ## Существа приходят с водой, в начале Высокой воды цикла Прихода.
 static func test_creatures_arrive_and_leave(t: TestCtx) -> void:
 	var w: SimWorld = _world(17)
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE * 3 + 450 + 1500 + 300 + 5)
+	_until(t, w, 4, SimTypes.Phase.HIGH, 5)
 	t.check_eq(w.clock.cycle, 4, "цикл 4")
 	t.check_eq(w.crisis.creatures.size(), 1, "пришло одно существо")
 	t.run_ticks(w, 750)
@@ -186,7 +203,7 @@ static func test_creature_counts_match_calendar(t: TestCtx) -> void:
 
 static func _creatures_in_cycle(t: TestCtx, cycle: int) -> int:
 	var w: SimWorld = _world(19)
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE * (cycle - 1) + 450 + 1500 + 300 + 5)
+	_until(t, w, cycle, SimTypes.Phase.HIGH, 5)
 	return w.crisis.creatures.size()
 
 ## Склад — украсть стак и уйти; станцию — грызть до поломки (docs/00 §9.3).
@@ -198,19 +215,31 @@ static func test_creature_steals_from_storage(t: TestCtx) -> void:
 	var sid: int = w.storage.storage_at(BuildingSystem.storage_cell(
 		w.buildings.buildings[st]))
 	w.storage.store(sid, StackUtil.make("scrap", 5, false))
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE * 3 + 450 + 1500 + 300 + 5)
+	_until(t, w, 4, SimTypes.Phase.HIGH, 5)
 	t.check_eq(w.crisis.creatures.size(), 1, "существо пришло")
-	var before: int = w.storage.count_in(sid, "scrap")
-	t.run_ticks(w, 700)
-	t.check(w.storage.count_in(sid, "scrap") < before,
-		"стак со склада украден (%d → %d)" % [before, w.storage.count_in(sid, "scrap")])
+	# Считаем ВЕСЬ склад: существо уносит случайный стак, и это может быть
+	# не утиль (docs/00 §9.3 — «1 случайный стак»).
+	var before: int = _storage_total(w, sid)
+	# До конца Высокой воды: существо успевает доплыть и украсть.
+	_until(t, w, 5, SimTypes.Phase.EBB, 0)
+	t.check(_storage_total(w, sid) < before,
+		"стак со склада украден (%d → %d)" % [before, _storage_total(w, sid)])
+
+static func _storage_total(w: SimWorld, sid: int) -> int:
+	var i: int = w.storage.storage_index(sid)
+	if i < 0:
+		return 0
+	var n: int = 0
+	for v: Variant in w.storage.storages[i]["stacks"] as Array:
+		n += int((v as Dictionary)["count"])
+	return n
 
 static func test_creature_gnaws_station(t: TestCtx) -> void:
 	var w: SimWorld = _world(29)
 	_ladders_down_to(w, -8)
 	var evap: int = w.buildings.place("evaporator", _cell_on(-1, 14, 1), w, true)
 	t.check(evap > 0, "испаритель на −1 стоит")
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE * 3 + 450 + 1500 + 300 + 5)
+	_until(t, w, 4, SimTypes.Phase.HIGH, 5)
 	t.run_ticks(w, 740)
 	t.check(bool(w.buildings.buildings[evap]["damaged"]),
 		"существо сгрызло испаритель")
@@ -263,7 +292,7 @@ static func test_lantern_blocks_node(t: TestCtx) -> void:
 static func test_creature_idles_when_cut_off(t: TestCtx) -> void:
 	var w: SimWorld = _world(41)
 	# Лестниц вниз нет вовсе — колония недосягаема с моря.
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE * 3 + 450 + 1500 + 300 + 5)
+	_until(t, w, 4, SimTypes.Phase.HIGH, 5)
 	t.check_eq(w.crisis.creatures.size(), 1, "существо пришло")
 	t.run_ticks(w, 400)
 	t.check_eq(w.crisis.creatures.size(), 1, "и никуда не делось")
@@ -275,7 +304,7 @@ static func test_creature_idles_when_cut_off(t: TestCtx) -> void:
 static func test_creature_scare_once_per_cycle(t: TestCtx) -> void:
 	var w: SimWorld = _world(43)
 	_ladders_down_to(w, -8)
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE * 3 + 450 + 1500 + 300 + 5)
+	_until(t, w, 4, SimTypes.Phase.HIGH, 5)
 	t.check_eq(w.crisis.creatures.size(), 1, "существо пришло")
 	var a: SimAgent = w.agents.agents[0]
 	var c: Dictionary = w.crisis.creatures[0]
@@ -292,12 +321,18 @@ static func test_creature_scare_once_per_cycle(t: TestCtx) -> void:
 
 static func test_cycle_report_has_crises(t: TestCtx) -> void:
 	var w: SimWorld = _world(47)
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE * 4 - 1)
-	w.tick()
+	_until(t, w, 4, SimTypes.Phase.HIGH, 0)
+	# Тикаем вручную до границы цикла: run_ticks чистит события, а отчёт
+	# приходит ровно на ней.
 	var report: Dictionary = {}
-	for e: SimEvent in w.events_out:
-		if e.type == "cycle_ended":
-			report = e.data
+	for i: int in Balance.TICKS_PER_CYCLE * 2:
+		w.tick()
+		for e: SimEvent in w.events_out:
+			if e.type == "cycle_ended":
+				report = e.data
+		if not report.is_empty():
+			break
+		w.events_out.clear()
 	t.check(report.has("crises"), "в итоге цикла есть список кризисов")
 	t.check(report.has("damage") and report.has("stolen"),
 		"и колонки урона и краж")
@@ -307,7 +342,7 @@ static func test_cycle_report_has_crises(t: TestCtx) -> void:
 static func test_crises_survive_save(t: TestCtx) -> void:
 	var w: SimWorld = _world(2024)
 	_ladders_down_to(w, -4)
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE * 3 + 450 + 1500 + 300 + 50)
+	_until(t, w, 4, SimTypes.Phase.HIGH, 50)
 	t.check_eq(w.crisis.creatures.size(), 1, "существо в мире")
 	var text: String = JSON.stringify(w.to_dict(), "", true, true)
 	var restored: SimWorld = SimWorld.new()

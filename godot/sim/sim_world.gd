@@ -19,6 +19,7 @@ var jobs: JobSystem = JobSystem.new()
 var buildings: BuildingSystem = BuildingSystem.new()
 var production: ProductionSystem = ProductionSystem.new()
 var crisis: CrisisSystem = CrisisSystem.new()
+var run_state: RunState = RunState.new()
 var policies: PolicySet = PolicySet.new()
 
 ## Разбирается Game после tick(); Game обязан очистить массив.
@@ -54,7 +55,8 @@ func _init(record: bool = false) -> void:
 # --- Забег ----------------------------------------------------------------
 
 ## cliff — карта утёса. Загружает её Game/тест: ResourceLoader в sim/ не место.
-func new_run(seed_value: int, cliff: CliffDef) -> void:
+## unlock_list — разблокировки Журнала; этап 11 передаст сюда Meta.
+func new_run(seed_value: int, cliff: CliffDef, unlock_list: Array[String] = []) -> void:
 	clock = SimClock.new()
 	tide = Tide.new()
 	rng = SimRNG.new()
@@ -66,6 +68,7 @@ func new_run(seed_value: int, cliff: CliffDef) -> void:
 	buildings = BuildingSystem.new()
 	production = ProductionSystem.new()
 	crisis = CrisisSystem.new()
+	run_state = RunState.new()
 	policies = PolicySet.new()
 	_cliff = cliff
 	events_out.clear()
@@ -87,6 +90,10 @@ func new_run(seed_value: int, cliff: CliffDef) -> void:
 		buildings.light_start_fires()
 		production.new_run()
 		crisis.new_run()
+		run_state.new_run(unlock_list)
+		unlocked = unlock_list.duplicate()
+		# Первый цикл — тоже Спад: драфт положен и на нём.
+		run_state.start_draft(self)
 		refresh_heat_sources()
 		agents.new_run(self)
 	events_out.append(SimEvent.make("run_started", {"seed": seed_value}))
@@ -122,6 +129,8 @@ func _consume_commands() -> void:
 				buildings.place(def_id, pcell, self)
 			"demolish":
 				buildings.demolish(int(cmd.get("id", -1)), self)
+			"pick_card":
+				run_state.pick_card(str(cmd.get("card", "")), self)
 			"set_beacon":
 				var cell: Vector2i = SimTypes.arr_to_v2i(cmd.get("cell", [0, 0]) as Array)
 				jobs.beacon_cell = cell
@@ -152,7 +161,11 @@ func tick() -> void:
 			e.data.merge(jobs.on_cycle_ended(), true)
 			e.data.merge(production.on_cycle_ended(self), true)
 			e.data.merge(crisis.on_cycle_ended(self), true)
+			e.data.merge(run_state.end_cycle(self), true)
 		elif e.type == "phase_changed":
+			# Спад кончился, а карта не выбрана — страховка от зависшего цикла.
+			if int(e.data["prev"]) == int(SimTypes.Phase.EBB):
+				run_state.auto_pick_if_needed(self)
 			# prev нужен именно здесь: «конец LOW» и «начало SIGNAL» — разные
 			# события, и испаритель отдаёт соль по первому.
 			production.on_phase_ended(int(e.data["prev"]), self)
@@ -162,6 +175,8 @@ func tick() -> void:
 		elif e.type == "cycle_started":
 			tide.reset_cycle_high()
 			crisis.on_cycle_started(self)
+			# Драфт — на каждом Спаде, то есть на границе цикла.
+			run_state.start_draft(self)
 			events_out.append_array(terrain.on_cycle_started(rng))
 			storage.spawn_driftwood(terrain, rng)
 			agents.on_cycle_started(self)
@@ -177,6 +192,7 @@ func tick() -> void:
 	_tick_agents()
 	_tick_storage()
 	_tick_run_state()
+	events_out.append_array(run_state.drain_events())
 	events_out.append_array(crisis.drain_events())
 	events_out.append_array(buildings.drain_events())
 	events_out.append_array(production.drain_events())
@@ -241,6 +257,17 @@ func refresh_heat_sources() -> void:
 			_heat_cache.append(b["cell"] as Vector2i)
 	_heat_cache.append_array(debug_heat_sources)
 
+## Пересчёт всего, на что влияют карта цикла и шторм. Единственное место,
+## где эти два источника сходятся: и карта, и шторм правят длительность
+## отлива, и писать в phase_scale по очереди значило бы затирать друг друга.
+func refresh_cycle_effects() -> void:
+	tide.low_plateau = Balance.LOW_LEVEL \
+		+ float(cycle_modifiers.get("low_plateau_add", 0.0))
+	var scale: float = float(cycle_modifiers.get("low_time_mult", 1.0))
+	if is_storm:
+		scale *= Balance.STORM_LOW_SCALE
+	clock.phase_scale[SimTypes.Phase.LOW] = scale
+
 func heat_radius() -> int:
 	return Balance.HEAT_RADIUS_BIG if unlocked.has(Balance.UNLOCK_HEARTH_BIG) \
 		else Balance.HEAT_RADIUS
@@ -279,6 +306,7 @@ func to_dict() -> Dictionary:
 		"buildings": buildings.to_dict(),
 		"production": production.to_dict(),
 		"crisis": crisis.to_dict(),
+		"run_state": run_state.to_dict(),
 		"policies": policies.to_dict(),
 	}
 
@@ -305,6 +333,9 @@ func from_dict(d: Dictionary, cliff: CliffDef = null) -> void:
 	buildings.from_dict(d.get("buildings", {}) as Dictionary)
 	production.from_dict(d.get("production", {}) as Dictionary)
 	crisis.from_dict(d.get("crisis", {}) as Dictionary)
+	run_state.from_dict(d.get("run_state", {}) as Dictionary)
+	unlocked = run_state.unlocks.duplicate()
+	refresh_cycle_effects()
 	is_storm = crisis.is_active(SimTypes.CrisisType.STORM)
 	refresh_heat_sources()
 	policies.from_dict(d.get("policies", {}) as Dictionary)

@@ -65,7 +65,10 @@ static func test_cycle_boundary_events(t: TestCtx) -> void:
 ## не должен. Проверяем, что механизм работает уже сейчас.
 static func test_phase_scale(t: TestCtx) -> void:
 	var w: SimWorld = _world(1)
-	w.clock.phase_scale[SimTypes.Phase.LOW] = Balance.STORM_LOW_SCALE
+	# Через штатный источник масштаба: phase_scale пересчитывается из шторма
+	# и карты цикла, и прямая запись в него была бы затёрта.
+	w.is_storm = true
+	w.refresh_cycle_effects()
 	t.check_eq(w.clock.phase_len(SimTypes.Phase.LOW), 1050, "LOW короче на 30%")
 	t.run_ticks(w, 450 + 1050)
 	t.check_eq(w.clock.phase, SimTypes.Phase.SIGNAL, "укороченная LOW сменяется вовремя")
@@ -114,7 +117,9 @@ static func test_water_event_throttle(t: TestCtx) -> void:
 static func test_tide_plateaus_are_mutable(t: TestCtx) -> void:
 	var w: SimWorld = _world(1)
 	w.tide.high_plateau = Balance.HIGH_LEVEL + Balance.SPRING_BONUS
-	w.tide.low_plateau = -10.0
+	# Плато отлива двигает карта цикла — через неё и проверяем.
+	w.cycle_modifiers["low_plateau_add"] = -2.0
+	w.refresh_cycle_effects()
 	t.run_ticks(w, 450 + 750)
 	t.check_approx(w.tide.level, -10.0, 0.01, "карта «Глубокий заход»: плато LOW −10")
 	t.run_ticks(w, 750 + 300 + 750)

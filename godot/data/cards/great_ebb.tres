@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/card_def.gd" id="1_d8xj8"]
+
+[resource]
+script = ExtResource("1_d8xj8")
+id = "great_ebb"
+display_key = "CARD_GREAT_EBB"
+desc_key = "CARD_GREAT_EBB_D"
+rarity = "rare"
+unlock_id = "u_card_ebb"
+effects = Dictionary[String, float]({
+"low_plateau_add": -4.0,
+"low_time_mult": 1.5,
+"next_spring_add": 1.0
+})

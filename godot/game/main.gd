@@ -20,6 +20,7 @@ func _ready() -> void:
 	# TODO(этап 15): забег начинает MainMenu, автостарт убрать.
 	Events.phase_changed.connect(_on_phase_changed)
 	Events.cycle_ended.connect(_on_cycle_ended)
+	Events.draft_ready.connect(_on_draft_ready)
 	# Забег создаётся ДО мира: World в _ready() уже видит рельеф и рисует его
 	# сразу, без пустого кадра.
 	Game.cmd_new_run(DEV_SEED)
@@ -45,6 +46,16 @@ func _spawn_debug_panel() -> void:
 func _on_phase_changed(phase: int, cycle: int) -> void:
 	print("[sim] цикл %d, фаза %s, вода %.2f" % [
 		cycle, SimTypes.phase_name(phase), Game.world.tide.level])
+
+## Драфт ставит игру на автопаузу и ждёт выбора. Панели выбора ещё нет
+## (этап 15), а без выбора мир стоит намертво — поэтому здесь временный
+## дублёр: берём первую карту. Кнопки выбора есть в дебаг-панели.
+## TODO(этап 15): убрать вместе с автостартом — выбирать будет DraftPanel.
+func _on_draft_ready(card_ids: Array[String]) -> void:
+	if card_ids.is_empty():
+		return
+	print("[sim] драфт: ", card_ids, " → берём ", card_ids[0])
+	Game.cmd_pick_card(card_ids[0])
 
 func _on_cycle_ended(report: Dictionary) -> void:
 	print("[sim] итог цикла: ", report)

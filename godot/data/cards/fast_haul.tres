@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/card_def.gd" id="1_jhk50"]
+
+[resource]
+script = ExtResource("1_jhk50")
+id = "fast_haul"
+display_key = "CARD_FAST_HAUL"
+desc_key = "CARD_FAST_HAUL_D"
+effects = Dictionary[String, float]({
+"bag_slots_add": -1.0,
+"haul_speed_mult": 1.4
+})

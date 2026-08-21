@@ -256,8 +256,13 @@ static func test_warmth_drains_without_heat(t: TestCtx) -> void:
 	a.goto_platform = a.platform_id
 	a.goto_x = a.x
 	var before: float = a.warmth()
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE)
-	t.check_approx(a.warmth(), before - 10.0, 0.5, "вдали от очага тепло −10 за цикл")
+	# Меряем только сухую часть цикла: на Сигнале авто-возврат уводит агента
+	# к утёсу, где стоит очаг, и замер превратился бы в замер прогулки.
+	var span: int = 1200
+	t.run_ticks(w, span)
+	var expected: float = 10.0 * float(span) / float(Balance.TICKS_PER_CYCLE)
+	t.check_approx(a.warmth(), before - expected, 0.5,
+		"вдали от очага тепло падает ровно по норме −10 за цикл")
 
 # --- Отзыв ----------------------------------------------------------------
 

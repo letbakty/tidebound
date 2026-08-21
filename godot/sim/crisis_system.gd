@@ -69,7 +69,7 @@ func _start(type: int, count: int, w: SimWorld) -> void:
 			w.is_storm = true
 			# Шторм укорачивает отлив на 30% — через phase_scale, а не правкой
 			# формулы фаз (самое опасное место для детерминизма).
-			w.clock.phase_scale[SimTypes.Phase.LOW] = Balance.STORM_LOW_SCALE
+			w.refresh_cycle_effects()
 		SimTypes.CrisisType.VISIT:
 			_pending_visit = count
 	_pending.append(SimEvent.make("crisis_started", {"type": type}))
@@ -85,7 +85,7 @@ func _end_previous(w: SimWorld) -> void:
 					_spring_applied = false
 			SimTypes.CrisisType.STORM:
 				w.is_storm = false
-				w.clock.phase_scale[SimTypes.Phase.LOW] = 1.0
+				w.refresh_cycle_effects()
 			_:
 				pass
 		_pending.append(SimEvent.make("crisis_ended", {"type": type}))
@@ -102,7 +102,9 @@ func on_phase_started(phase: int, w: SimWorld) -> void:
 	if is_active(SimTypes.CrisisType.STORM):
 		_storm_peak(w)
 	if _pending_visit > 0:
-		_spawn_creatures(_pending_visit, w)
+		# Карта «Тихая вода» отменяет Приход этого цикла.
+		if float(w.cycle_modifiers.get("cancel_visit", 0.0)) <= 0.0:
+			_spawn_creatures(_pending_visit, w)
 		_pending_visit = 0
 
 func on_phase_ended(phase: int, w: SimWorld) -> void:

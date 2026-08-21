@@ -69,6 +69,10 @@ static func test_i18n_keys_exist(t: TestCtx) -> void:
 	for rid: String in DB.recipe_ids():
 		t.check(known.has(DB.recipe(rid).display_key),
 			"нет ключа '%s' (рецепт %s)" % [DB.recipe(rid).display_key, rid])
+	for cid: String in DB.card_ids():
+		var cd: CardDef = DB.card(cid)
+		t.check(known.has(cd.display_key), "нет ключа '%s' (карта %s)" % [cd.display_key, cid])
+		t.check(known.has(cd.desc_key), "нет ключа описания карты %s" % cid)
 	for err: String in ["ERR_LOCKED", "ERR_MARK", "ERR_OCCUPIED", "ERR_NO_SUPPORT",
 			"ERR_NO_LADDER_SPOT"]:
 		t.check(known.has(err), "нет ключа причины отказа '%s'" % err)
@@ -120,6 +124,16 @@ static func test_building_spec_details(t: TestCtx) -> void:
 	t.check(DB.building("sluice").flood_rule == SimTypes.FloodRule.OK,
 		"шлюз под водой работает — в этом его смысл")
 
+static func test_all_cards_present(t: TestCtx) -> void:
+	t.check_eq(DB.card_ids().size(), 6, "все 6 карт docs/00 §10")
+	for id: String in ["deep_dive", "fast_haul", "careful", "great_ebb",
+			"calm_water", "the_find"]:
+		t.check(DB.has_card(id), "есть карта '%s'" % id)
+		var c: CardDef = DB.card(id)
+		t.check(c.rarity == "base" or c.rarity == "rare", "редкость карты %s задана" % id)
+		t.check(c.rarity == "base" or not c.unlock_id.is_empty(),
+			"у редкой карты %s есть разблокировка" % id)
+
 static func test_agent_pools(t: TestCtx) -> void:
 	t.check_eq(AgentPools.NAMES.size(), 40, "пул имён — 40 штук")
 	t.check_eq(AgentPools.BIO_KEYS.size(), 30, "пул биографий — 30 штук")
@@ -162,6 +176,9 @@ static func _snapshot() -> String:
 		var bd: BuildingDef = DB.building(bid)
 		all.append([bd.id, bd.display_key, str(bd.size), bd.cost, bd.min_mark,
 			bd.max_mark, int(bd.flood_rule), bd.storm_breaks, bd.hp, bd.special])
+	for cid2: String in DB.card_ids():
+		var cd2: CardDef = DB.card(cid2)
+		all.append([cd2.id, cd2.display_key, cd2.rarity, cd2.unlock_id, cd2.effects])
 	for rid2: String in DB.recipe_ids():
 		var rd: RecipeDef = DB.recipe(rid2)
 		all.append([rd.id, rd.station_special, rd.inputs, rd.outputs,

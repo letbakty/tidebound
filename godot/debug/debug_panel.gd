@@ -29,6 +29,9 @@ var _seed_edit: LineEdit = null
 var _beacon_label: Label = null
 var _build_hint: Label = null
 var _crisis_label: Label = null
+var _card_label: Label = null
+var _card_row: HBoxContainer = null
+var _card_shown: Array[String] = []
 
 const CRISIS_NAMES: Dictionary = {
 	SimTypes.CrisisType.SPRING_TIDE: "сизигия",
@@ -172,6 +175,10 @@ func _build_ui() -> void:
 	_button(run_row, "завершить цикл", func() -> void:
 		Game.debug_fast_forward(Game.debug_ticks_to_next_cycle()))
 
+	_head("КАРТЫ")
+	_card_label = _label("—")
+	_card_row = _row()
+
 	_head("КРИЗИСЫ")
 	_crisis_label = _label("—")
 
@@ -274,6 +281,7 @@ func _process(_delta: float) -> void:
 	_refresh_policies()
 	_refresh_build_hint()
 	_refresh_crises()
+	_refresh_cards()
 	if _log_dirty:
 		_log_dirty = false
 		_log_label.text = "\n".join(_log)
@@ -357,6 +365,25 @@ func _select_building(def_id: String) -> void:
 		return
 	ghost.call("set_def", def_id)
 	_build_hint.text = "—" if def_id.is_empty() else def_id
+
+## Драфт до появления панели карт (этап 15): кнопка на каждую карту.
+func _refresh_cards() -> void:
+	if Game.world == null:
+		return
+	var draft: Array[String] = Game.world.run_state.draft
+	var active: String = Game.world.run_state.active_card
+	_card_label.text = "выбрано: %s" % ("—" if active.is_empty() else active)
+	if draft == _card_shown:
+		return
+	_card_shown = draft.duplicate()
+	for n: Node in _card_row.get_children():
+		n.queue_free()
+	for id: String in draft:
+		var b: Button = Button.new()
+		b.text = tr(DB.card(id).display_key)
+		b.tooltip_text = tr(DB.card(id).desc_key)
+		b.pressed.connect(func() -> void: Game.cmd_pick_card(id))
+		_card_row.add_child(b)
 
 func _refresh_crises() -> void:
 	if Game.world == null:

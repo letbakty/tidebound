@@ -24,6 +24,8 @@ var _error_count: int = 0
 ## Поднят на время промотки времени дебаг-панелью: View-ноды пропускают
 ## анимации и создают/удаляют себя без Tween'ов.
 var fast_forwarding: bool = false
+## Скорость до автопаузы (драфт, итог цикла) — её возвращает resume_prev_speed.
+var _paused_speed: int = 1
 
 func _physics_process(delta: float) -> void:
 	if speed == 0 or world == null:
@@ -65,6 +67,11 @@ func cmd_recall(hard: bool = false) -> void:
 	world.apply_command({"kind": "recall", "hard": hard})
 
 ## Политики — единственный постоянный рычаг игрока (docs/00 §6.6).
+## Снятие автопаузы: вернуть скорость, бывшую до неё (docs/02 §3.3).
+func resume_prev_speed() -> void:
+	if speed == 0:
+		cmd_set_speed(maxi(1, _paused_speed))
+
 func cmd_set_policy(policy: int, value: int) -> void:
 	if world == null:
 		return
@@ -75,6 +82,13 @@ func cmd_set_beacon(cell: Vector2i) -> void:
 	if world == null:
 		return
 	world.apply_command({"kind": "set_beacon", "cell": SimTypes.v2i_to_arr(cell)})
+
+## Выбор плана вылазки. Снимает автопаузу драфта.
+func cmd_pick_card(card_id: String) -> void:
+	if world == null:
+		return
+	world.apply_command({"kind": "pick_card", "card": card_id})
+	resume_prev_speed()
 
 func cmd_set_speed(mult: int) -> void:
 	var m: int = clampi(mult, 0, 3)
@@ -272,6 +286,17 @@ func _flush_events() -> void:
 				# Отдельного сигнала в контракте нет: выход на землю виден
 				# как обычное изменение постройки (docs/02 §3.2).
 				Events.building_state_changed.emit(int(e.data["id"]))
+			"draft_ready":
+				var ids: Array[String] = []
+				for v: Variant in e.data["cards"] as Array:
+					ids.append(str(v))
+				# Автопауза драфта: скорость запоминаем, чтобы вернуть её
+				# после выбора (docs/00 §4).
+				_paused_speed = speed
+				cmd_set_speed(0)
+				Events.draft_ready.emit(ids)
+			"card_picked":
+				Events.card_picked.emit(str(e.data["card"]))
 			"policy_changed":
 				Events.policy_changed.emit(int(e.data["policy"]), int(e.data["value"]))
 			"beacon_moved":

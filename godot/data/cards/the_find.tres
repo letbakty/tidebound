@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/card_def.gd" id="1_ce4lq"]
+
+[resource]
+script = ExtResource("1_ce4lq")
+id = "the_find"
+display_key = "CARD_THE_FIND"
+desc_key = "CARD_THE_FIND_D"
+rarity = "rare"
+unlock_id = "u_card_find"
+effects = Dictionary[String, float]({
+"mark_relic": 1.0
+})

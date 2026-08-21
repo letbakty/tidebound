@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/card_def.gd" id="1_cgdb6"]
+
+[resource]
+script = ExtResource("1_cgdb6")
+id = "careful"
+display_key = "CARD_CAREFUL"
+desc_key = "CARD_CAREFUL_D"
+effects = Dictionary[String, float]({
+"drown_bonus_sec": 3.0,
+"gather_speed_mult": 0.8,
+"recall_earlier_sec": 30.0
+})

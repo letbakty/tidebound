@@ -367,7 +367,7 @@ func _applies_to(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
 			return w.clock.phase == SimTypes.Phase.HIGH \
 				and int(a.needs["fatigue"]) < Balance.REST_WANT_MILLI
 		"gather":
-			if a.bag_free_slots() <= 0:
+			if w.agents.bag_free(a, w) <= 0:
 				return false
 			if not _is_dry(j["cell"] as Vector2i, w):
 				return false
@@ -375,9 +375,9 @@ func _applies_to(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
 			var min_mark: float = a.modifier("min_mark", -99.0)
 			return float(Balance.cell_to_mark(j["cell"] as Vector2i)) >= min_mark
 		"haul_ground":
-			return a.bag_free_slots() > 0 and _is_dry(j["cell"] as Vector2i, w)
+			return w.agents.bag_free(a, w) > 0 and _is_dry(j["cell"] as Vector2i, w)
 		"haul_request":
-			return a.bag_free_slots() > 0 or not a.bag.is_empty()
+			return w.agents.bag_free(a, w) > 0 or not a.bag.is_empty()
 	return true
 
 ## Цель ПОД ВОДОЙ прямо сейчас — не «риск», а бессмыслица: под водой не
@@ -481,7 +481,8 @@ func _check_auto_recall(w: SimWorld) -> void:
 			continue
 		if w.agents.agent_mark_f(a, w) >= 0.0:
 			continue
-		var personal: int = lead
+		# Карта «Осторожно» отзывает всех раньше.
+		var personal: int = lead + int(w.cycle_modifiers.get("recall_earlier_sec", 0.0))
 		if int(a.needs["mood"]) < Balance.NEED_LOW_ENTER_MILLI:
 			personal += Balance.PANIC_RECALL_BONUS_SEC
 		if left > personal * Balance.TICKS_PER_SEC:

@@ -87,6 +87,8 @@ func _add_deposit(kind: String, cell: Vector2i, relic_taken: bool) -> int:
 		"id": id, "kind": kind, "cell": cell,
 		# relic_taken: реликвию с депозита можно взять только один раз.
 		"amount": int(def["capacity"]), "relic_taken": relic_taken,
+		# Карта «Находка» помечает депозит: с него реликвия выпадет наверняка.
+		"relic_marked": false,
 	})
 	return id
 
@@ -373,6 +375,7 @@ func to_dict() -> Dictionary:
 			"id": int(d["id"]), "kind": str(d["kind"]),
 			"cell": SimTypes.v2i_to_arr(d["cell"] as Vector2i),
 			"amount": int(d["amount"]), "relic_taken": bool(d["relic_taken"]),
+			"relic_marked": bool(d["relic_marked"]),
 		})
 	return {
 		"graph_version": graph_version,
@@ -397,6 +400,7 @@ func from_dict(d: Dictionary) -> void:
 			"id": int(dd["id"]), "kind": str(dd["kind"]),
 			"cell": SimTypes.arr_to_v2i(dd["cell"] as Array),
 			"amount": int(dd["amount"]), "relic_taken": bool(dd["relic_taken"]),
+			"relic_marked": bool(dd.get("relic_marked", false)),
 		})
 	_next_ladder_id = int(d.get("next_ladder_id", ladders.size()))
 	_next_deposit_id = int(d.get("next_deposit_id", deposits.size()))

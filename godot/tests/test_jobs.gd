@@ -141,7 +141,12 @@ static func test_rest_policy_on_high(t: TestCtx) -> void:
 	for a: SimAgent in w.agents.agents:
 		a.needs["fatigue"] = 20_000
 		a.needs["satiety"] = 20_000
-	t.run_ticks(w, 450 + 1500 + 300 + 400)            # середина Высокой воды
+	# Ждём фазу, а не считаем тики: карта цикла меняет длину отлива.
+	var guard: int = 0
+	while w.clock.phase != SimTypes.Phase.HIGH and guard < Balance.TICKS_PER_CYCLE * 2:
+		t.run_ticks(w, 1)
+		guard += 1
+	t.run_ticks(w, 400)                               # середина Высокой воды
 	t.check_eq(int(w.clock.phase), int(SimTypes.Phase.HIGH), "мы на Высокой воде")
 	var busy: int = 0
 	for a2: SimAgent in w.agents.agents:

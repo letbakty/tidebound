@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/card_def.gd" id="1_7frxr"]
+
+[resource]
+script = ExtResource("1_7frxr")
+id = "deep_dive"
+display_key = "CARD_DEEP_DIVE"
+desc_key = "CARD_DEEP_DIVE_D"
+effects = Dictionary[String, float]({
+"low_plateau_add": -2.0,
+"low_time_mult": 0.75
+})

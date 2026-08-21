@@ -149,18 +149,29 @@ func _check_drowning(a: SimAgent, w: SimWorld) -> bool:
 		return false
 	a.wet = true
 	a.submerged_ticks += 1
-	var warn_at: int = a.drown_limit_ticks - int(Balance.DROWN_WARN_SEC * Balance.TICKS_PER_SEC)
+	var warn_at: int = _drown_limit(a, w) \
+		- int(Balance.DROWN_WARN_SEC * Balance.TICKS_PER_SEC)
 	# Ровно один раз за утопление, а не каждый тик последних двух секунд.
 	if a.submerged_ticks >= warn_at and not a.drowning_warned:
 		a.drowning_warned = true
 		_pending.append(SimEvent.make("agent_drowning", {"id": a.id}))
 	_set_state(a, SimTypes.AgentState.DROWNING, w)
-	if a.submerged_ticks >= a.drown_limit_ticks:
+	if a.submerged_ticks >= _drown_limit(a, w):
 		_kill(a, "drown", w)
 		return true
 	# Тонущий не стоит на месте: продолжает выбираться наверх.
 	_do_return(a, w)
 	return true
+
+## Карта «Осторожно» добавляет всем запас времени под водой на цикл.
+func _drown_limit(a: SimAgent, w: SimWorld) -> int:
+	return a.drown_limit_ticks + int(float(w.cycle_modifiers.get("drown_bonus_sec", 0.0))
+		* float(Balance.TICKS_PER_SEC))
+
+## Слоты котомки с учётом карты цикла («Быстрый сбор» отнимает один).
+func bag_free(a: SimAgent, w: SimWorld) -> int:
+	var slots: int = a.bag_slots + int(w.cycle_modifiers.get("bag_slots_add", 0.0))
+	return maxi(0, slots - a.bag.size())
 
 func _check_recall(a: SimAgent, w: SimWorld) -> bool:
 	if not a.recalled:
@@ -308,11 +319,14 @@ func _do_gather(a: SimAgent, w: SimWorld) -> void:
 		_finish_job(a, w)
 		return
 	var di: int = w.terrain.deposit_index(int(j["target_id"]))
-	if di < 0 or a.bag_free_slots() <= 0:
+	if di < 0 or bag_free(a, w) <= 0:
 		_gather_done(a, w)
 		return
 	a.work_ticks += 1
-	if a.work_ticks < a.gather_ticks_per_unit:
+	# Карта цикла может замедлить или ускорить добычу.
+	var need: int = maxi(1, int(round(float(a.gather_ticks_per_unit)
+		/ float(w.cycle_modifiers.get("gather_speed_mult", 1.0)))))
+	if a.work_ticks < need:
 		return
 	a.work_ticks = 0
 	var dep: Dictionary = w.terrain.deposits[di]
@@ -326,7 +340,7 @@ func _do_gather(a: SimAgent, w: SimWorld) -> void:
 	w.jobs.note_gathered(a, item_id, got, mark)
 	w.jobs.queue_event(SimEvent.make("deposit_changed", {"id": int(dep["id"])}))
 	_roll_relic(a, dep, mark, w)
-	if int(w.terrain.deposits[di]["amount"]) <= 0 or a.bag_free_slots() <= 0:
+	if int(w.terrain.deposits[di]["amount"]) <= 0 or bag_free(a, w) <= 0:
 		_gather_done(a, w)
 
 ## Реликвия выпадает только в глубоких руинах и только раз с депозита
@@ -334,10 +348,13 @@ func _do_gather(a: SimAgent, w: SimWorld) -> void:
 func _roll_relic(a: SimAgent, dep: Dictionary, mark: int, w: SimWorld) -> void:
 	if str(dep["kind"]) != "ruins_deep" or mark > Balance.RELIC_MARK_MAX:
 		return
-	if bool(dep["relic_taken"]) or a.bag_free_slots() <= 0:
+	if bool(dep["relic_taken"]) or bag_free(a, w) <= 0:
 		return
-	if not w.rng.chance(Balance.RELIC_CHANCE * a.modifier("relic_chance_mult")):
+	# Помеченный картой «Находка» депозит отдаёт реликвию наверняка.
+	if not bool(dep.get("relic_marked", false)) \
+			and not w.rng.chance(Balance.RELIC_CHANCE * a.modifier("relic_chance_mult")):
 		return
+	dep["relic_marked"] = false
 	dep["relic_taken"] = true
 	_put_in_bag(a, "relic", 1)
 	for other: SimAgent in agents:
@@ -585,6 +602,8 @@ func _speed(a: SimAgent, w: SimWorld, ladder: bool) -> float:
 		base *= Balance.NEED_SLOW_MULT
 	if a.recall_hard:
 		base *= Balance.HARD_RECALL_SPEED_MULT
+	if not a.bag.is_empty():
+		base *= float(w.cycle_modifiers.get("haul_speed_mult", 1.0))
 	base *= float(w.cycle_modifiers.get("move_speed_mult", 1.0))
 	return base
 
