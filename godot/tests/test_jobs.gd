@@ -22,6 +22,15 @@ static func _world(seed_value: int) -> SimWorld:
 	w.events_out.clear()
 	return w
 
+## Мир без достроенного спуска: ровно то, с чего начинается забег. Нужен
+## тестам про лестницы — в _world их уже восемь штук, и любая проверка
+## «лестниц нет» на нём бессмысленна.
+static func _plain_world(seed_value: int) -> SimWorld:
+	var w: SimWorld = SimWorld.new()
+	w.new_run(seed_value, _cliff())
+	w.events_out.clear()
+	return w
+
 static func _totals(w: SimWorld) -> Dictionary:
 	return w.storage.totals()
 
@@ -72,6 +81,75 @@ static func test_greed_limits_distance(t: TestCtx) -> void:
 			if w.terrain.nearest_ladder_dist(cell) > limit:
 				violations += 1
 	t.check_eq(violations, 0, "при Жадности 0 никто не берёт цели дальше 4 тайлов")
+
+## TEST-10 · колония не запирается сама (SIM-07).
+##
+## Фильтр Жадности отсекал задачи по nearest_ladder_dist. Ремонт лестницы —
+## единственный способ вернуть доступ на дно — попадал под тот же фильтр:
+## чинить нельзя, потому что нет лестниц, а лестниц нет, потому что не чинят.
+## Жадность про риск ДОБЫЧИ, стройки и ремонта она касаться не должна.
+static func test_deep_ladder_is_repaired_at_low_greed(t: TestCtx) -> void:
+	var w: SimWorld = _plain_world(61)
+	w.policies.set_value(SimTypes.Policy.GREED, 0)
+	w.policies.set_value(SimTypes.Policy.REPAIR, 3)
+	w.storage.store(0, StackUtil.make("driftwood", 10, false))
+	# Убираем стартовую лестницу −1 ↔ −2, свою ставим в дальней колонке:
+	# иначе ближайшая целая лестница окажется в двух тайлах и лимит не сработает.
+	for l: Dictionary in w.terrain.ladders.duplicate():
+		if int(l["mark_top"]) == -1:
+			w.terrain.remove_ladder(int(l["id"]))
+	var cell: Vector2i = Vector2i(22, Balance.mark_to_floor_cell_y(-1))
+	var lid: int = w.buildings.place("ladder_wood", cell, w, true)
+	t.check(lid > 0, "лестница на дно поставлена")
+	var guard: int = 0
+	while not bool(w.buildings.buildings[lid]["damaged"]) and guard < 20:
+		w.buildings.apply_damage(lid, w)
+		guard += 1
+	t.check(bool(w.buildings.buildings[lid]["damaged"]), "и сломана")
+	t.check(w.terrain.nearest_ladder_dist(cell)
+			> float(Balance.GREED_LADDER_LIMIT[0]),
+		"ближайшая целая лестница дальше лимита Жадности 0")
+	w.jobs.mark_dirty()
+	t.check(_repair_taken(t, w, lid), "ремонт взят несмотря на Жадность 0")
+
+## Была ли задача ремонта постройки кем-то взята за цикл.
+static func _repair_taken(t: TestCtx, w: SimWorld, building_id: int) -> bool:
+	for i: int in Balance.TICKS_PER_CYCLE:
+		t.run_ticks(w, 1)
+		if not bool(w.buildings.buildings[building_id]["damaged"]):
+			return true                      # уже починили
+		for id: int in w.jobs.order:
+			var j: Dictionary = w.jobs.jobs[id]
+			if int(j["class"]) == int(SimTypes.JobClass.REPAIR) \
+					and int(j["target_id"]) == building_id \
+					and int(j["taken_by"]) != -1:
+				return true
+	return false
+
+## Лестницу вниз обязаны уметь СТРОИТЬ. Работа у лестницы назначалась на
+## нижнюю площадку — ту самую, куда без неё не попасть, — и задача висела
+## в пуле вечно: агенты не могли построить ни одной лестницы за забег.
+static func test_agents_can_build_ladder_down(t: TestCtx) -> void:
+	var w: SimWorld = _plain_world(67)
+	w.policies.set_value(SimTypes.Policy.BUILD, 3)
+	w.storage.store(0, StackUtil.make("driftwood", 10, false))
+	var deep: int = w.terrain.platform_of_mark(-3)
+	t.check_eq(w.terrain.find_path(w.terrain.platform_of_mark(6), deep).size(), 0,
+		"до −3 пути пока нет")
+	var id: int = w.buildings.place("ladder_wood",
+		Vector2i(25, Balance.mark_to_floor_cell_y(-2)), w)
+	t.check(id > 0, "лестница запланирована")
+	var built: bool = false
+	for i: int in Balance.TICKS_PER_CYCLE * 2:
+		t.run_ticks(w, 1)
+		if not w.buildings.buildings.has(id):
+			break
+		if int(w.buildings.buildings[id]["state"]) == int(SimTypes.BuildState.ACTIVE):
+			built = true
+			break
+	t.check(built, "агенты сами достроили лестницу вниз")
+	t.check(w.terrain.find_path(w.terrain.platform_of_mark(6), deep).size() > 0,
+		"и путь на −3 открылся")
 
 static func test_greed_three_allows_far_targets(t: TestCtx) -> void:
 	var far: Vector2i = Vector2i(46, Balance.mark_to_floor_cell_y(-8))

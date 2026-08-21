@@ -166,9 +166,18 @@ func _generate_build(w: SimWorld) -> void:
 		j["platform"] = w.terrain.platform_at(_work_cell(b, w))
 
 ## Клетка, откуда до постройки можно дотянуться: пол под её нижним рядом.
+##
+## ⚠️ У ЛЕСТНИЦЫ это верхний ярус, а не нижний. Лестница занимает три ряда
+## и нижним рядом уходит в ярус, которого без неё ещё нет: строитель, стоящий
+## внизу, туда попасть не может. Пока работа назначалась на нижнюю площадку,
+## агенты не могли ни построить лестницу вниз, ни починить сломанную —
+## _reachable отбрасывал задачу, и она висела в пуле вечно (мёртвый замок
+## из SIM-07, только на ярус глубже; ревью этого не заметило).
 static func _work_cell(b: Dictionary, _w: SimWorld) -> Vector2i:
 	var d: BuildingDef = DB.building(str(b["def_id"]))
 	var cell: Vector2i = b["cell"] as Vector2i
+	if d == null or d.special == "ladder":
+		return cell
 	return Vector2i(cell.x, cell.y + d.size.y - 1)
 
 ## Станция с полным буфером «рекламирует» работу.
@@ -397,6 +406,16 @@ func _greed_allows(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
 	# На жилом утёсе лимит не действует: он про риск на дне.
 	if Balance.cell_to_mark(j["cell"] as Vector2i) >= 0:
 		return true
+	# ⚠️ Жадность — про риск ДОБЫЧИ, а не про стройку. Без этого исключения
+	# колония попадает в мёртвый замок: шторм 10-го цикла ломает лестницы
+	# ниже +3, nearest_ladder_dist возвращает INF, и задачи REPAIR на самих
+	# лестницах отсекаются тем же правилом. Чинить нельзя, потому что нет
+	# лестниц; лестниц нет, потому что не чинят (SIM-07).
+	match int(j["class"]):
+		SimTypes.JobClass.BUILD, SimTypes.JobClass.REPAIR:
+			return true
+		_:
+			pass
 	return w.terrain.nearest_ladder_dist(j["cell"] as Vector2i) <= float(limit)
 
 func _reachable(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
