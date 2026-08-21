@@ -29,11 +29,31 @@ const SUITES: Array[String] = [
 	"res://tests/test_touch_targets.gd",
 ]
 
+## Фильтр сьютов из командной строки: `-s res://tests/run_all.gd -- production`
+## гоняет только test_production. Нужен ремонту дефектов: полный прогон идёт
+## больше трёх минут, и чинить по одному сьюту в разы быстрее.
+static func _filters() -> PackedStringArray:
+	return OS.get_cmdline_user_args()
+
+static func _matches(path: String, filters: PackedStringArray) -> bool:
+	if filters.is_empty():
+		return true
+	for f: String in filters:
+		if path.contains(f):
+			return true
+	return false
+
 func _initialize() -> void:
+	# ДО первого сьюта: иначе рантайм-ошибки самой загрузки останутся невидимы.
+	ErrorGuard.reset()
+	var guard_installed: bool = ErrorGuard.install()
 	var ctx := TestCtx.new()
 	var t0: int = Time.get_ticks_msec()
 	var ran: int = 0
+	var filters: PackedStringArray = _filters()
 	for path: String in SUITES:
+		if not _matches(path, filters):
+			continue
 		if not ResourceLoader.exists(path):
 			print("SKIP  ", path)
 			continue
@@ -44,4 +64,12 @@ func _initialize() -> void:
 		quit(0)
 		return
 	ctx.print_report(Time.get_ticks_msec() - t0)
-	quit(0 if ctx.failed == 0 else 1)
+	# ⚠️ SCRIPT ERROR валит прогон наравне с провалом check(). Именно из-за
+	# отсутствия этой проверки 365 ошибок жили при зелёном отчёте.
+	var guard: String = ErrorGuard.report()
+	if not guard.is_empty():
+		print(guard)
+		print("TESTS FAILED")
+	elif not guard_installed:
+		print("⚠️  ErrorGuard не установлен: рантайм-ошибки ловит только tools/run_tests.sh")
+	quit(0 if ctx.failed == 0 and guard.is_empty() else 1)

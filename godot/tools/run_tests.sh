@@ -2,7 +2,7 @@
 # Раннер тестов TIDEBOUND. Единственный поддерживаемый способ прогнать сьюты.
 #
 #   tools/run_tests.sh                 # весь прогон
-#   tools/run_tests.sh res://tests/test_production.gd   # один сьют
+#   tools/run_tests.sh production      # только сьюты, чьё имя содержит строку
 #
 # ⚠️ Почему обёртка, а не просто `godot -s res://tests/run_all.gd`:
 # GDScript не видит рантайм-ошибок движка. Раннер внутри игры проверяет только
@@ -26,11 +26,10 @@ if ! command -v "$GODOT" >/dev/null 2>&1 && [ ! -x "$GODOT" ]; then
 	exit 2
 fi
 
-SUITE="${1:-res://tests/run_all.gd}"
 LOG="$(mktemp -t tidebound-tests)"
 trap 'rm -f "$LOG"' EXIT
 
-"$GODOT" --headless --path "$ROOT" -s "$SUITE" 2>&1 | tee "$LOG"
+"$GODOT" --headless --path "$ROOT" -s res://tests/run_all.gd -- "$@" 2>&1 | tee "$LOG"
 CODE=${PIPESTATUS[0]}
 
 # Ошибки движка. USER ERROR намеренно НЕ ловим: это push_error, которым
