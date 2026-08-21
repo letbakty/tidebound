@@ -134,6 +134,28 @@ func rebroadcast_state() -> void:
 	Events.beacon_moved.emit(world.beacon_cell())
 	for pol: int in SimTypes.POLICY_ORDER:
 		Events.policy_changed.emit(pol, world.policies.get_value(pol))
+	_rebroadcast_pending()
+
+## Разовые события, которые уже прозвучали, но ещё не отыграны: их состояние
+## в сейве есть, а сигнала после загрузки не будет (REL-04).
+##
+## ⚠️ Драфт — не косметика. Без него после «Продолжить» панель выбора не
+## появится, автопауза не встанет, и на границе Спада auto_pick_if_needed
+## возьмёт первую карту за игрока (docs/03 §8, research/24 §9).
+func _rebroadcast_pending() -> void:
+	for type: int in world.crisis.announced:
+		Events.crisis_announced.emit(type,
+			world.clock.cycle + Balance.CRISIS_ANNOUNCE_LEAD)
+	for type2: int in world.crisis.active:
+		Events.crisis_started.emit(type2)
+	if world.run_state.ship_arrived and not world.run_state.finished:
+		Events.ship_arrived.emit()
+	if world.run_state.draft.is_empty() or world.run_state.drafted_this_cycle:
+		return
+	var ids: Array[String] = world.run_state.draft.duplicate()
+	if Settings.pause_on_draft:
+		push_pause()
+	Events.draft_ready.emit(ids)
 
 ## Единственная прямая команда агентам (docs/00 §6.7).
 func cmd_recall(hard: bool = false) -> void:

@@ -76,6 +76,41 @@ static func test_autopause_stops_tick_immediately(t: TestCtx) -> void:
 		Game.pop_pause()
 	_cleanup()
 
+# --- Переэмиссия после загрузки ------------------------------------------
+
+## REL-04 · выход во время драфта не теряет драфт.
+##
+## run_state.draft сохраняется корректно, но rebroadcast_state не эмитил
+## draft_ready: после «Продолжить» панель выбора не появлялась, автопауза
+## не вставала, и на границе Спада auto_pick_if_needed брал первую карту
+## за игрока (docs/03 §8).
+static func test_draft_survives_save_load(t: TestCtx) -> void:
+	Game.cmd_new_run(SEED)
+	Game.cmd_set_speed(1)
+	Game._physics_process(0.2)                    # первый тик отдаёт драфт
+	var draft: Array[String] = Game.world.run_state.draft.duplicate()
+	t.check(not draft.is_empty(), "драфт собран")
+	t.check(not Game.world.run_state.drafted_this_cycle, "карта ещё не выбрана")
+	Game.cmd_save()
+	t.check(SaveService.has_valid_save(), "забег сохранён прямо на драфте")
+
+	var got: Array[String] = []
+	var seen: Array[bool] = [false]
+	var cb: Callable = func(ids: Array[String]) -> void:
+		seen[0] = true
+		got.assign(ids)
+	Events.draft_ready.connect(cb)
+	Game.world = null                             # как будто игра перезапущена
+	t.check(Game.cmd_load(), "забег загружен")
+	Events.draft_ready.disconnect(cb)
+
+	t.check(seen[0], "draft_ready прозвучал заново")
+	t.check_eq(got, draft, "и с теми же картами")
+	t.check(Game.pause_depth() > 0, "автопауза драфта встала")
+	while Game.pause_depth() > 0:
+		Game.pop_pause()
+	_cleanup()
+
 ## Прогоняет мир до ближайшей границы цикла через сам Game.
 static func _run_to_cycle_boundary(t: TestCtx) -> void:
 	var guard: int = 0
