@@ -17,8 +17,9 @@ var end_kind: SimTypes.RunEnd = SimTypes.RunEnd.SHIP
 var leaving_early: bool = false
 var ship_cycle: int = Balance.CYCLES_PER_RUN
 var ship_arrived: bool = false
-## Снимок очков на МОМЕНТ прибытия судна. Считать в конце HIGH нельзя:
-## к тому времени вода уже поднялась и утопила склады (research/18 §9).
+## Снимок очков на МОМЕНТ прибытия судна — пик Высокой воды
+## (SimClock.high_peak_tick, docs/00 §11.2). Именно тогда вода стоит на плато
+## фазы, в 12-м цикле — на сизигийном +2, и склады на +1..+2 под ней.
 var score_snapshot: Dictionary = {}
 ## Эпитафии погибших — для Журнала.
 var deaths: Array[Dictionary] = []
@@ -151,28 +152,40 @@ func surrender(w: SimWorld) -> void:
 func note_death(a: SimAgent, cause: String) -> void:
 	deaths.append({"name": a.agent_name, "cause": cause, "bio": a.bio_key})
 
-## Проверяется каждый тик: вайп немедленный, судно — по фазе.
+## Проверяется каждый тик: вайп немедленный, судно — на пике Высокой воды.
+##
+## ⚠️ Зовётся из SimWorld.tick ПОСЛЕ tide.update — иначе снимок очков считался
+## бы по уровню прошлого тика. Это и есть контракт «момента» из docs/02 §4.1.
 func tick(w: SimWorld) -> void:
 	if finished:
 		return
 	if w.agents.alive_count() == 0:
 		_finish(SimTypes.RunEnd.WIPE, w)
-
-func on_phase_started(phase: int, w: SimWorld) -> void:
-	if finished or phase != int(SimTypes.Phase.HIGH) or w.clock.cycle < ship_cycle:
 		return
-	if ship_arrived:
-		return
-	ship_arrived = true
-	# Очки снимаются ИМЕННО СЕЙЧАС: цикл 12 — сизигия, и к концу Высокой воды
-	# склады на +1..+2 уже под водой. Это спроектированное испытание, а не баг.
-	score_snapshot = compute_score(w)
-	_pending.append(SimEvent.make("ship_arrived", {}))
+	if w.clock.at_high_peak() and w.clock.cycle >= ship_cycle:
+		_arrive(w)
 
 func on_phase_ended(phase: int, w: SimWorld) -> void:
-	if finished or not ship_arrived or phase != int(SimTypes.Phase.HIGH):
+	if finished or phase != int(SimTypes.Phase.HIGH):
+		return
+	# ⚠️ Часы УЖЕ перевели счётчик: конец HIGH — это конец цикла, и здесь
+	# clock.cycle указывает на следующий. Закончился cycle − 1.
+	if not ship_arrived and w.clock.cycle - 1 >= ship_cycle:
+		# Страховка на случай, когда пик не наблюдался ни на одном тике
+		# (фаза короче окна подъёма): забег обязан закончиться.
+		_arrive(w)
+	if not ship_arrived:
 		return
 	_finish(SimTypes.RunEnd.SHIP, w)
+
+## Прибытие судна: снимок очков по ТЕКУЩЕМУ уровню воды. Идемпотентно.
+## Момент выбирает вызывающий — см. docs/02 §4.1.
+func _arrive(w: SimWorld) -> void:
+	if finished or ship_arrived:
+		return
+	ship_arrived = true
+	score_snapshot = compute_score(w)
+	_pending.append(SimEvent.make("ship_arrived", {}))
 
 func _finish(kind: SimTypes.RunEnd, w: SimWorld) -> void:
 	if finished:

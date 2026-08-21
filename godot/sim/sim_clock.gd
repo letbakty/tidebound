@@ -41,6 +41,21 @@ func ticks_left_in_phase() -> int:
 func phase_progress() -> float:
 	return float(tick_in_phase) / float(phase_len(phase))
 
+## Тик внутри HIGH, на котором вода добирается до плато — «пик Высокой воды».
+## Именованный момент, а не число в двух местах: по нему считает кривую Tide
+## и на нём же приходит судно (docs/00 §11.2, docs/02 §4.1). Расхождение этих
+## двух определений и было дефектом SIM-01.
+##
+## Окно подъёма не может быть длиннее самой фазы: шторм и карты правят
+## phase_scale, и на укороченной HIGH пик приходится на её последний тик.
+func high_peak_tick() -> int:
+	return mini(Balance.HIGH_RISE_TICKS,
+		maxi(1, phase_len(SimTypes.Phase.HIGH) - 1))
+
+## Наступил ли пик Высокой воды прямо сейчас (и не раньше).
+func at_high_peak() -> bool:
+	return phase == SimTypes.Phase.HIGH and tick_in_phase == high_peak_tick()
+
 ## Продвигает время на один тик и возвращает события границ.
 ## Порядок событий внутри тика фиксирован: cycle_ended → cycle_started →
 ## phase_changed. Менять нельзя — на него опирается автопауза Итога цикла.

@@ -181,7 +181,6 @@ func tick() -> void:
 			if int(e.data["prev"]) == int(SimTypes.Phase.EBB):
 				run_state.auto_pick_if_needed(self)
 			run_state.on_phase_ended(int(e.data["prev"]), self)
-			run_state.on_phase_started(int(e.data["phase"]), self)
 			# prev нужен именно здесь: «конец LOW» и «начало SIGNAL» — разные
 			# события, и испаритель отдаёт соль по первому.
 			production.on_phase_ended(int(e.data["prev"]), self)

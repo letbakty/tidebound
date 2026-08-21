@@ -57,10 +57,10 @@ func _level_for(clock: SimClock) -> float:
 		SimTypes.Phase.SIGNAL:
 			return lerpf(low_plateau, Balance.SIGNAL_LEVEL, p)
 		SimTypes.Phase.HIGH:
-			# «Вода стеной»: подъём за первые 20 с, дальше плато.
-			# Окно подъёма не может быть длиннее самой фазы (шторм/карты
-			# укорачивают фазы через phase_scale).
-			var rise: int = mini(Balance.HIGH_RISE_TICKS, clock.phase_len(SimTypes.Phase.HIGH))
+			# «Вода стеной»: подъём за первые 20 с, дальше плато. Момент, когда
+			# вода встаёт на плато, — общий с судном (SimClock.high_peak_tick):
+			# два определения одного и того же тика и были дефектом SIM-01.
+			var rise: int = clock.high_peak_tick()
 			if clock.tick_in_phase >= rise:
 				return high_plateau
 			var t: float = float(clock.tick_in_phase) / float(rise)

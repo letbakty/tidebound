@@ -116,6 +116,55 @@ static func test_leave_early_cuts_score(t: TestCtx) -> void:
 	var expected: int = int(float(int(report["raw_score"])) * Balance.SCORE_MULT_EARLY)
 	t.check_eq(int(report["score"]), expected, "очки урезаны на четверть")
 
+## TEST-02 · момент снимка очков (SIM-01). Раньше снимок делался в
+## on_phase_started(HIGH), когда вода ещё стояла на уровне Сигнала (−6):
+## затоплены были только −7 и −8, и «финальное испытание сизигии» из
+## docs/00 §11.2 не срабатывало никогда. Проверяем сам МОМЕНТ, а не формулу.
+static func test_score_snapshot_taken_at_high_peak(t: TestCtx) -> void:
+	var w: SimWorld = _world(4242)
+	# Склад на +1: в сизигию 12-го цикла он обязан оказаться под водой.
+	var high_id: int = w.buildings.place("storage",
+		Vector2i(10, Balance.mark_to_floor_cell_y(1) - 2), w, true)
+	t.check(high_id > 0, "склад на +1 стоит")
+	var sid: int = w.storage.storage_at(BuildingSystem.storage_cell(
+		w.buildings.buildings[high_id]))
+	w.storage.store(sid, StackUtil.make("relic", 1, false))
+
+	var level_at_arrival: float = NAN
+	var plateau_at_arrival: float = NAN
+	var tick_at_arrival: int = -1
+	var peak_at_arrival: int = -1
+	var phase_at_arrival: int = -1
+	var cycle_at_arrival: int = -1
+	for i: int in Balance.TICKS_PER_CYCLE * 20:
+		w.tick()
+		for e: SimEvent in w.events_out:
+			if e.type != "ship_arrived":
+				continue
+			level_at_arrival = w.tide.level
+			plateau_at_arrival = w.tide.high_plateau
+			tick_at_arrival = int(w.clock.tick_in_phase)
+			peak_at_arrival = w.clock.high_peak_tick()
+			phase_at_arrival = int(w.clock.phase)
+			cycle_at_arrival = int(w.clock.cycle)
+		w.events_out.clear()
+		if w.run_state.finished:
+			break
+	t.check(not is_nan(level_at_arrival), "судно пришло")
+	t.check_eq(cycle_at_arrival, Balance.CYCLES_PER_RUN, "в 12-м цикле")
+	t.check_eq(phase_at_arrival, int(SimTypes.Phase.HIGH), "на Высокой воде")
+	t.check_eq(tick_at_arrival, peak_at_arrival, "и ровно на её пике")
+	t.check_approx(level_at_arrival, plateau_at_arrival, 0.01,
+		"вода уже на плато, а не на уровне Сигнала")
+	t.check_approx(level_at_arrival, Balance.HIGH_LEVEL + Balance.SPRING_BONUS, 0.01,
+		"плато 12-го цикла — сизигийное +2")
+	# Главное следствие момента (docs/00 §11.2): склад на +1 в этот тик
+	# под водой и в очки не идёт, а поднятое на +3 спасено.
+	t.check(Balance.is_mark_flooded(1, level_at_arrival),
+		"склад на +1 в момент снимка под водой")
+	t.check(not Balance.is_mark_flooded(3, level_at_arrival),
+		"а поднятое на +3 спасено")
+
 # --- Очки -----------------------------------------------------------------
 
 ## Затопленный в момент судна склад не даёт очков — это спроектированное
