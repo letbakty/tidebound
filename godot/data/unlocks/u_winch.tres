@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UnlockDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/unlock_def.gd" id="1_xnyqs"]
+
+[resource]
+script = ExtResource("1_xnyqs")
+id = "u_winch"
+display_key = "UNL_WINCH"
+desc_key = "UNL_WINCH_D"
+cost = 50
+grants = {
+"building": "winch"
+}

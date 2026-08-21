@@ -26,6 +26,9 @@ var _error_count: int = 0
 var fast_forwarding: bool = false
 ## Скорость до автопаузы (драфт, итог цикла) — её возвращает resume_prev_speed.
 var _paused_speed: int = 1
+## Секция интерфейса в сейве: показанные банеры и подсказки. Наполняют
+## этапы 13 и 15; sim о ней не знает.
+var ui_state: Dictionary = {}
 
 func _physics_process(delta: float) -> void:
 	if speed == 0 or world == null:
@@ -52,13 +55,72 @@ const CLIFF_PATH: String = "res://data/cliffs/cliff_01.tres"
 func cliff_def() -> CliffDef:
 	return load(CLIFF_PATH) as CliffDef
 
+## Забег всегда стартует с разблокировками Журнала: sim их не читает,
+## Game передаёт копию (docs/02 §1).
 func cmd_new_run(seed_value: int = 0) -> void:
 	world = SimWorld.new(OS.is_debug_build())
-	world.new_run(seed_value, cliff_def())
+	world.new_run(seed_value, cliff_def(), Meta.unlocked.duplicate())
+	SaveService.delete_run()
 	_accum = 0.0
 	_error_count = 0
 	_flush_events()
 	cmd_set_speed(1)
+
+## Досрочный уход: судно вызывается на следующий цикл, очки ×0.75.
+func cmd_leave_early() -> void:
+	if world != null:
+		world.apply_command({"kind": "leave_early"})
+
+## Немедленная сдача по решению игрока.
+func cmd_surrender() -> void:
+	if world != null:
+		world.apply_command({"kind": "surrender"})
+
+func cmd_save() -> void:
+	SaveService.save_run(ui_state)
+
+func cmd_load() -> bool:
+	return SaveService.load_run()
+
+func has_save() -> bool:
+	return SaveService.has_save()
+
+## Восстановление мира из сейва + повторная эмиссия событий для UI.
+func restore_world(data: Dictionary) -> void:
+	world = SimWorld.new(OS.is_debug_build())
+	world.from_dict(data, cliff_def())
+	_accum = 0.0
+	_error_count = 0
+	world.events_out.clear()
+	rebroadcast_state()
+	cmd_set_speed(0)
+
+## После загрузки View-ноды пусты: их создают события, которых уже не будет.
+## Любая View-нода, рождающаяся по событию, обязана быть покрыта здесь
+## (research/18 §7) — новый тип сущности добавляет сюда строку.
+func rebroadcast_state() -> void:
+	if world == null:
+		return
+	Events.run_started.emit(world.rng.seed_value)
+	Events.cycle_started.emit(world.clock.cycle)
+	Events.phase_changed.emit(int(world.clock.phase), world.clock.cycle)
+	Events.water_level_changed.emit(world.tide.level)
+	for a: SimAgent in world.agents.agents:
+		if a.is_alive():
+			Events.agent_spawned.emit(a.id)
+	for id: int in world.buildings.order:
+		Events.building_placed.emit(id)
+		Events.building_state_changed.emit(id)
+	for d: Dictionary in world.terrain.deposits:
+		Events.deposit_changed.emit(int(d["id"]))
+	for s: Dictionary in world.storage.storages:
+		Events.storage_changed.emit(int(s["id"]))
+	for c: Dictionary in world.crisis.creatures:
+		Events.creature_spawned.emit(int(c["id"]))
+	Events.resources_changed.emit(world.storage.totals())
+	Events.beacon_moved.emit(world.beacon_cell())
+	for pol: int in SimTypes.POLICY_ORDER:
+		Events.policy_changed.emit(pol, world.policies.get_value(pol))
 
 ## Единственная прямая команда агентам (docs/00 §6.7).
 func cmd_recall(hard: bool = false) -> void:
@@ -229,6 +291,13 @@ func tick_budget_ms() -> float:
 func error_count() -> int:
 	return _error_count
 
+## Конец забега: очки уходят в Журнал, сейв забега удаляется, игра встаёт.
+func _on_run_ended(report: Dictionary) -> void:
+	Meta.record_run(report)
+	SaveService.delete_run()
+	cmd_set_speed(0)
+	Events.run_ended.emit(report)
+
 # --- Трансляция событий ---------------------------------------------------
 
 ## events_out → сигналы Events. Ветка _: обязательна: без неё неизвестный тип
@@ -247,6 +316,10 @@ func _flush_events() -> void:
 			"cycle_started":
 				Events.cycle_started.emit(int(e.data["cycle"]))
 			"cycle_ended":
+				# Автопауза Итога цикла и автосейв на границе (docs/00 §4, §14).
+				_paused_speed = speed
+				cmd_set_speed(0)
+				SaveService.save_run(ui_state)
 				Events.cycle_ended.emit(e.data as Dictionary)
 			"run_started":
 				Events.run_started.emit(int(e.data["seed"]))
@@ -297,6 +370,10 @@ func _flush_events() -> void:
 				Events.draft_ready.emit(ids)
 			"card_picked":
 				Events.card_picked.emit(str(e.data["card"]))
+			"ship_arrived":
+				Events.ship_arrived.emit()
+			"run_ended":
+				_on_run_ended(e.data["report"] as Dictionary)
 			"policy_changed":
 				Events.policy_changed.emit(int(e.data["policy"]), int(e.data["value"]))
 			"beacon_moved":

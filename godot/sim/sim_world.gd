@@ -79,6 +79,10 @@ func new_run(seed_value: int, cliff: CliffDef, unlock_list: Array[String] = []) 
 	if cliff == null:
 		push_error("SimWorld.new_run: карта утёса не передана")
 	else:
+		# Разблокировки ставятся ПЕРВЫМИ: их читают и размещение построек,
+		# и стартовые бонусы, и состав колонии.
+		run_state.new_run(unlock_list)
+		unlocked = unlock_list.duplicate()
 		terrain.build(cliff, rng)
 		storage.new_run(cliff)
 		jobs.new_run()
@@ -88,10 +92,9 @@ func new_run(seed_value: int, cliff: CliffDef, unlock_list: Array[String] = []) 
 		# Очаг горит с первого тика: иначе колония весь первый цикл живёт
 		# без единого источника тепла.
 		buildings.light_start_fires()
+		_apply_start_bonuses()
 		production.new_run()
 		crisis.new_run()
-		run_state.new_run(unlock_list)
-		unlocked = unlock_list.duplicate()
 		# Первый цикл — тоже Спад: драфт положен и на нём.
 		run_state.start_draft(self)
 		refresh_heat_sources()
@@ -131,6 +134,10 @@ func _consume_commands() -> void:
 				buildings.demolish(int(cmd.get("id", -1)), self)
 			"pick_card":
 				run_state.pick_card(str(cmd.get("card", "")), self)
+			"leave_early":
+				run_state.leave_early(self)
+			"surrender":
+				run_state.surrender(self)
 			"set_beacon":
 				var cell: Vector2i = SimTypes.arr_to_v2i(cmd.get("cell", [0, 0]) as Array)
 				jobs.beacon_cell = cell
@@ -166,6 +173,8 @@ func tick() -> void:
 			# Спад кончился, а карта не выбрана — страховка от зависшего цикла.
 			if int(e.data["prev"]) == int(SimTypes.Phase.EBB):
 				run_state.auto_pick_if_needed(self)
+			run_state.on_phase_ended(int(e.data["prev"]), self)
+			run_state.on_phase_started(int(e.data["phase"]), self)
 			# prev нужен именно здесь: «конец LOW» и «начало SIGNAL» — разные
 			# события, и испаритель отдаёт соль по первому.
 			production.on_phase_ended(int(e.data["prev"]), self)
@@ -222,7 +231,7 @@ func _tick_storage() -> void:
 	storage.on_tick(tide.level, production.basket_cells(self))
 
 func _tick_run_state() -> void:
-	pass    # этап 11
+	run_state.tick(self)
 
 ## Клетка старта колонии. Систему агентов деф карты напрямую не касается.
 func cliff_spawn_cell() -> Vector2i:
@@ -257,6 +266,14 @@ func refresh_heat_sources() -> void:
 			_heat_cache.append(b["cell"] as Vector2i)
 	_heat_cache.append_array(debug_heat_sources)
 
+## Стартовые бонусы разблокировок Журнала (docs/00 §11.3).
+func _apply_start_bonuses() -> void:
+	if unlocked.has("u_start_stock"):
+		var sid: int = storage.storage_at(_cliff.start_storage_cell)
+		if sid >= 0:
+			storage.store(sid, StackUtil.make("driftwood",
+				Balance.START_STOCK_BONUS, false))
+
 ## Пересчёт всего, на что влияют карта цикла и шторм. Единственное место,
 ## где эти два источника сходятся: и карта, и шторм правят длительность
 ## отлива, и писать в phase_scale по очереди значило бы затирать друг друга.
@@ -267,6 +284,16 @@ func refresh_cycle_effects() -> void:
 	if is_storm:
 		scale *= Balance.STORM_LOW_SCALE
 	clock.phase_scale[SimTypes.Phase.LOW] = scale
+
+## Отметка, ниже которой в ЭТОМ цикле будет вода. В обычный цикл это 0,
+## в сизигию — +2: авто-возврат обязан считать опасность по ней, иначе
+## колония тонет прямо у себя дома (найдено прогоном полного забега).
+func danger_mark() -> float:
+	return tide.high_plateau
+
+## Куда возвращаться, чтобы точно не залило.
+func safe_mark() -> int:
+	return maxi(Balance.SAFE_MARK, int(ceil(tide.high_plateau)) + 1)
 
 func heat_radius() -> int:
 	return Balance.HEAT_RADIUS_BIG if unlocked.has(Balance.UNLOCK_HEARTH_BIG) \

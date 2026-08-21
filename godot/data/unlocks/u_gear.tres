@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UnlockDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/unlock_def.gd" id="1_4b4og"]
+
+[resource]
+script = ExtResource("1_4b4og")
+id = "u_gear"
+display_key = "UNL_GEAR"
+desc_key = "UNL_GEAR_D"
+cost = 40
+grants = {
+"recipe": "ropery_gear"
+}

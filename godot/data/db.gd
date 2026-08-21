@@ -12,6 +12,7 @@ static var _traits: Dictionary[String, TraitDef] = {}
 static var _buildings: Dictionary[String, BuildingDef] = {}
 static var _recipes: Dictionary[String, RecipeDef] = {}
 static var _cards: Dictionary[String, CardDef] = {}
+static var _unlocks: Dictionary[String, UnlockDef] = {}
 static var _loaded: bool = false
 
 # Задел под этапы 07/08/05/10/11 — папки уже существуют, загрузчик один и тот же.
@@ -33,6 +34,7 @@ static func ensure_loaded() -> void:
 	_load_dir(str(DIRS["buildings"]), _buildings)
 	_load_dir(str(DIRS["recipes"]), _recipes)
 	_load_dir(str(DIRS["cards"]), _cards)
+	_load_dir(str(DIRS["unlocks"]), _unlocks)
 
 ## Сбрасывает кэш. Нужен только тестам, которые проверяют сам загрузчик.
 static func reload() -> void:
@@ -41,6 +43,7 @@ static func reload() -> void:
 	_buildings.clear()
 	_recipes.clear()
 	_cards.clear()
+	_unlocks.clear()
 	_loaded = false
 	ensure_loaded()
 
@@ -149,6 +152,24 @@ static func card_ids() -> Array[String]:
 	ensure_loaded()
 	var ids: Array[String] = []
 	ids.assign(_cards.keys())
+	ids.sort()
+	return ids
+
+static func unlock(id: String) -> UnlockDef:
+	ensure_loaded()
+	var u: UnlockDef = _unlocks.get(id, null)
+	if u == null:
+		push_error("DB: нет разблокировки '%s'" % id)
+	return u
+
+static func has_unlock(id: String) -> bool:
+	ensure_loaded()
+	return _unlocks.has(id)
+
+static func unlock_ids() -> Array[String]:
+	ensure_loaded()
+	var ids: Array[String] = []
+	ids.assign(_unlocks.keys())
 	ids.sort()
 	return ids
 

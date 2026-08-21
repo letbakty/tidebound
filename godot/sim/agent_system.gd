@@ -25,6 +25,13 @@ func new_run(w: SimWorld) -> void:
 	_pending.clear()
 	for i: int in Balance.START_AGENTS:
 		_spawn(w)
+	# Разблокировка «Старт: кузнец» даёт седьмого агента с этой чертой.
+	if w.unlocked.has("u_start_smith"):
+		var smith: SimAgent = _spawn(w)
+		smith.trait_ids = ["smith", smith.trait_ids[1]]
+		if smith.trait_ids[1] == "smith":
+			smith.trait_ids[1] = "thrifty"
+		smith.recompute_from_traits()
 
 func _spawn(w: SimWorld) -> SimAgent:
 	var a: SimAgent = SimAgent.new()
@@ -196,11 +203,11 @@ func _check_panic(a: SimAgent, w: SimWorld) -> bool:
 	var exit_v: int = Balance.NEED_LOW_EXIT_MILLI
 	var mark: float = agent_mark_f(a, w)
 	if not panicking:
-		if int(a.needs["mood"]) >= low or mark >= 0.0:
+		if int(a.needs["mood"]) >= low or mark >= w.danger_mark():
 			return false
 		_set_state(a, SimTypes.AgentState.PANIC, w)
 		_set_return_target(a, w)
-	elif int(a.needs["mood"]) >= exit_v and mark >= 0.0:
+	elif int(a.needs["mood"]) >= exit_v and mark >= w.danger_mark():
 		_set_state(a, SimTypes.AgentState.IDLE, w)
 		return false
 	_do_return(a, w)
@@ -656,11 +663,11 @@ func _at_goal(a: SimAgent) -> bool:
 	return a.climb_to < 0 and a.platform_id == a.goto_platform \
 		and absf(a.x - a.goto_x) <= 0.01
 
-## Цель отзыва — жилая площадка не ниже SAFE_MARK. Не отметка 0: в сизигию
-## вода поднимается до +2, и «ноль» перестаёт быть безопасным.
+## Цель отзыва — площадка выше воды ЭТОГО цикла. Не отметка 0 и не жёсткая
+## константа: в сизигию вода поднимается до +2.
 func _set_return_target(a: SimAgent, w: SimWorld) -> void:
 	var spawn: Vector2i = w.cliff_spawn_cell()
-	var mark: int = maxi(Balance.cell_to_mark(spawn), Balance.SAFE_MARK)
+	var mark: int = maxi(Balance.cell_to_mark(spawn), w.safe_mark())
 	var pid: int = w.terrain.platform_of_mark(mark)
 	if pid < 0:
 		pid = w.terrain.platform_at(spawn)
@@ -717,6 +724,7 @@ func _kill(a: SimAgent, cause: String, w: SimWorld) -> void:
 	a.has_gear = false                 # снаряжение теряется вместе с агентом
 	w.jobs.on_agent_died(a)
 	_pending.append(SimEvent.make("agent_died", {"id": a.id, "cause": cause}))
+	w.run_state.note_death(a, cause)
 	# Смерть бьёт по всем живым сразу, без проверки дистанции (docs/00 §6.3).
 	for other: SimAgent in agents:
 		if other.is_alive():

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UnlockDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/unlock_def.gd" id="1_3jwk4"]
+
+[resource]
+script = ExtResource("1_3jwk4")
+id = "u_lantern_bright"
+display_key = "UNL_LANTERN_BRIGHT"
+desc_key = "UNL_LANTERN_BRIGHT_D"
+cost = 30
+grants = {
+"upgrade": "lantern_radius"
+}

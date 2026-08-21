@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UnlockDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/unlock_def.gd" id="1_62hdc"]
+
+[resource]
+script = ExtResource("1_62hdc")
+id = "u_start_smith"
+display_key = "UNL_START_SMITH"
+desc_key = "UNL_START_SMITH_D"
+cost = 60
+grants = {
+"start_bonus": "smith"
+}

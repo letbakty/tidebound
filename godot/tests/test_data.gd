@@ -73,6 +73,11 @@ static func test_i18n_keys_exist(t: TestCtx) -> void:
 		var cd: CardDef = DB.card(cid)
 		t.check(known.has(cd.display_key), "нет ключа '%s' (карта %s)" % [cd.display_key, cid])
 		t.check(known.has(cd.desc_key), "нет ключа описания карты %s" % cid)
+	for uid: String in DB.unlock_ids():
+		var ud: UnlockDef = DB.unlock(uid)
+		t.check(known.has(ud.display_key),
+			"нет ключа '%s' (разблокировка %s)" % [ud.display_key, uid])
+		t.check(known.has(ud.desc_key), "нет ключа описания разблокировки %s" % uid)
 	for err: String in ["ERR_LOCKED", "ERR_MARK", "ERR_OCCUPIED", "ERR_NO_SUPPORT",
 			"ERR_NO_LADDER_SPOT"]:
 		t.check(known.has(err), "нет ключа причины отказа '%s'" % err)
@@ -179,6 +184,9 @@ static func _snapshot() -> String:
 	for cid2: String in DB.card_ids():
 		var cd2: CardDef = DB.card(cid2)
 		all.append([cd2.id, cd2.display_key, cd2.rarity, cd2.unlock_id, cd2.effects])
+	for uid2: String in DB.unlock_ids():
+		var ud2: UnlockDef = DB.unlock(uid2)
+		all.append([ud2.id, ud2.display_key, ud2.cost, ud2.grants])
 	for rid2: String in DB.recipe_ids():
 		var rd: RecipeDef = DB.recipe(rid2)
 		all.append([rd.id, rd.station_special, rd.inputs, rd.outputs,

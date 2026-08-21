@@ -231,6 +231,18 @@ const MOOD_STORM_MILLI: int = 15_000
 ## Шторм пережит без потерь — +5 духа всем.
 const MOOD_STORM_SURVIVED_MILLI: int = 5_000
 
+# --- Конец забега и очки (docs/00 §11.2) ----------------------------------
+const POINTS_PER_SURVIVOR: int = 5
+## Реликвия даёт 10 очков СВЕРХ своих ship_points — итого 20.
+const POINTS_PER_RELIC_BONUS: int = 10
+## Гибель всех — 30% от набранного; досрочный уход — 75%.
+const SCORE_MULT_WIPE: float = 0.3
+const SCORE_MULT_EARLY: float = 0.75
+## Досрочный уход доступен с 8-го цикла (docs/00 §11.2).
+const EARLY_LEAVE_MIN_CYCLE: int = 8
+## Старт: +6 плавника с разблокировкой u_start_stock.
+const START_STOCK_BONUS: int = 6
+
 ## Затопление: клетка мокрая, если её отметка НИЖЕ уровня воды.
 ## Эпсилон обязателен — уровень считается по smoothstep и на плато даёт
 ## −7.9999999, а не −8.0. Без него нижняя ступень мигала бы от float-шума,

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UnlockDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/unlock_def.gd" id="1_583jy"]
+
+[resource]
+script = ExtResource("1_583jy")
+id = "u_hearth_big"
+display_key = "UNL_HEARTH_BIG"
+desc_key = "UNL_HEARTH_BIG_D"
+cost = 25
+grants = {
+"upgrade": "hearth_radius"
+}

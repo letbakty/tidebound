@@ -126,3 +126,27 @@ CARD_CALM_WATER,Тихая вода,Calm water
 CARD_CALM_WATER_D,Приход этого цикла отменён,This cycle's visit is cancelled
 CARD_THE_FIND,Находка,The find
 CARD_THE_FIND_D,На дне помечена гарантированная реликвия,A guaranteed relic is marked on the floor
+UNL_STEEL_LADDER,Стальная лестница,Steel ladder
+UNL_STEEL_LADDER_D,Не ломается штормом,Storms do not break it
+UNL_CONDENSER,Конденсатор,Condenser
+UNL_CONDENSER_D,Две пресной воды за цикл без чьего-либо участия,Two fresh water a cycle, unattended
+UNL_WINCH,Лебёдка,Winch
+UNL_WINCH_D,Поднимает груз со дна сама,Lifts cargo from the floor by itself
+UNL_GEAR,Крафт Снаряжения,Gear crafting
+UNL_GEAR_D,Дыхательный мешок: пятнадцать лишних секунд под водой,A breathing bag: fifteen extra seconds under water
+UNL_LANTERN_BRIGHT,Яркий фонарь,Bright lantern
+UNL_LANTERN_BRIGHT_D,Отпугивает существ на пять тайлов вместо трёх,Wards creatures off at five tiles instead of three
+UNL_HEARTH_BIG,Большой очаг,Great hearth
+UNL_HEARTH_BIG_D,Греет на шесть тайлов вместо четырёх,Warms six tiles instead of four
+UNL_START_SMITH,Старт: кузнец,Start: a smith
+UNL_START_SMITH_D,Седьмой агент с чертой Кузнец,A seventh colonist with the Smith trait
+UNL_START_STOCK,Старт: запас плавника,Start: extra driftwood
+UNL_START_STOCK_D,Шесть лишних поленьев на старте,Six extra logs at the start
+UNL_CARD_EBB,Карта «Великий отлив»,Card: Great ebb
+UNL_CARD_EBB_D,Замешивается в драфт планов вылазки,Shuffled into the expedition draft
+UNL_CARD_CALM,Карта «Тихая вода»,Card: Calm water
+UNL_CARD_CALM_D,Замешивается в драфт планов вылазки,Shuffled into the expedition draft
+UNL_CARD_FIND,Карта «Находка»,Card: The find
+UNL_CARD_FIND_D,Замешивается в драфт планов вылазки,Shuffled into the expedition draft
+UNL_DRAFT_PLUS,Драфт из четырёх,Draft of four
+UNL_DRAFT_PLUS_D,На Спаде показывают четыре карты вместо трёх,Four cards on the ebb instead of three

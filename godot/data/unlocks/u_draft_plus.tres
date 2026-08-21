@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UnlockDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/unlock_def.gd" id="1_rbgvw"]
+
+[resource]
+script = ExtResource("1_rbgvw")
+id = "u_draft_plus"
+display_key = "UNL_DRAFT_PLUS"
+desc_key = "UNL_DRAFT_PLUS_D"
+cost = 80
+grants = {
+"draft_size": 4
+}

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UnlockDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/unlock_def.gd" id="1_bfx0h"]
+
+[resource]
+script = ExtResource("1_bfx0h")
+id = "u_card_calm"
+display_key = "UNL_CARD_CALM"
+desc_key = "UNL_CARD_CALM_D"
+cost = 50
+grants = {
+"card": "calm_water"
+}

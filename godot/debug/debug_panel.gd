@@ -32,6 +32,7 @@ var _crisis_label: Label = null
 var _card_label: Label = null
 var _card_row: HBoxContainer = null
 var _card_shown: Array[String] = []
+var _meta_label: Label = null
 
 const CRISIS_NAMES: Dictionary = {
 	SimTypes.CrisisType.SPRING_TIDE: "сизигия",
@@ -175,6 +176,16 @@ func _build_ui() -> void:
 	_button(run_row, "завершить цикл", func() -> void:
 		Game.debug_fast_forward(Game.debug_ticks_to_next_cycle()))
 
+	_head("СЕЙВ И ЖУРНАЛ")
+	var save_row: HBoxContainer = _row()
+	_button(save_row, "сохранить", func() -> void: Game.cmd_save())
+	_button(save_row, "загрузить", func() -> void: Game.cmd_load())
+	_button(save_row, "стереть профиль", func() -> void: Meta.wipe())
+	var end_row: HBoxContainer = _row()
+	_button(end_row, "уйти досрочно", func() -> void: Game.cmd_leave_early())
+	_button(end_row, "сдаться", func() -> void: Game.cmd_surrender())
+	_meta_label = _label("—")
+
 	_head("КАРТЫ")
 	_card_label = _label("—")
 	_card_row = _row()
@@ -282,6 +293,7 @@ func _process(_delta: float) -> void:
 	_refresh_build_hint()
 	_refresh_crises()
 	_refresh_cards()
+	_refresh_meta()
 	if _log_dirty:
 		_log_dirty = false
 		_log_label.text = "\n".join(_log)
@@ -367,6 +379,15 @@ func _select_building(def_id: String) -> void:
 	_build_hint.text = "—" if def_id.is_empty() else def_id
 
 ## Драфт до появления панели карт (этап 15): кнопка на каждую карту.
+func _refresh_meta() -> void:
+	var st: Dictionary = Meta.stats()
+	var ship: String = "—"
+	if Game.world != null:
+		ship = "цикл %d" % Game.world.run_state.ship_cycle
+	_meta_label.text = "очки %d · забегов %d (побед %d) · разблокировок %d · судно %s" % [
+		int(st["points_total"]), int(st["runs_played"]), int(st["runs_won"]),
+		Meta.unlocked.size(), ship]
+
 func _refresh_cards() -> void:
 	if Game.world == null:
 		return

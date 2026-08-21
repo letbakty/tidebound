@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UnlockDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/unlock_def.gd" id="1_6j4ul"]
+
+[resource]
+script = ExtResource("1_6j4ul")
+id = "u_start_stock"
+display_key = "UNL_START_STOCK"
+desc_key = "UNL_START_STOCK_D"
+cost = 20
+grants = {
+"start_bonus": "driftwood"
+}

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UnlockDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/unlock_def.gd" id="1_kom3l"]
+
+[resource]
+script = ExtResource("1_kom3l")
+id = "u_steel_ladder"
+display_key = "UNL_STEEL_LADDER"
+desc_key = "UNL_STEEL_LADDER_D"
+cost = 30
+grants = {
+"building": "ladder_steel"
+}

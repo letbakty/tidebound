@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UnlockDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/unlock_def.gd" id="1_510o2"]
+
+[resource]
+script = ExtResource("1_510o2")
+id = "u_card_ebb"
+display_key = "UNL_CARD_EBB"
+desc_key = "UNL_CARD_EBB_D"
+cost = 50
+grants = {
+"card": "great_ebb"
+}

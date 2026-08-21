@@ -10,6 +10,19 @@ var draft: Array[String] = []
 var active_card: String = ""
 var drafted_this_cycle: bool = false
 
+## Забег закончен и как именно (docs/00 §11.2).
+var finished: bool = false
+var end_kind: SimTypes.RunEnd = SimTypes.RunEnd.SHIP
+## Досрочный уход: судно приходит в следующем цикле, очки ×0.75.
+var leaving_early: bool = false
+var ship_cycle: int = Balance.CYCLES_PER_RUN
+var ship_arrived: bool = false
+## Снимок очков на МОМЕНТ прибытия судна. Считать в конце HIGH нельзя:
+## к тому времени вода уже поднялась и утопила склады (research/18 §9).
+var score_snapshot: Dictionary = {}
+## Эпитафии погибших — для Журнала.
+var deaths: Array[Dictionary] = []
+
 const UNLOCK_DRAFT_PLUS: String = "u_draft_plus"
 const DRAFT_SIZE: int = 3
 const DRAFT_SIZE_PLUS: int = 4
@@ -21,6 +34,13 @@ func new_run(unlock_list: Array[String]) -> void:
 	draft.clear()
 	active_card = ""
 	drafted_this_cycle = false
+	finished = false
+	end_kind = SimTypes.RunEnd.SHIP
+	leaving_early = false
+	ship_cycle = Balance.CYCLES_PER_RUN
+	ship_arrived = false
+	score_snapshot.clear()
+	deaths.clear()
 	_pending.clear()
 
 func has_unlock(id: String) -> bool:
@@ -113,6 +133,108 @@ func end_cycle(w: SimWorld) -> Dictionary:
 	drafted_this_cycle = false
 	return {"card": used}
 
+# --- Конец забега ---------------------------------------------------------
+
+## Досрочный уход доступен с 8-го цикла: судно вызывается на следующий,
+## очки ×0.75 (docs/00 §11.2). Возвращает false, если рано.
+func leave_early(w: SimWorld) -> bool:
+	if finished or leaving_early or w.clock.cycle < Balance.EARLY_LEAVE_MIN_CYCLE:
+		return false
+	leaving_early = true
+	ship_cycle = mini(w.clock.cycle + 1, Balance.CYCLES_PER_RUN)
+	return true
+
+## Немедленная сдача по решению игрока.
+func surrender(w: SimWorld) -> void:
+	_finish(SimTypes.RunEnd.WIPE, w)
+
+func note_death(a: SimAgent, cause: String) -> void:
+	deaths.append({"name": a.agent_name, "cause": cause, "bio": a.bio_key})
+
+## Проверяется каждый тик: вайп немедленный, судно — по фазе.
+func tick(w: SimWorld) -> void:
+	if finished:
+		return
+	if w.agents.alive_count() == 0:
+		_finish(SimTypes.RunEnd.WIPE, w)
+
+func on_phase_started(phase: int, w: SimWorld) -> void:
+	if finished or phase != int(SimTypes.Phase.HIGH) or w.clock.cycle < ship_cycle:
+		return
+	if ship_arrived:
+		return
+	ship_arrived = true
+	# Очки снимаются ИМЕННО СЕЙЧАС: цикл 12 — сизигия, и к концу Высокой воды
+	# склады на +1..+2 уже под водой. Это спроектированное испытание, а не баг.
+	score_snapshot = compute_score(w)
+	_pending.append(SimEvent.make("ship_arrived", {}))
+
+func on_phase_ended(phase: int, w: SimWorld) -> void:
+	if finished or not ship_arrived or phase != int(SimTypes.Phase.HIGH):
+		return
+	_finish(SimTypes.RunEnd.SHIP, w)
+
+func _finish(kind: SimTypes.RunEnd, w: SimWorld) -> void:
+	if finished:
+		return
+	finished = true
+	end_kind = kind
+	if score_snapshot.is_empty():
+		score_snapshot = compute_score(w)
+	var report: Dictionary = _final_report(w)
+	_pending.append(SimEvent.make("run_ended", {"report": report}))
+
+## Разбивка и итог считаются ИЗ ОДНОГО источника: сумма получается сложением
+## разбивки, а не отдельной формулой — иначе они разъедутся на округлениях.
+func compute_score(w: SimWorld) -> Dictionary:
+	var cargo: int = 0
+	var relics: int = 0
+	for s: Dictionary in w.storage.storages:
+		# Затопленный в момент судна склад не считается вовсе.
+		if Balance.is_mark_flooded(Balance.cell_to_mark(s["cell"] as Vector2i),
+				w.tide.level):
+			continue
+		for v: Variant in s["stacks"] as Array:
+			var st: Dictionary = v as Dictionary
+			var def: ItemDef = DB.item(str(st["item_id"]))
+			if def == null:
+				continue
+			cargo += def.ship_points * int(st["count"])
+			if str(st["item_id"]) == "relic":
+				relics += int(st["count"])
+	var alive: int = w.agents.alive_count()
+	return {
+		"cargo": cargo,
+		"survivors": alive * Balance.POINTS_PER_SURVIVOR,
+		"relics": relics * Balance.POINTS_PER_RELIC_BONUS,
+	}
+
+func _final_report(w: SimWorld) -> Dictionary:
+	var breakdown: Dictionary = score_snapshot.duplicate()
+	var raw: int = 0
+	var keys: Array[String] = []
+	keys.assign(breakdown.keys())
+	keys.sort()
+	for k: String in keys:
+		raw += int(breakdown[k])
+	var mult: float = 1.0
+	if end_kind == SimTypes.RunEnd.WIPE:
+		mult = Balance.SCORE_MULT_WIPE
+	elif leaving_early:
+		mult = Balance.SCORE_MULT_EARLY
+	var total: int = int(float(raw) * mult)
+	if mult < 1.0:
+		breakdown["penalty"] = total - raw       # отрицательная строка разбивки
+	# ⚠️ Не w.clock.cycle: забег кончается на границе HIGH→EBB, и часы к тому
+	# моменту уже перевели счётчик на следующий цикл. Прожит — предыдущий.
+	var lived: int = ship_cycle if end_kind == SimTypes.RunEnd.SHIP else w.clock.cycle
+	return {
+		"end": int(end_kind), "cycles": lived, "seed": w.rng.seed_value,
+		"score": total, "raw_score": raw, "breakdown": breakdown,
+		"early": leaving_early, "deaths": deaths.duplicate(true),
+		"relics": int(score_snapshot.get("relics", 0)) / Balance.POINTS_PER_RELIC_BONUS,
+	}
+
 func drain_events() -> Array[SimEvent]:
 	var out: Array[SimEvent] = _pending
 	_pending = []
@@ -126,6 +248,11 @@ func to_dict() -> Dictionary:
 		"draft": draft.duplicate(),
 		"active_card": active_card,
 		"drafted": drafted_this_cycle,
+		"finished": finished, "end_kind": int(end_kind),
+		"leaving_early": leaving_early, "ship_cycle": ship_cycle,
+		"ship_arrived": ship_arrived,
+		"score_snapshot": score_snapshot.duplicate(),
+		"deaths": deaths.duplicate(true),
 	}
 
 func from_dict(d: Dictionary) -> void:
@@ -137,4 +264,17 @@ func from_dict(d: Dictionary) -> void:
 		draft.append(str(c))
 	active_card = str(d.get("active_card", ""))
 	drafted_this_cycle = bool(d.get("drafted", false))
+	finished = bool(d.get("finished", false))
+	end_kind = int(d.get("end_kind", 0)) as SimTypes.RunEnd
+	leaving_early = bool(d.get("leaving_early", false))
+	ship_cycle = int(d.get("ship_cycle", Balance.CYCLES_PER_RUN))
+	ship_arrived = bool(d.get("ship_arrived", false))
+	score_snapshot.clear()
+	for k: Variant in d.get("score_snapshot", {}) as Dictionary:
+		score_snapshot[str(k)] = int((d["score_snapshot"] as Dictionary)[k])
+	deaths.clear()
+	for v: Variant in d.get("deaths", []) as Array:
+		var dd: Dictionary = v as Dictionary
+		deaths.append({"name": str(dd["name"]), "cause": str(dd["cause"]),
+			"bio": str(dd.get("bio", ""))})
 	_pending.clear()

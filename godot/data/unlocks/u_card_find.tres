@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UnlockDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/unlock_def.gd" id="1_tpnd8"]
+
+[resource]
+script = ExtResource("1_tpnd8")
+id = "u_card_find"
+display_key = "UNL_CARD_FIND"
+desc_key = "UNL_CARD_FIND_D"
+cost = 40
+grants = {
+"card": "the_find"
+}

@@ -479,7 +479,9 @@ func _check_auto_recall(w: SimWorld) -> void:
 	for a: SimAgent in w.agents.agents:
 		if not a.is_alive() or a.recalled:
 			continue
-		if w.agents.agent_mark_f(a, w) >= 0.0:
+		# Не «ниже нуля», а «ниже уровня, до которого дойдёт вода в этом
+		# цикле»: в сизигию это +2.
+		if w.agents.agent_mark_f(a, w) >= w.danger_mark():
 			continue
 		# Карта «Осторожно» отзывает всех раньше.
 		var personal: int = lead + int(w.cycle_modifiers.get("recall_earlier_sec", 0.0))

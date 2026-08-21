@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="UnlockDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/unlock_def.gd" id="1_p7qt5"]
+
+[resource]
+script = ExtResource("1_p7qt5")
+id = "u_condenser"
+display_key = "UNL_CONDENSER"
+desc_key = "UNL_CONDENSER_D"
+cost = 40
+grants = {
+"building": "condenser"
+}
