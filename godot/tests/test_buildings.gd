@@ -172,10 +172,16 @@ static func test_agent_survives_broken_ladder(t: TestCtx) -> void:
 	a.path_graph_version = -1
 	t.run_ticks(w, 200)
 	w.buildings.on_storm(w)
+	var gv_storm: int = w.terrain.graph_version
 	t.run_ticks(w, 200)
 	t.check(a.is_alive(), "агент жив")
-	t.check_eq(a.path_graph_version, w.terrain.graph_version,
+	# Сравнение с ТЕКУЩЕЙ версией графа было бы ложной проверкой: за 200 тиков
+	# агенты успевают починить и достроить лестницы, граф пересобирается ещё раз,
+	# а наш агент к тому моменту уже стоит на цели и пересчитывать ему нечего.
+	# Проверяем то, ради чего тест написан: путь пересчитан ПОСЛЕ пропажи ребра.
+	t.check(a.path_graph_version >= gv_storm,
 		"и пересчитал путь после исчезновения ребра")
+	t.check(a.climb_to < 0, "и не завис на сломанной лестнице")
 
 ## Склад переживает два шторма — не спецкейсом, а потому что у него hp = 2.
 static func test_storage_hp_two(t: TestCtx) -> void:
