@@ -13,6 +13,10 @@ var creatures: Array[Dictionary] = []
 var active: Array[int] = []                 # типы кризисов текущего цикла
 var announced: Array[int] = []              # объявлено на следующий цикл
 
+## Лестницы, перекрытые шлюзом в этом тике. Производное состояние: считается
+## в _refresh_wet_graph перед ходом существ, в сейв не идёт.
+var _blocked_ladders: Array[int] = []
+
 var _next_creature_id: int = 1
 var _pending: Array[SimEvent] = []
 ## Урон и кражи за цикл — в итог цикла.
@@ -205,6 +209,7 @@ func _refresh_wet_graph(w: SimWorld) -> void:
 			blocked_edges.append(lid)
 	blocked_nodes.sort()
 	blocked_edges.sort()
+	_blocked_ladders = blocked_edges
 	w.terrain.rebuild_wet_graph(w.tide.level, blocked_nodes, blocked_edges)
 
 func _tick_creature(c: Dictionary, w: SimWorld) -> void:
@@ -313,11 +318,7 @@ func _move_towards(c: Dictionary, goal_platform: int, goal_x: float, w: SimWorld
 		return
 	var next_id: int = path[1]
 	var top: int = maxi(_creature_mark(c, w), int(w.terrain.platforms[next_id]["mark"]))
-	var lx: int = -1
-	for l: Dictionary in w.terrain.ladders:
-		if int(l["mark_top"]) == top:
-			lx = int(l["x"])
-			break
+	var lx: int = _open_ladder_x(top, float(c["x"]), w)
 	if lx < 0:
 		c["target_id"] = -1
 		return
@@ -327,6 +328,32 @@ func _move_towards(c: Dictionary, goal_platform: int, goal_x: float, w: SimWorld
 	c["x"] = float(lx)
 	c["climb_to"] = next_id
 	c["climb_t"] = 0.0
+
+## Колонка лестницы между отметками top и top−1, ближайшая к существу.
+##
+## ⚠️ Перекрытые шлюзом лестницы пропускаются. Раньше бралась ПЕРВАЯ попавшаяся
+## с нужной отметкой, и существо лезло по той самой лестнице, на которой стоит
+## шлюз (SIM-05). Ребро графа при этом может остаться живым — если между теми же
+## ярусами есть вторая, открытая лестница. Тогда существо честно обходит шлюз
+## через неё, и это правило игры, а не дефект: чтобы запереть ярус, шлюзы нужны
+## на всех его лестницах.
+##
+## Тай-брейк по меньшему id обязателен: при равном расстоянии порядок иначе
+## не определён и два забега с одним сидом разойдутся.
+func _open_ladder_x(top: int, from_x: float, w: SimWorld) -> int:
+	var best_x: int = -1
+	var best_id: int = -1
+	var best_d: float = INF
+	for l: Dictionary in w.terrain.ladders:
+		if int(l["mark_top"]) != top or _blocked_ladders.has(int(l["id"])):
+			continue
+		var id: int = int(l["id"])
+		var d: float = absf(from_x - float(int(l["x"])))
+		if d < best_d or (is_equal_approx(d, best_d) and id < best_id):
+			best_d = d
+			best_id = id
+			best_x = int(l["x"])
+	return best_x
 
 func _step_x(c: Dictionary, goal_x: float, step: float) -> void:
 	var d: float = goal_x - float(c["x"])

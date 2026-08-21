@@ -105,6 +105,7 @@ ERR_MARK,Не та отметка,Wrong mark
 ERR_OCCUPIED,Место занято,Space occupied
 ERR_NO_SUPPORT,Не на что опереть,Nothing to stand on
 ERR_NO_LADDER_SPOT,Здесь лестница не встанет,A ladder cannot go here
+ERR_NO_LADDER,Шлюз ставится только на лестницу,A sluice only goes on a ladder
 RCP_FORGE_INGOT,Слиток,Ingot
 RCP_WORKBENCH_PART,Деталь,Part
 RCP_SALTERY_RATIONS,Провизия,Rations

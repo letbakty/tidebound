@@ -264,6 +264,57 @@ static func test_sluice_blocks_edge(t: TestCtx) -> void:
 	t.check_eq(w.terrain.find_wet_path(deep, up).size(), 0,
 		"через закрытый шлюз пути нет")
 
+## TEST-09 · вторая лестница между теми же ярусами — обход шлюза.
+##
+## Граф связывает ОТМЕТКИ, а не лестницы, поэтому вторая лестница оставляет
+## ребро живым: существо честно обходит шлюз, и это правило (запереть ярус —
+## значит закрыть все его лестницы). Дефектом было другое: колонку для спуска
+## выбирала первая попавшаяся лестница с нужной отметкой, и существо лезло
+## СКВОЗЬ закрытый шлюз (SIM-05).
+static func test_sluice_and_second_ladder(t: TestCtx) -> void:
+	var w: SimWorld = _world(41)
+	_ladders_down_to(w, -4)
+	var deep: int = w.terrain.platform_of_mark(-4)
+	var up: int = w.terrain.platform_of_mark(-1)
+	w.tide.level_override = 2.0
+	t.run_ticks(w, 2)
+	var lx: int = _ladder_x(w, -1)
+	t.check(lx >= 0, "первая лестница −1/−2 найдена")
+	# Вторая лестница между теми же ярусами, в соседней колонке.
+	var second_x: int = lx + 2
+	var second: int = w.terrain.add_ladder(
+		Vector2i(second_x, Balance.mark_to_floor_cell_y(-1)))
+	t.check(second >= 0, "вторая лестница −1/−2 поставлена")
+
+	var gate: int = w.buildings.place("sluice", _cell_on(-1, lx, 2), w, true)
+	t.check(gate > 0, "шлюз встал на первую лестницу")
+	w.crisis._refresh_wet_graph(w)
+	t.check(w.terrain.find_wet_path(deep, up).size() > 0,
+		"обход по второй лестнице остался — шлюз закрывает лестницу, а не ярус")
+	t.check_eq(w.crisis._open_ladder_x(-1, float(lx), w), second_x,
+		"на подъём выбрана ОТКРЫТАЯ лестница, а не та, где стоит шлюз")
+
+	# Закрыли обе — яруса не достичь.
+	var gate2: int = w.buildings.place("sluice", _cell_on(-1, second_x, 2), w, true)
+	t.check(gate2 > 0, "второй шлюз встал")
+	w.crisis._refresh_wet_graph(w)
+	t.check_eq(w.terrain.find_wet_path(deep, up).size(), 0,
+		"обе лестницы закрыты — пути наверх нет")
+	t.check_eq(w.crisis._open_ladder_x(-1, float(lx), w), -1,
+		"и открытой колонки не осталось")
+
+## Шлюз мимо колонки лестницы — это отказ размещения, а не тихо мёртвая
+## постройка: раньше игрок ставил его в соседней клетке и не понимал,
+## почему существа проходят насквозь.
+static func test_sluice_needs_a_ladder(t: TestCtx) -> void:
+	var w: SimWorld = _world(43)
+	_ladders_down_to(w, -4)
+	var lx: int = _ladder_x(w, -1)
+	t.check_eq(w.buildings.place_error("sluice", _cell_on(-1, lx, 2), w), "",
+		"в колонке лестницы шлюз ставится")
+	t.check_eq(w.buildings.place_error("sluice", _cell_on(-1, lx + 1, 2), w),
+		"ERR_NO_LADDER", "на клетку мимо — отказ с причиной")
+
 static func _ladder_x(w: SimWorld, mark_top: int) -> int:
 	for l: Dictionary in w.terrain.ladders:
 		if int(l["mark_top"]) == mark_top:

@@ -53,6 +53,11 @@ func place_error(def_id: String, cell: Vector2i, w: SimWorld) -> String:
 	var mark: int = Balance.cell_to_mark(Vector2i(cell.x, bottom))
 	if mark < d.min_mark or mark > d.max_mark:
 		return "ERR_MARK"
+	# ⚠️ Шлюз перекрывает ЛЕСТНИЦУ и вне её колонки бессмыслен. Промах на одну
+	# клетку давал молча не работающую постройку: игрок видел шлюз, существо
+	# проходило мимо него, и понять причину было нельзя (SIM-05).
+	if d.special == "sluice" and w.terrain.ladder_id_at(cell.x, mark) < 0:
+		return "ERR_NO_LADDER"
 	for dx: int in d.size.x:
 		for dy: int in d.size.y:
 			if _occupied.has(cell + Vector2i(dx, dy)):
