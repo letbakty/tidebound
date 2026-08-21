@@ -1,0 +1,12 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/shaders/rain.gdshader" id="1_xc03r"]
+
+[resource]
+shader = ExtResource("1_xc03r")
+shader_parameter/u_intensity = 0.0
+shader_parameter/u_tint = Color(0.72, 0.8, 0.95, 1)
+shader_parameter/u_alpha = 0.55
+shader_parameter/u_speed = Vector2(0.15, 1.4)
+shader_parameter/u_tiling = 6.0
+shader_parameter/u_view_size = Vector2(640, 360)

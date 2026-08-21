@@ -1,0 +1,13 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/shaders/depth_fog.gdshader" id="1_g2741"]
+
+[resource]
+shader = ExtResource("1_g2741")
+shader_parameter/u_top_y = 0.0
+shader_parameter/u_bottom_y = 360.0
+shader_parameter/u_warm = Color(0.7882353, 0.6313726, 0.36862746, 0)
+shader_parameter/u_cold = Color(0.101960786, 0.22745098, 0.2901961, 0.42)
+shader_parameter/u_curve = 1.6
+shader_parameter/u_bands = 14.0
+shader_parameter/u_view_size = Vector2(640, 360)

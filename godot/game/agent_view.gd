@@ -1,11 +1,22 @@
 class_name AgentView
 extends Node2D
-## Спрайт агента. Заглушка до этапа 18: прямоугольник 16×24 с иконкой
-## состояния над головой. Игровой логики здесь нет — только отображение.
+## Спрайт агента: 16×24, четыре кадра ходьбы и два кадра работы
+## (assets/sprites/agent.png, генератор tools/gen_sprites.gd). Игровой логики
+## здесь нет — только отображение.
+##
+## Кадр выбирается по СОСТОЯНИЮ и по пройденному пути, а не по реальному
+## времени: на паузе агент обязан замереть, а на ×3 — перебирать ногами втрое
+## быстрее. Привязка к sim_seconds даёт и то и другое бесплатно.
 
+const SHEET: String = "res://assets/sprites/agent.png"
 const W: int = 16
 const H: int = 24
-const BODY: Color = Color("d8c8a8")
+const WALK_FRAMES: int = 4
+const WORK_FRAMES: int = 2
+## Кадров ходьбы в секунду симуляции.
+const WALK_FPS: float = 6.0
+const WORK_FPS: float = 3.0
+const BODY: Color = Color(1, 1, 1, 1)
 const BODY_WET: Color = Color("8fb4c4")
 const BODY_DEAD: Color = Color("5a5148")
 
@@ -19,7 +30,7 @@ const STATE_MARKS: Dictionary = {
 
 var agent_id: int = -1
 
-var _body: ColorRect = null
+var _body: Sprite2D = null
 var _mark: Label = null
 var _from: Vector2 = Vector2.ZERO
 var _to: Vector2 = Vector2.ZERO
@@ -30,11 +41,13 @@ func setup(id: int) -> void:
 	agent_id = id
 
 func _ready() -> void:
-	_body = ColorRect.new()
-	_body.size = Vector2(float(W), float(H))
+	_body = Sprite2D.new()
+	_body.texture = load(SHEET) as Texture2D
+	_body.region_enabled = true
+	_body.region_rect = Rect2(0.0, 0.0, float(W), float(H))
 	# Спрайт «стоит» на клетке: якорь снизу по центру.
+	_body.centered = false
 	_body.position = Vector2(-float(W) * 0.5, -float(H))
-	_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_body)
 	_mark = Label.new()
 	_mark.position = Vector2(-float(W) * 0.5, -float(H) - 16.0)
@@ -77,22 +90,29 @@ func _refresh_look() -> void:
 		return
 	var st: int = int(info.get("state", 0))
 	if st == int(SimTypes.AgentState.DEAD):
-		_body.color = BODY_DEAD
+		_body.modulate = BODY_DEAD
 	elif bool(info.get("wet", false)):
-		_body.color = BODY_WET
+		_body.modulate = BODY_WET
 	else:
-		_body.color = BODY
+		_body.modulate = BODY
 	_mark.text = str(STATE_MARKS.get(st, ""))
-	# Покачивание при ходьбе: сдвиг на ЦЕЛЫЙ пиксель, а не синус — дробное
-	# смещение в пиксель-арте даёт мыло.
-	var bob: float = 0.0
-	if _moving:
-		bob = -1.0 if fmod(Game.sim_seconds() * 6.0, 2.0) < 1.0 else 0.0
-	_body.position.y = -float(H) + bob
+	_body.region_rect = Rect2(float(frame_for(st, _moving, Game.sim_seconds()) * W),
+		0.0, float(W), float(H))
+	_body.position.y = -float(H)
 	# Флип — только у спрайта; отрицательный scale на родителе ломает Y-sort
 	# и переворачивает иконку состояния.
 	var facing: int = int(info.get("facing", 1))
-	_body.position.x = -float(W) * 0.5 + (1.0 if facing < 0 else 0.0)
+	_body.flip_h = facing < 0
+	_body.position.x = -float(W) * 0.5
+
+## Номер кадра в листе. Чистая функция — её же проверяет тест этапа 18.
+## Порядок кадров: 0..3 ходьба, 4..5 работа.
+static func frame_for(state: int, moving: bool, sim_time: float) -> int:
+	if state == SimTypes.AgentState.WORK or state == SimTypes.AgentState.GATHER:
+		return WALK_FRAMES + (int(sim_time * WORK_FPS) % WORK_FRAMES)
+	if not moving:
+		return 0
+	return int(sim_time * WALK_FPS) % WALK_FRAMES
 
 ## Прямоугольник для хит-теста без физики (World.pick_at).
 func hit_rect() -> Rect2:
@@ -100,7 +120,7 @@ func hit_rect() -> Rect2:
 
 func play_death_and_free(_cause: String) -> void:
 	if _body != null:
-		_body.color = BODY_DEAD
+		_body.modulate = BODY_DEAD
 	var tw: Tween = create_tween()
 	tw.tween_property(self, "modulate:a", 0.0, 0.8)
 	tw.tween_callback(queue_free)

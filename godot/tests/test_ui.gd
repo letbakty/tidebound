@@ -78,12 +78,30 @@ static func test_theme_resource(t: TestCtx) -> void:
 ## сцены при этом не трогаются.
 static func test_theme_is_rebuilt_from_tokens(t: TestCtx) -> void:
 	var th: Theme = UIThemeFactory.build()
-	var panel: StyleBoxFlat = th.get_stylebox("panel", "PanelContainer") as StyleBoxFlat
+	var panel: StyleBox = th.get_stylebox("panel", "PanelContainer")
 	t.check(panel != null, "PanelContainer без стиля")
 	if panel == null:
 		return
-	t.check_eq(panel.border_color, UITokens.BORDER, "кромка панели — из токена BORDER")
-	t.check_eq(panel.border_width_left, UITokens.BORDER_W, "толщина кромки — из токена")
+	# Скин выбирается одной константой (этап 18), и проверять надо тот, который
+	# собран: в атласном панель приходит текстурой, в плоском — заливкой.
+	if UIThemeFactory.USE_ATLAS:
+		var tex: StyleBoxTexture = panel as StyleBoxTexture
+		t.check(tex != null, "в атласном скине панель — StyleBoxTexture")
+		if tex != null:
+			t.check_eq(tex.texture_margin_left, float(UIThemeFactory.ATLAS_MARGIN),
+				"поле 9-patch — из константы атласа")
+			t.check_eq(tex.region_rect.size.x, float(UIThemeFactory.ATLAS_CELL),
+				"кадр атласа целиком")
+	else:
+		var flat: StyleBoxFlat = panel as StyleBoxFlat
+		t.check(flat != null, "в плоском скине панель — StyleBoxFlat")
+		if flat != null:
+			t.check_eq(flat.border_color, UITokens.BORDER,
+				"кромка панели — из токена BORDER")
+			t.check_eq(flat.border_width_left, UITokens.BORDER_W,
+				"толщина кромки — из токена")
+	# Акцентная кнопка остаётся плоской В ЛЮБОМ скине: её цвет зависит от
+	# пресета для дальтоников, а кадр атласа запечён (см. ATLAS_FRAMES).
 	var primary: StyleBoxFlat = th.get_stylebox("normal", "ButtonPrimary") as StyleBoxFlat
 	t.check(primary != null and primary.bg_color == UITokens.ACCENT,
 		"главная кнопка — акцентом из токена")

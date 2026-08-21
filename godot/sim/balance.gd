@@ -278,6 +278,11 @@ static func is_mark_flooded(mark: int, water_level: float) -> bool:
 static func is_markf_flooded(mark: float, water_level: float) -> bool:
 	return mark < water_level - FLOOD_EPS
 
+## Лимит одновременных PointLight2D на экране (docs/00 §16). Число игровое:
+## от него зависит, сколько фонарей имеет смысл строить, поэтому живёт здесь,
+## а не в презентации. Соблюдает его game/light_budget.gd.
+const MAX_LIGHTS: int = 8
+
 # --- Геометрия мира (docs/00 §3.1) ----------------------------------------
 # Здесь, а не в game/world_geo.gd: sim и презентация обязаны видеть одни числа.
 const TILE_PX: int = 32

@@ -34,6 +34,7 @@ var _card_row: HBoxContainer = null
 var _card_shown: Array[String] = []
 var _meta_label: Label = null
 var _audio_label: Label = null
+var _perf_label: Label = null
 var _audio_log: Label = null
 ## Сколько последних звуковых вызовов показывать: приёмка этапа 17 — сверить
 ## список docs/00 §15 с тем, что реально дёргается.
@@ -198,6 +199,18 @@ func _build_ui() -> void:
 	_head("КРИЗИСЫ")
 	_crisis_label = _label("—")
 
+	_head("КАРТИНКА")
+	_perf_label = _label("—")
+	var fx_row: HBoxContainer = _row()
+	_button(fx_row, "молния", func() -> void:
+		var w: WeatherView = _weather()
+		if w != null:
+			w.flash())
+	_button(fx_row, "шторм вкл", func() -> void:
+		Events.crisis_started.emit(SimTypes.CrisisType.STORM))
+	_button(fx_row, "шторм выкл", func() -> void:
+		Events.crisis_ended.emit(SimTypes.CrisisType.STORM))
+
 	_head("ЗВУК")
 	_audio_label = _label("—")
 	_audio_log = _label("—")
@@ -304,6 +317,7 @@ func _process(_delta: float) -> void:
 	_refresh_cards()
 	_refresh_meta()
 	_refresh_audio()
+	_refresh_perf()
 	if _log_dirty:
 		_log_dirty = false
 		_log_label.text = "\n".join(_log)
@@ -311,6 +325,32 @@ func _process(_delta: float) -> void:
 	if _samples.size() > GRAPH_SAMPLES:
 		_samples.remove_at(0)
 	_graph.queue_redraw()
+
+## Кадр, отрисовка и бюджеты этапа 18. Раз в кадр форматировать строку дорого
+## на слабом Android, но панель и так открыта только в дебаге.
+func _refresh_perf() -> void:
+	var lights: LightBudget = _lights()
+	var weather: WeatherView = _weather()
+	_perf_label.text = "%d fps · draw %d · vram %.1f МБ · нод %d\nсветов %d/%d (лимит %d) · шторм %.2f" % [
+		int(Performance.get_monitor(Performance.TIME_FPS)),
+		int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
+		Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0,
+		int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
+		lights.lit_count() if lights != null else 0,
+		lights.total_count() if lights != null else 0,
+		Balance.MAX_LIGHTS,
+		weather.storm_amount() if weather != null else 0.0]
+
+func _lights() -> LightBudget:
+	if _overlay == null:
+		return null
+	return _overlay.get_parent().get_node_or_null(^"Lights") as LightBudget
+
+func _weather() -> WeatherView:
+	var scene: Node = get_tree().current_scene
+	if scene == null:
+		return null
+	return scene.get_node_or_null(^"WeatherView") as WeatherView
 
 ## Что звучит сейчас и что звучало только что.
 func _refresh_audio() -> void:

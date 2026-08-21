@@ -1,0 +1,23 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/shaders/water.gdshader" id="1_hpxi4"]
+
+[resource]
+shader = ExtResource("1_hpxi4")
+shader_parameter/u_view_size = Vector2(640, 360)
+shader_parameter/u_surface_y = 200.0
+shader_parameter/u_shallow = Color(0.1764706, 0.41960785, 0.47843137, 0.4)
+shader_parameter/u_deep = Color(0.101960786, 0.22745098, 0.2901961, 0.72)
+shader_parameter/u_foam = Color(0.9098039, 0.9372549, 0.9411765, 1)
+shader_parameter/u_depth_range_px = 160.0
+shader_parameter/u_wave_amp_px = 3.0
+shader_parameter/u_wave_len_px = 96.0
+shader_parameter/u_wave_speed = 10.0
+shader_parameter/u_quant_x_px = 2.0
+shader_parameter/u_foam_px = 2.0
+shader_parameter/u_refract_px = 3.0
+shader_parameter/u_refract_fade_px = 40.0
+shader_parameter/u_reflect_alpha = 0.2
+shader_parameter/u_reflect_fade_px = 48.0
+shader_parameter/u_caustics = 0.05
+shader_parameter/u_storm = 0.0

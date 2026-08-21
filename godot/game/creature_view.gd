@@ -1,17 +1,18 @@
 class_name CreatureView
 extends Node2D
-## Существо Прихода. Заглушка до этапа 18: тёмный силуэт с красными глазами.
-## Звука нет — этап 17.
+## Существо Прихода: тёмный силуэт с горбом и красными глазами
+## (assets/sprites/creature.png, генератор tools/gen_sprites.gd).
 
 const W: int = 32
 const H: int = 24
-const BODY: Color = Color("1c2a30", 0.92)
+const SPRITE: String = "res://assets/sprites/creature.png"
+const BODY: Color = Color(1, 1, 1, 0.92)
 const EYE: Color = Color("e04a3a")
 const EYE_PULSE_HZ: float = 1.5
 
 var creature_id: int = -1
 
-var _body: ColorRect = null
+var _body: Sprite2D = null
 var _eyes: ColorRect = null
 var _to: Vector2 = Vector2.ZERO
 var _from: Vector2 = Vector2.ZERO
@@ -22,11 +23,11 @@ func setup(id: int) -> void:
 
 func _ready() -> void:
 	z_index = 50
-	_body = ColorRect.new()
-	_body.size = Vector2(float(W), float(H))
+	_body = Sprite2D.new()
+	_body.texture = load(SPRITE) as Texture2D
+	_body.centered = false
 	_body.position = Vector2(-float(W) * 0.5, -float(H))
-	_body.color = BODY
-	_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_body.modulate = BODY
 	add_child(_body)
 	_eyes = ColorRect.new()
 	_eyes.size = Vector2(float(W) * 0.5, 2.0)

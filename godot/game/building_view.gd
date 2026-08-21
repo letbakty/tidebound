@@ -1,8 +1,11 @@
 class_name BuildingView
 extends Node2D
-## Постройка на экране. Заглушка до этапа 18: цветной прямоугольник с буквой,
-## полупрозрачный у плана, с полосой прогресса у стройки, мигающий у сломанной,
-## синеватый у затопленной.
+## Постройка на экране. Заглушка до настоящего арта, но по правилам пиксель-арта
+## (промпт 18 п.9): силуэт, два тона и светлая кромка сверху. Плоский
+## прямоугольник читается как «программерский арт» именно из-за их отсутствия.
+##
+## План — полупрозрачный, стройка и ремонт — с полосой прогресса, сломанная
+## мигает, затопленная уходит в холод.
 
 const PLANNED_ALPHA: float = 0.35
 const DAMAGED_BLINK_HZ: float = 2.0
@@ -23,6 +26,8 @@ const COLORS: Dictionary = {
 var building_id: int = -1
 
 var _body: ColorRect = null
+var _shade: ColorRect = null
+var _edge: ColorRect = null
 var _label: Label = null
 var _bar: ColorRect = null
 var _def: BuildingDef = null
@@ -41,6 +46,18 @@ func _ready() -> void:
 	_body.color = COLORS.get(_def.special, Color("909090"))
 	_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_body)
+	# Нижняя треть темнее: объём без единого пикселя арта.
+	_shade = ColorRect.new()
+	_shade.size = Vector2(px.x, maxf(2.0, px.y / 3.0))
+	_shade.position = Vector2(0.0, px.y - _shade.size.y)
+	_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_shade)
+	# Кромка сверху: свет всегда падает сверху, и это единственное, что
+	# отличает «объект» от «заливки».
+	_edge = ColorRect.new()
+	_edge.size = Vector2(px.x, 2.0)
+	_edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_edge)
 	_label = Label.new()
 	_label.size = px
 	_label.text = tr(_def.display_key).substr(0, 1).to_upper()
@@ -68,6 +85,10 @@ func refresh() -> void:
 	if bool(b["flooded"]):
 		tint = tint.lerp(FLOOD_TINT, 0.5)
 	_body.color = Color(tint.r, tint.g, tint.b, a)
+	_shade.color = Color(tint.darkened(0.35).r, tint.darkened(0.35).g,
+		tint.darkened(0.35).b, a)
+	_edge.color = Color(tint.lightened(0.30).r, tint.lightened(0.30).g,
+		tint.lightened(0.30).b, a)
 	var px: Vector2 = Vector2(_def.size) * float(WorldGeo.TILE)
 	var progress: float = Game.world.buildings.build_progress(b)
 	var show_bar: bool = state == int(SimTypes.BuildState.UNDER_CONSTRUCTION) \

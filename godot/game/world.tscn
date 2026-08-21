@@ -1,15 +1,57 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=14 format=3]
 
 [ext_resource type="Script" path="res://game/world.gd" id="1_world"]
 [ext_resource type="TileSet" path="res://data/tilesets/placeholder.tres" id="2_tiles"]
 [ext_resource type="Script" path="res://game/camera_rig.gd" id="3_cam"]
 [ext_resource type="Script" path="res://game/water_view.gd" id="4_water"]
 [ext_resource type="Script" path="res://game/build_ghost.gd" id="5_ghost"]
+[ext_resource type="Script" path="res://game/light_budget.gd" id="6_lights"]
+[ext_resource type="Material" path="res://assets/shaders/water_material.tres" id="7_water_mat"]
+[ext_resource type="Material" path="res://assets/shaders/depth_fog_material.tres" id="8_fog_mat"]
+[ext_resource type="Material" path="res://assets/shaders/rain_material.tres" id="9_rain_mat"]
+[ext_resource type="Material" path="res://assets/shaders/wet_tiles_material.tres" id="10_wet_mat"]
+[ext_resource type="Texture2D" path="res://assets/sprites/parallax_far.png" id="11_par_far"]
+[ext_resource type="Texture2D" path="res://assets/sprites/parallax_mist.png" id="12_par_mist"]
+[ext_resource type="Texture2D" path="res://assets/sprites/parallax_clouds.png" id="13_par_clouds"]
 
 [node name="World" type="Node2D"]
 script = ExtResource("1_world")
 
+[node name="ParallaxFar" type="Parallax2D" parent="."]
+scroll_scale = Vector2(0.1, 0.03)
+repeat_size = Vector2(640, 0)
+repeat_times = 3
+z_index = -120
+
+[node name="Sprite" type="Sprite2D" parent="ParallaxFar"]
+texture = ExtResource("11_par_far")
+centered = false
+position = Vector2(0, 120)
+
+[node name="ParallaxMist" type="Parallax2D" parent="."]
+scroll_scale = Vector2(0.25, 0.08)
+repeat_size = Vector2(640, 0)
+repeat_times = 3
+z_index = -110
+
+[node name="Sprite" type="Sprite2D" parent="ParallaxMist"]
+texture = ExtResource("12_par_mist")
+centered = false
+position = Vector2(0, 200)
+
+[node name="ParallaxClouds" type="Parallax2D" parent="."]
+scroll_scale = Vector2(0.4, 0.1)
+repeat_size = Vector2(640, 0)
+repeat_times = 3
+z_index = -100
+
+[node name="Sprite" type="Sprite2D" parent="ParallaxClouds"]
+texture = ExtResource("13_par_clouds")
+centered = false
+position = Vector2(0, 24)
+
 [node name="Ground" type="TileMapLayer" parent="."]
+material = ExtResource("10_wet_mat")
 tile_set = ExtResource("2_tiles")
 navigation_enabled = false
 collision_enabled = false
@@ -28,16 +70,46 @@ collision_enabled = false
 [node name="Agents" type="Node2D" parent="."]
 y_sort_enabled = true
 
+[node name="Lights" type="Node2D" parent="."]
+script = ExtResource("6_lights")
+
+[node name="Fx" type="Node2D" parent="."]
+
 [node name="BuildGhost" type="Node2D" parent="."]
 script = ExtResource("5_ghost")
 
 [node name="CameraRig" type="Camera2D" parent="."]
 script = ExtResource("3_cam")
 
-[node name="FxLayer" type="CanvasLayer" parent="."]
+[node name="FogLayer" type="CanvasLayer" parent="."]
+layer = 1
+
+[node name="DepthFog" type="ColorRect" parent="FogLayer"]
+material = ExtResource("8_fog_mat")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="RainLayer" type="CanvasLayer" parent="."]
+layer = 5
+
+[node name="Rain" type="ColorRect" parent="RainLayer"]
+material = ExtResource("9_rain_mat")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="WaterLayer" type="CanvasLayer" parent="."]
 layer = 10
 
-[node name="WaterRect" type="ColorRect" parent="FxLayer"]
+[node name="WaterRect" type="ColorRect" parent="WaterLayer"]
+material = ExtResource("7_water_mat")
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0

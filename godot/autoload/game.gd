@@ -11,6 +11,9 @@ const STEP: float = 1.0 / float(TICKS_PER_SEC)
 ## (research/11 §3). Лучше играть медленнее, чем зависнуть.
 const MAX_TICKS_PER_FRAME: int = 12
 
+## Имя глобального шейдер-uniform времени (project.godot, [shader_globals]).
+const SIM_TIME: StringName = &"sim_time"
+
 ## 0 = пауза. Паузу делаем скоростью, get_tree().paused не трогаем (docs/01 §6).
 var speed: int = 0
 var world: SimWorld = null
@@ -33,8 +36,17 @@ var _pause_depth: int = 0
 ## этапы 13 и 15; sim о ней не знает.
 var ui_state: Dictionary = {}
 
+func _ready() -> void:
+	# Своя метрика в Monitors рядом со встроенными графиками: бюджет тика
+	# ≤2 мс (docs/00 §16) иначе видно только по дебаг-панели, а на телефоне
+	# и Deck дебаггер недоступен вовсе (research/07).
+	Performance.add_custom_monitor(&"tidebound/tick_ms", tick_budget_ms)
+
 func _physics_process(delta: float) -> void:
 	if speed == 0 or world == null:
+		# Время шейдеров пушим и на паузе: значение не меняется, но материалы,
+		# созданные во время паузы, должны получить актуальное число.
+		_push_shader_time()
 		return
 	_accum += delta * float(speed)
 	var steps: int = 0
@@ -55,6 +67,7 @@ func _physics_process(delta: float) -> void:
 		# Долг не копим: иначе кадр за кадром будет всё хуже.
 		_accum = 0.0
 	_tick_budget_ms = float(Time.get_ticks_usec() - t0) / 1000.0
+	_push_shader_time()
 
 # --- Команды игрока (единственный вход в sim) -----------------------------
 
@@ -216,6 +229,15 @@ func cmd_set_speed(mult: int) -> void:
 
 # --- Чтение состояния (не команды) ----------------------------------------
 
+## Глобальный uniform времени для всех шейдеров мира (этап 18).
+##
+## ⚠️ Встроенный TIME запрещён: он не останавливается на паузе (research/05,
+## подтверждено документацией 4.7). На тактической паузе — главной механике
+## управления — вода продолжала бы волноваться, и пауза перестала бы читаться
+## как пауза. Отсюда же скорость ×3 бесплатно ускоряет волну.
+func _push_shader_time() -> void:
+	RenderingServer.global_shader_parameter_set(SIM_TIME, sim_seconds())
+
 ## Дробное сим-время для шейдеров (этап 18): целые тики + недотиканный остаток.
 func sim_seconds() -> float:
 	if world == null:
@@ -281,6 +303,9 @@ func query_clock() -> Dictionary:
 		"level": world.tide.level,
 		"low_plateau": world.tide.low_plateau,
 		"high_plateau": world.tide.high_plateau,
+		# Докуда вода дошла в этом цикле: по этой отметке этап 18 рисует
+		# мокрые тайлы после отлива (docs/00 §5).
+		"last_high": world.tide.last_high_level,
 		"announced": world.crisis.announced.duplicate(),
 	}
 

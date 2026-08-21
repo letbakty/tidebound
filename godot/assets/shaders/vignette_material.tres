@@ -1,0 +1,15 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/shaders/vignette.gdshader" id="1_1bhuw"]
+
+[resource]
+shader = ExtResource("1_1bhuw")
+shader_parameter/u_intensity = 0.0
+shader_parameter/u_color = Color(0.05490196, 0.101960786, 0.1254902, 1)
+shader_parameter/u_inner = 0.35
+shader_parameter/u_outer = 0.95
+shader_parameter/u_strength = 0.55
+shader_parameter/u_aspect = 1.7777777777777777
+shader_parameter/u_gust = 0.12
+shader_parameter/u_flash = 0.0
+shader_parameter/u_flash_color = Color(0.8784314, 0.9372549, 0.9411765, 1)

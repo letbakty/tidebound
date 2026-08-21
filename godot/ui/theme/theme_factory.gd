@@ -9,9 +9,44 @@ extends RefCounted
 
 const OUT_PATH: String = "res://ui/theme/main_theme.tres"
 
-## Этап 18 переключит в true: те же _build_* будут звать текстурную фабрику
-## стилей поверх атласа. Тело сборки при этом не меняется.
-const USE_ATLAS: bool = false
+## Скин: false — плоские StyleBoxFlat из токенов, true — рамки из атласа
+## assets/sprites/ui_atlas.png (tools/gen_ui_atlas.gd). Смена скина — ровно
+## одна константа плюс перегенерация темы; сцены компонентов не трогаются.
+const USE_ATLAS: bool = true
+
+const ATLAS_PATH: String = "res://assets/sprites/ui_atlas.png"
+## Размер кадра и поля 9-patch — контракт с tools/gen_ui_atlas.gd.
+const ATLAS_CELL: int = 16
+const ATLAS_MARGIN: int = 5
+## Кадры атласа — только для стилей с ПОСТОЯННЫМИ цветами. Акцент и «опасное»
+## зависят от пресета для дальтоников (UIPalette) и остаются плоскими: цвет,
+## запечённый в атлас, сломал бы доступность ради текстуры.
+const ATLAS_FRAMES: Array[String] = ["panel", "raise", "hover", "pressed", "dark"]
+
+static var _atlas: Texture2D = null
+
+## Стиль по ИМЕНИ кадра. В атласном скине берёт рамку из атласа, в плоском —
+## собирает StyleBoxFlat из тех же токенов: вызов один, скин выбирается здесь.
+static func skin(kind: String, bg: Color, border: Color,
+		w: int = UITokens.BORDER_W, margin: int = UITokens.SPACE_2) -> StyleBox:
+	if not USE_ATLAS:
+		return flat(bg, border, w, margin)
+	var idx: int = ATLAS_FRAMES.find(kind)
+	if idx < 0:
+		return flat(bg, border, w, margin)
+	if _atlas == null:
+		if not ResourceLoader.exists(ATLAS_PATH):
+			push_warning("UIThemeFactory: нет атласа %s, скин остался плоским"
+				% ATLAS_PATH)
+			return flat(bg, border, w, margin)
+		_atlas = load(ATLAS_PATH) as Texture2D
+	var sb: StyleBoxTexture = StyleBoxTexture.new()
+	sb.texture = _atlas
+	sb.region_rect = Rect2(float(idx * ATLAS_CELL), 0.0,
+		float(ATLAS_CELL), float(ATLAS_CELL))
+	sb.set_texture_margin_all(float(ATLAS_MARGIN))
+	sb.set_content_margin_all(float(margin))
+	return sb
 
 ## Вариации типов из docs/01 §1.2. Ключ — имя вариации, значение — базовый тип.
 const VARIATIONS: Dictionary[String, String] = {
@@ -105,18 +140,20 @@ static func focus_box() -> StyleBoxFlat:
 # --- Базовые типы ---------------------------------------------------------
 
 static func _build_panel(th: Theme) -> void:
-	th.set_stylebox("panel", "Panel", flat(UIPalette.panel(), UITokens.BORDER))
+	th.set_stylebox("panel", "Panel", skin("panel", UIPalette.panel(), UITokens.BORDER))
 	th.set_stylebox("panel", "PanelContainer",
-		flat(UIPalette.panel(), UIPalette.border(), UITokens.BORDER_W, UITokens.SPACE_3))
+		skin("panel", UIPalette.panel(), UIPalette.border(), UITokens.BORDER_W,
+			UITokens.SPACE_3))
 
 static func _build_button(th: Theme) -> void:
 	th.set_stylebox("normal", "Button",
-		flat(UITokens.RAISE, UITokens.BORDER, UITokens.BORDER_W, UITokens.SPACE_3))
+		skin("raise", UITokens.RAISE, UITokens.BORDER, UITokens.BORDER_W,
+			UITokens.SPACE_3))
 	th.set_stylebox("hover", "Button",
-		flat(UITokens.RAISE.lightened(0.08), UITokens.BORDER_STRONG,
+		skin("hover", UITokens.RAISE.lightened(0.08), UITokens.BORDER_STRONG,
 			UITokens.BORDER_W, UITokens.SPACE_3))
 	th.set_stylebox("pressed", "Button",
-		flat(UITokens.RAISE.darkened(0.2), UIPalette.accent(),
+		skin("pressed", UITokens.RAISE.darkened(0.2), UIPalette.accent(),
 			UITokens.BORDER_W, UITokens.SPACE_3))
 	th.set_stylebox("disabled", "Button",
 		flat(UITokens.PANEL_BG, UITokens.DIVIDER, UITokens.BORDER_W, UITokens.SPACE_3))

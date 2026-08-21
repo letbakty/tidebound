@@ -33,6 +33,19 @@ const DEPOSIT_COLORS: Dictionary = {
 @onready var creatures_root: Node2D = $Creatures
 @onready var ghost: BuildGhost = $BuildGhost
 @onready var camera: CameraRig = $CameraRig
+## Этап 18: бюджет света, пул частиц и два экранных оверлея мира.
+@onready var lights: LightBudget = $Lights
+@onready var fx: Node2D = $Fx
+@onready var fog: ColorRect = $FogLayer/DepthFog
+@onready var rain: ColorRect = $RainLayer/Rain
+@onready var clouds: Parallax2D = $ParallaxClouds
+@onready var mist: Parallax2D = $ParallaxMist
+
+## Дрейф дальних слоёв, px в секунду СИМУЛЯЦИИ. Через autoscroll ноды нельзя:
+## он идёт по реальному времени и на паузе облака продолжают ехать — пауза
+## перестаёт читаться как пауза (проверено сравнением двух кадров).
+const CLOUD_DRIFT: float = -6.0
+const MIST_DRIFT: float = -2.0
 
 ## Игровые оверлеи (этап 13): отметки ярусов, зона затопления, занятия.
 var overlay: GameOverlay = null
@@ -42,11 +55,22 @@ var beacon: BeaconView = null
 func get_overlay() -> GameOverlay:
 	return overlay
 
+## Ноды для WeatherView: она дирижирует эффектами, но не ищет их сама.
+func fog_rect() -> ColorRect:
+	return fog
+
+func rain_rect() -> ColorRect:
+	return rain
+
+func fx_root() -> Node2D:
+	return fx
+
 var _deposit_nodes: Dictionary[int, Node2D] = {}
 var _agent_views: Dictionary[int, AgentView] = {}
 var _building_views: Dictionary[int, BuildingView] = {}
 var _creature_views: Dictionary[int, CreatureView] = {}
 var _drawn_graph_version: int = -1
+var _light_nodes: Dictionary[int, PointLight2D] = {}
 
 func _ready() -> void:
 	overlay = GameOverlay.new()
@@ -74,6 +98,44 @@ func _process(_delta: float) -> void:
 	var t: Terrain = _terrain()
 	if t != null and t.graph_version != _drawn_graph_version:
 		_draw_ladders(t)
+	_update_wet_tiles()
+	# Облака и гряда идут по сим-времени: замирают на паузе, ускоряются на ×3.
+	var sim_t: float = Game.sim_seconds()
+	clouds.scroll_offset.x = floorf(sim_t * CLOUD_DRIFT)
+	mist.scroll_offset.x = floorf(sim_t * MIST_DRIFT)
+
+# --- Мокрые тайлы (промпт 18 п.5, docs/00 §5) -----------------------------
+
+## Тайлы ниже последнего максимума воды за цикл остаются мокрыми до конца
+## цикла: граница уезжает в шейдер Ground в МИРОВЫХ координатах, потому что
+## она про отметку, а не про экран.
+##
+## Сила блеска гаснет к концу цикла: «мокро» — это состояние, а не метка,
+## и оно обязано быть видно как проходящее.
+func _update_wet_tiles() -> void:
+	var mat: ShaderMaterial = ground.material as ShaderMaterial
+	if mat == null or Game.world == null:
+		return
+	var clock: Dictionary = Game.query_clock()
+	if clock.is_empty():
+		return
+	var last_high: float = float(clock.get("last_high", Balance.HIGH_LEVEL))
+	var level: float = float(clock.get("level", Balance.HIGH_LEVEL))
+	# Под водой мокрое не рисуем: там и так вода. Граница — максимум цикла,
+	# но не выше текущего уровня.
+	mat.set_shader_parameter(&"u_wet_world_y",
+		WorldGeo.mark_to_world_y(maxf(last_high, level)))
+	var phase: int = int(clock.get("phase", 0))
+	var progress: float = 0.0
+	var phase_len: float = maxf(1.0, float(int(clock.get("phase_len", 1))))
+	progress = float(int(clock.get("tick_in_phase", 0))) / phase_len
+	# Полная сила на Отливе, к концу Низкой воды тайлы высыхают.
+	var amount: float = 1.0
+	if phase == SimTypes.Phase.LOW:
+		amount = clampf(1.0 - progress, 0.0, 1.0)
+	elif phase == SimTypes.Phase.SIGNAL:
+		amount = 0.0
+	mat.set_shader_parameter(&"u_wet_amount", amount)
 
 func _terrain() -> Terrain:
 	if Game.world == null:
@@ -261,6 +323,10 @@ func _rebuild_buildings() -> void:
 	for v: BuildingView in _building_views.values():
 		v.queue_free()
 	_building_views.clear()
+	# Свет живёт отдельным реестром: без сброса при перезапуске забега огни
+	# прошлой колонии остались бы висеть в пустоте.
+	lights.clear()
+	_light_nodes.clear()
 	if Game.world == null:
 		return
 	for id: int in Game.world.buildings.order:
@@ -277,6 +343,7 @@ func _on_building_placed(id: int) -> void:
 	v.position = WorldGeo.cell_to_world(b["cell"] as Vector2i)
 	buildings_root.add_child(v)
 	_building_views[id] = v
+	_sync_light(id)
 
 func _on_building_changed(id: int) -> void:
 	var v: BuildingView = _building_views.get(id, null)
@@ -284,13 +351,55 @@ func _on_building_changed(id: int) -> void:
 		_on_building_placed(id)
 		return
 	v.refresh()
+	_sync_light(id)
 
 func _on_building_removed(id: int) -> void:
 	var v: BuildingView = _building_views.get(id, null)
+	_drop_light(id)
 	if v == null:
 		return
 	_building_views.erase(id)
 	v.queue_free()
+
+# --- Свет (промпт 18 п.2) -------------------------------------------------
+
+## Настоящий PointLight2D — только у источников, которые обязаны освещать
+## проходящих мимо агентов: очаг, горн, фонарь (у фонаря свет ещё и игровой —
+## радиус против существ, docs/00 §9). Всё декоративное свечение делается
+## спрайтами, иначе бюджет в восемь светов уходит на украшения.
+const LIT_BUILDINGS: Dictionary[String, String] = {
+	"hearth": "hearth", "forge": "forge", "lantern": "lantern",
+}
+
+## Свет появляется у ДОСТРОЕННОЙ и целой постройки и гаснет, когда её сломало
+## или затопило: горящий фонарь под водой — это дефект, который замечают все.
+func _sync_light(id: int) -> void:
+	var b: Dictionary = Game.query_building(id)
+	if b.is_empty():
+		_drop_light(id)
+		return
+	var kind: String = LIT_BUILDINGS.get(str(b.get("def_id", "")), "")
+	if kind.is_empty():
+		return
+	var on: bool = int(b.get("state", 0)) == SimTypes.BuildState.ACTIVE \
+		and not bool(b.get("damaged", false)) and not bool(b.get("flooded", false))
+	# Очагу и горну нужен ещё и огонь: погасший очаг не светит.
+	if kind != "lantern":
+		on = on and bool(b.get("lit", false))
+	if not on:
+		_drop_light(id)
+		return
+	if _light_nodes.has(id):
+		return
+	var cell: Vector2i = b["cell"] as Vector2i
+	_light_nodes[id] = lights.add_light(kind, WorldGeo.cell_center_world(cell))
+
+func _drop_light(id: int) -> void:
+	var l: PointLight2D = _light_nodes.get(id, null)
+	if l == null:
+		return
+	_light_nodes.erase(id)
+	lights.remove_light(l)
 
 # --- Существа -------------------------------------------------------------
 

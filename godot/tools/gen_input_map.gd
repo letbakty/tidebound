@@ -23,6 +23,10 @@ const ACTIONS: Dictionary = {
 	"overlay_marks": [KEY_F2],
 	"overlay_flood": [KEY_F3],
 	"overlay_jobs":  [KEY_F4],
+	# Режим съёмки (этап 18, research/34): F9 — вкл/выкл, F10 — что в кадре.
+	# Только debug-сборка, в релизе обработчик даже не смотрит на эти действия.
+	"capture_toggle": [KEY_F9],
+	"capture_layers": [KEY_F10],
 }
 
 ## Оси стика как ДЕЙСТВИЯ: Input.get_vector без них не работает, и виртуальный

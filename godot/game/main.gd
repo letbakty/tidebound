@@ -26,6 +26,7 @@ const STATION_SPECIALS: Array[String] = ["forge", "workbench", "evaporator",
 @onready var banner_layer: CanvasLayer = $BannerLayer
 @onready var screen_layer: CanvasLayer = $ScreenLayer
 @onready var debug_layer: CanvasLayer = $DebugLayer
+@onready var weather_layer: CanvasLayer = $WeatherLayer
 
 var world_view: WorldView = null
 var hud: Hud = null
@@ -34,6 +35,10 @@ var build_radial: BuildRadial = null
 var deposit_tip: DepositTooltip = null
 var router: ScreenRouter = null
 var hints: HintCard = null
+## Погода и атмосфера (этап 18): дирижирует эффектами внутри мира и снаружи.
+var weather: WeatherView = null
+## Режим съёмки (research/34): скрывает HUD и фиксирует скорость.
+var capture: CaptureMode = null
 ## Режим установки маяка: следующий тап по миру ставит маяк.
 var _beacon_mode: bool = false
 ## Корни UI на слоях: их размер держим синхронным с окном вручную.
@@ -48,6 +53,7 @@ func _ready() -> void:
 	# созданный позже, их уже не увидит. World рисует рельеф по run_started.
 	world_view = (load(WORLD_SCENE) as PackedScene).instantiate() as WorldView
 	world_viewport.add_child(world_view)
+	_spawn_weather()
 	_spawn_hud()
 	_spawn_panels()
 	_spawn_screens()
@@ -61,6 +67,19 @@ func _ready() -> void:
 	Settings.capture_defaults()
 	# Забег начинает игрок из меню: автостарта больше нет (docs/03 §2).
 	router.goto(ScreenRouter.Screen.BOOT)
+
+## Погода собирается ДО HUD: дождь и туман живут внутри мира, виньетка —
+## снаружи, и обе половины должна держать одна нода (этап 18).
+func _spawn_weather() -> void:
+	weather = WeatherView.new()
+	weather.name = "WeatherView"
+	add_child(weather)
+	weather.setup(world_view.rain_rect(), world_view.fog_rect(),
+		weather_layer.get_node_or_null(^"Vignette") as ColorRect,
+		world_view.fx_root(), world_viewport)
+	capture = CaptureMode.new()
+	capture.name = "CaptureMode"
+	add_child(capture)
 
 ## HUD кладётся на свой слой через attach_ui: каскад темы на CanvasLayer
 ## рвётся, и корню слоя тема нужна явно (research/19 §3).

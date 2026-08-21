@@ -1,0 +1,7 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Shader" path="res://assets/shaders/sprite_lit.gdshader" id="1_u0odi"]
+
+[resource]
+shader = ExtResource("1_u0odi")
+shader_parameter/u_light_px = 1.0
