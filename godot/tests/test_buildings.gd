@@ -225,6 +225,56 @@ static func test_demolish_refunds_half(t: TestCtx) -> void:
 	t.check_eq(_ground_count(w, "scrap") - before, 3, "вернулось 3 утиля из 6")
 	t.check_eq(w.buildings.building_at(cell), -1, "клетка освободилась")
 
+## TEST-01 · снос недостроенного не создаёт ресурсы (SIM-02). Стоимость
+## списывается только при ЗАВЕРШЕНИИ стройки, поэтому возврат «половины
+## стоимости» из PLANNED/UNDER_CONSTRUCTION был бесконечным дублированием:
+## поставить Горн за 6 утиля → сразу снести → 3 утиля из воздуха.
+static func test_demolish_unbuilt_creates_nothing(t: TestCtx) -> void:
+	# PLANNED, буфер пуст: на земле не должно появиться ничего.
+	var w: SimWorld = _world(41)
+	var id: int = w.buildings.place("forge", _cell_on(3, 4, 2), w)
+	t.check_eq(int(w.buildings.buildings[id]["state"]),
+		int(SimTypes.BuildState.PLANNED), "постройка запланирована, не достроена")
+	var before: int = _world_total(w, "scrap")
+	t.check(w.buildings.demolish(id, w), "снос прошёл")
+	t.check_eq(_world_total(w, "scrap"), before,
+		"снос PLANNED не изменил суммарный утиль в мире")
+
+	# UNDER_CONSTRUCTION с полным буфером: возвращается РОВНО буфер.
+	var w2: SimWorld = _world(43)
+	var id2: int = w2.buildings.place("forge", _cell_on(3, 4, 2), w2)
+	var cost: int = int(DB.building("forge").cost["scrap"])
+	w2.buildings.deliver(id2, StackUtil.make("scrap", cost, false), w2)
+	w2.buildings.tick(w2)
+	t.check_eq(int(w2.buildings.buildings[id2]["state"]),
+		int(SimTypes.BuildState.UNDER_CONSTRUCTION), "стройка началась")
+	var before2: int = _world_total(w2, "scrap")
+	w2.buildings.demolish(id2, w2)
+	t.check_eq(_world_total(w2, "scrap"), before2,
+		"снос недостроенной вернул ровно буфер, ни единицей больше")
+
+	# ACTIVE: стоимость потрачена, половина возвращается — это верно.
+	var w3: SimWorld = _world(47)
+	var id3: int = w3.buildings.place("forge", _cell_on(3, 4, 2), w3, true)
+	var before3: int = _world_total(w3, "scrap")
+	w3.buildings.demolish(id3, w3)
+	t.check_eq(_world_total(w3, "scrap") - before3,
+		cost / Balance.DEMOLISH_REFUND_FRACTION,
+		"снос достроенной вернул половину стоимости")
+
+## Весь предмет в мире: склады + буферы построек + земля. Проверять только
+## землю мало — при сносе буфер тоже уезжает на землю, и «выросло на 4»
+## неотличимо от «выросло на 4 из воздуха».
+static func _world_total(w: SimWorld, item_id: String) -> int:
+	var n: int = int(w.storage.totals().get(item_id, 0))
+	n += _ground_count(w, item_id)
+	for id: int in w.buildings.order:
+		var buf: Dictionary = w.buildings.buildings[id]["buffer"] as Dictionary
+		for k: Variant in buf:
+			if StackUtil.key_item(str(k)) == item_id:
+				n += int(buf[k])
+	return n
+
 static func _ground_count(w: SimWorld, item_id: String) -> int:
 	var n: int = 0
 	for g: Dictionary in w.storage.ground:

@@ -466,9 +466,17 @@ func demolish(id: int, w: SimWorld) -> bool:
 	return true
 
 ## refund_fraction = 0 значит «без возврата».
+##
+## ⚠️ Долю стоимости возвращает только ДОСТРОЕННАЯ постройка. Стоимость
+## списывается из буфера в момент завершения стройки (advance_construction),
+## поэтому у PLANNED и UNDER_CONSTRUCTION она ещё не потрачена: возврат
+## оттуда — чистое создание ресурсов из воздуха («поставить Горн за 6 утиля,
+## сразу снести, получить 3» и так до бесконечности, SIM-02).
+## Буфер возвращается всегда и во всех состояниях — он реально принесён.
 func _destroy(b: Dictionary, w: SimWorld, refund_fraction: int) -> void:
 	var d: BuildingDef = DB.building(str(b["def_id"]))
-	if refund_fraction > 0:
+	var cost_was_paid: bool = int(b["state"]) == int(SimTypes.BuildState.ACTIVE)
+	if refund_fraction > 0 and cost_was_paid:
 		var keys: Array[String] = []
 		keys.assign(d.cost.keys())
 		keys.sort()
