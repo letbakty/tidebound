@@ -61,6 +61,7 @@ func _build() -> void:
 	_word_edit.name = "Word"
 	_word_edit.visible = false
 	_word_edit.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_word_edit.virtual_keyboard_enabled = true
 	_word_edit.text_changed.connect(_on_word_changed)
 	_panel.add_content(_word_edit)
 

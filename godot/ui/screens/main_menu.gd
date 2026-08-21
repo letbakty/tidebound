@@ -58,6 +58,9 @@ func _build_menu() -> void:
 	_seed_edit.placeholder_text = tr("MENU_SEED_RANDOM")
 	_seed_edit.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 	_seed_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Экранная клавиатура обязана вызываться на любое поле ввода — требование
+	# верификации Steam Deck (docs/03 §8).
+	_seed_edit.virtual_keyboard_enabled = true
 	_seed_edit.custom_minimum_size = Vector2(140.0, float(UITokens.TOUCH_MIN))
 	seed_row.add_child(_seed_edit)
 

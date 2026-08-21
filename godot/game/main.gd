@@ -56,6 +56,9 @@ func _ready() -> void:
 	# Один обработчик на все корни: connect с .bind() для каждого узла движок
 	# считает одним и тем же callable и ругается на повторное соединение.
 	get_viewport().size_changed.connect(_restretch_layer_roots)
+	# Доступность (кегль, пресет для дальтоников, контраст) меняет саму тему.
+	Settings.theme_changed.connect(_rebuild_theme)
+	Settings.capture_defaults()
 	# Забег начинает игрок из меню: автостарта больше нет (docs/03 §2).
 	router.goto(ScreenRouter.Screen.BOOT)
 
@@ -282,6 +285,14 @@ func _wire_gestures() -> void:
 	input_service.world_double_tapped.connect(func(_pos: Vector2) -> void:
 		Game.cmd_set_speed(1 if Game.speed >= 3 else Game.speed + 1))
 	input_service.world_tapped.connect(_on_world_tapped)
+	# Прогресс долгого нажатия виден у пальца (docs/01 §5).
+	input_service.long_press_progress.connect(func(pos: Vector2, t: float) -> void:
+		hud.press.show_progress(pos, t))
+	# Курсор геймпада появляется только когда игрок взялся за геймпад.
+	input_service.device_changed.connect(func(device: int) -> void:
+		hud.cursor.set_active(device == int(InputService.Device.PAD))
+		hud.hints.set_device(device))
+	hud.cursor.tapped.connect(_on_cursor_tapped)
 	input_service.world_long_pressed.connect(_on_world_long_pressed)
 	input_service.edge_swipe_right.connect(func() -> void:
 		panels.open(PANEL_POLICIES))
@@ -299,12 +310,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if router.current != ScreenRouter.Screen.GAME or router.is_modal_open():
 		return
-	if event.is_action_pressed("policies"):
+	if event.is_action_pressed("zoom_in"):
+		world_view.camera.zoom_in()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("zoom_out"):
+		world_view.camera.zoom_out()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("policies"):
 		panels.open(PANEL_POLICIES)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("build_radial"):
-		var mouse: Vector2 = get_viewport().get_mouse_position()
-		_open_build_radial(mouse)
+		# Геймпад открывает радиал у виртуального курсора, мышь — у своего.
+		var at: Vector2 = hud.cursor.position_on_screen() if hud.cursor.active \
+			else get_viewport().get_mouse_position()
+		_open_build_radial(at)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("beacon"):
 		set_beacon_mode(not _beacon_mode)
@@ -328,6 +347,10 @@ func _to_viewport(screen_pos: Vector2) -> Vector2:
 func _open_build_radial(screen_pos: Vector2) -> void:
 	panels.close()
 	build_radial.open_at(screen_pos, _screen_to_world(screen_pos), false)
+
+## Тап курсором геймпада — тот же путь, что и палец: один разбор на всё.
+func _on_cursor_tapped(screen_pos: Vector2) -> void:
+	_on_world_tapped(screen_pos)
 
 func _on_world_long_pressed(screen_pos: Vector2) -> void:
 	build_radial.open_at(screen_pos, _screen_to_world(screen_pos), true)
@@ -439,6 +462,14 @@ func attach_ui(layer: CanvasLayer, node: Control) -> void:
 ## ⚠️ Control, созданный кодом под CanvasLayer, размера сам не получает:
 ## у слоя нет прямоугольника, и якоря считаются от нуля (в сцене это скрыто
 ## сохранёнными offsets). Растягиваем явно, иначе панели уезжают за экран.
+## Пересборка темы из токенов и палитры: сцены при этом не трогаются —
+## компоненты подхватят новое через NOTIFICATION_THEME_CHANGED (docs/01 §1.2).
+func _rebuild_theme() -> void:
+	var th: Theme = UIThemeFactory.build()
+	for node: Control in _layer_roots:
+		if is_instance_valid(node):
+			node.theme = th
+
 func _restretch_layer_roots() -> void:
 	for node: Control in _layer_roots:
 		_stretch_to_viewport(node)

@@ -54,6 +54,13 @@ func _build() -> void:
 	_button.pressed.connect(_on_pressed)
 	box.add_child(_button)
 
+## Space на ПК и B на геймпаде — та же команда, что и кнопка (docs/00 §13).
+## _unhandled_input: при фокусе в поле ввода пробел должен печататься.
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("recall"):
+		_on_pressed()
+		get_viewport().set_input_as_handled()
+
 func _on_pressed() -> void:
 	var now: int = Time.get_ticks_msec()
 	var hard: bool = now - _last_press_ms <= int(HARD_WINDOW_SEC * 1000.0)

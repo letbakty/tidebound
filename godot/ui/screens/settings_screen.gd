@@ -10,6 +10,10 @@ var _tabs: TabContainer = null
 var _tab_keys: Array[String] = ["SET_TAB_GAME", "SET_TAB_SCREEN", "SET_TAB_SOUND",
 	"SET_TAB_INPUT", "SET_TAB_ACCESS"]
 var _confirm: ConfirmDialog = null
+var _bind_rows: Dictionary[String, PixelButton] = {}
+var _capture_note: Label = null
+## Действие, для которого ждём нажатие ("" — не ждём).
+var _capturing: String = ""
 
 func _ready() -> void:
 	super()
@@ -193,30 +197,72 @@ func _build_sound_tab() -> Control:
 			Settings.mark_dirty()), "SET_HAPTICS_HINT")
 	return box.get_parent() as Control
 
-## Каркас в MVP: ремап и схемы наполняет этап 16 (docs/03 §7).
+## Ремап всех игровых действий с подсветкой конфликтов (промпт 16 п.6).
+## Служебные действия (ui_*, дебаг) не переназначаются: их ремап ломает
+## навигацию геймпадом, а это прямой отказ в Steam Deck Verified.
 func _build_input_tab() -> Control:
 	var box: VBoxContainer = _tab("Input")
 	var note: Label = Label.new()
 	UILayout.wrap(note, 520.0)
 	note.text = "SET_INPUT_NOTE"
 	box.add_child(note)
-	var list: VBoxContainer = VBoxContainer.new()
-	box.add_child(list)
-	for pair: Array in [["ACT_PAN", "pan_left"], ["ACT_RECALL", "recall"],
-			["ACT_POLICIES", "policies"], ["ACT_BUILD", "build_radial"],
-			["ACT_BEACON", "beacon"], ["ACT_PAUSE", "pause_menu"]]:
+	_bind_rows.clear()
+	for action: String in Settings.REMAPPABLE:
 		var row: HBoxContainer = HBoxContainer.new()
-		list.add_child(row)
+		box.add_child(row)
 		var label: Label = Label.new()
-		label.text = str(pair[0])
+		label.text = "ACT_%s" % action.to_upper()
 		label.custom_minimum_size = Vector2(220.0, 0.0)
 		row.add_child(label)
-		var keys: Label = Label.new()
-		keys.theme_type_variation = &"LabelSmall"
-		keys.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-		keys.text = _action_keys(str(pair[1]))
-		row.add_child(keys)
+		var button: PixelButton = PixelButton.new()
+		button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.text = _action_keys(action)
+		button.pressed.connect(func() -> void: _start_capture(action))
+		row.add_child(button)
+		_bind_rows[action] = button
+	var reset: PixelButton = PixelButton.new()
+	reset.setup("SET_RESET_KEYS", PixelButton.Variant.GHOST)
+	reset.pressed.connect(func() -> void:
+		Settings.reset_bindings()
+		_refresh_bindings())
+	box.add_child(reset)
+	_capture_note = Label.new()
+	_capture_note.theme_type_variation = &"LabelSmall"
+	UILayout.wrap(_capture_note, 520.0)
+	_capture_note.visible = false
+	box.add_child(_capture_note)
+	_refresh_bindings()
 	return box.get_parent() as Control
+
+## Ждём следующего нажатия клавиши или кнопки геймпада.
+func _start_capture(action: String) -> void:
+	_capturing = action
+	_capture_note.visible = true
+	_capture_note.text = tr("SET_PRESS_KEY")
+
+func _unhandled_input(event: InputEvent) -> void:
+	if _capturing.is_empty() or not visible:
+		return
+	var ok: bool = event is InputEventKey and (event as InputEventKey).pressed
+	ok = ok or (event is InputEventJoypadButton
+		and (event as InputEventJoypadButton).pressed)
+	if not ok:
+		return
+	Settings.rebind(_capturing, event)
+	_capturing = ""
+	_capture_note.visible = false
+	_refresh_bindings()
+	get_viewport().set_input_as_handled()
+
+## Конфликт видно сразу: две одинаковые клавиши краснеют обе.
+func _refresh_bindings() -> void:
+	var bad: Dictionary = Settings.conflicts()
+	for action: String in _bind_rows:
+		var button: PixelButton = _bind_rows[action]
+		button.text = _action_keys(action)
+		button.variant = PixelButton.Variant.DANGER if bad.has(action) \
+			else PixelButton.Variant.NORMAL
 
 static func _action_keys(action: String) -> String:
 	if not InputMap.has_action(action):

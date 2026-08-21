@@ -85,17 +85,17 @@ const FONT_NUM_PATH: String = "res://assets/fonts/jetbrains_mono.ttf"
 ## Цвет полосы состояния агента по худшей потребности (0..100).
 static func need_color(value_0_100: float) -> Color:
 	if value_0_100 < 30.0:
-		return DANGER
+		return UIPalette.danger()
 	if value_0_100 < 55.0:
 		return WARM
-	return SUCCESS
+	return UIPalette.success()
 
 ## Цвет тренда: −1 / 0 / +1. Цвет НЕ единственный канал — рядом всегда стрелка.
 static func trend_color(trend: int) -> Color:
 	if trend > 0:
-		return SUCCESS
+		return UIPalette.success()
 	if trend < 0:
-		return DANGER
+		return UIPalette.danger()
 	return FAINT
 
 ## Подложка панели с проектной прозрачностью.

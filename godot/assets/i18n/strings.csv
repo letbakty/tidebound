@@ -467,3 +467,24 @@ HINT_SPOIL,"Сырая добыча и провизия портятся. Сол
 HINT_WASHED,"Оставленное внизу смывает водой. Отзыв возвращает людей наверх до прихода воды","What is left below gets washed away. Recall brings people up before the water"
 HINT_WET_WOOD,"Мокрый плавник не горит. Сушила высушивают два полена за цикл","Wet driftwood does not burn. The dryer dries two logs a cycle"
 HINT_FINAL_SPRING,"Последняя сизигия: в момент прихода судна вода встанет на два яруса выше обычного. Всё ценное надо заранее поднять на отметку +3 и выше — что окажется под водой, не засчитают","The last spring tide: when the ship arrives the water stands two tiers higher than usual. Move everything valuable to mark +3 or above beforehand — whatever ends up under water will not count"
+SET_RESET_KEYS,Сбросить к умолчаниям,Reset to defaults
+SET_PRESS_KEY,Нажмите клавишу или кнопку геймпада,Press a key or a gamepad button
+ACT_PAN_LEFT,Панорама влево,Pan left
+ACT_PAN_RIGHT,Панорама вправо,Pan right
+ACT_PAN_UP,Панорама вверх,Pan up
+ACT_PAN_DOWN,Панорама вниз,Pan down
+ACT_SPEED_1,Скорость x1,Speed x1
+ACT_SPEED_2,Скорость x2,Speed x2
+ACT_SPEED_3,Скорость x3,Speed x3
+ACT_PAUSE_MENU,Пауза,Pause
+ACT_BUILD_RADIAL,Радиал стройки,Build radial
+HUD_KEY_SPACE,Space,Space
+HUD_KEY_B,B,B
+HUD_KEY_P,P,P
+HUD_KEY_M,M,M
+HUD_KEY_ESC,Esc,Esc
+HUD_PAD_B,B,B
+HUD_PAD_Y,Y,Y
+HUD_PAD_LB,LB,LB
+HUD_PAD_X,X,X
+HUD_PAD_START,Start,Start

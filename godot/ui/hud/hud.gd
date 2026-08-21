@@ -22,6 +22,9 @@ var recall: RecallButton = null
 var toasts: ToastStack = null
 var banner: BannerView = null
 var notices: NoticeQueue = null
+var press: PressIndicator = null
+var hints: ButtonHints = null
+var cursor: GamepadCursor = null
 
 var _margin: MarginContainer = null
 ## id -> {flooded, damaged}: тост показываем на ПЕРЕХОДЕ, а не на каждом
@@ -111,6 +114,22 @@ func _build() -> void:
 
 	# Мёртвая зона тостов считается от кнопки, а не «на глаз в пикселях».
 	toasts.set_deadzone(float(UITokens.DEADZONE_PX))
+
+	hints = ButtonHints.new()
+	hints.name = "ButtonHints"
+	hints.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	hints.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	rows.add_child(hints)
+
+	# Индикатор удержания и курсор — поверх всего HUD и без мыши.
+	press = PressIndicator.new()
+	press.name = "PressIndicator"
+	press.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(press)
+	cursor = GamepadCursor.new()
+	cursor.name = "GamepadCursor"
+	cursor.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(cursor)
 
 func _place_banner() -> void:
 	if banner == null or top_bar == null:
