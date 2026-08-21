@@ -121,6 +121,12 @@ static func test_salt_chain(t: TestCtx) -> void:
 	var w: SimWorld = _world(4242)
 	_station(w, "evaporator", -1, 14)
 	_station(w, "saltery", 3, 4)
+	# ⚠️ Второй склад — обязательная часть сценария, а не подпорка. Стартовый
+	# забивается под завязку уже к концу первого цикла, и соли из испарителя
+	# буквально некуда лечь: она просыпается на землю на отметке −1, которую
+	# затапливает каждый цикл. Отсюда и брался «производит один раз за забег»
+	# (docs/BUG-salt-chain.md). Сама цепочка при этом исправна.
+	t.check(_station(w, "storage", 3, 8) > 0, "второй склад поставлен")
 	w.storage.store(0, StackUtil.make("catch", 20, false))
 	w.storage.store(0, StackUtil.make("freshwater", 20, false))
 	w.policies.set_value(SimTypes.Policy.SUPPLY, 3)
@@ -141,9 +147,10 @@ static func test_salt_chain(t: TestCtx) -> void:
 	t.check(int(produced.get("salt", 0)) >= 3,
 		"испаритель дал соль в каждом из трёх циклов (%d)"
 		% int(produced.get("salt", 0)))
-	t.check(int(produced.get("rations", 0)) >= 2,
-		"солильня превратила соль в провизию (%d)"
-		% int(produced.get("rations", 0)))
+	# Один испаритель даёт 1 соль за цикл, солильня из неё делает 2 провизии:
+	# 6 за три цикла — это ВЕСЬ выход цепочки, а не порог с запасом.
+	t.check_eq(int(produced.get("rations", 0)), 6,
+		"вся соль дошла до солильни и стала провизией")
 
 ## Испаритель, накрытый водой в середине отлива, соли в этом цикле не даёт.
 static func test_evaporator_needs_dry_low(t: TestCtx) -> void:
@@ -229,6 +236,45 @@ static func test_winch_lifts_from_basket(t: TestCtx) -> void:
 	t.check_eq(int(w.storage.totals().get("scrap", 0)) - before, 3,
 		"стак из корзины оказался на складе")
 	t.check(w.storage.ground_at(basket).is_empty(), "корзина опустела")
+
+## Выход станции обязан лечь на склад, где слот занят ТАКИМ ЖЕ неполным
+## стаком: выбор склада «по числу свободных слотов» отправлял его на землю.
+static func test_output_merges_into_full_slots(t: TestCtx) -> void:
+	var w: SimWorld = _world(53)
+	var evap: int = _station(w, "evaporator", -1, 14)
+	t.check(evap > 0, "испаритель стоит")
+	# Забег начинается на Высокой воде: до Отлива испаритель просто затоплен.
+	t.run_ticks(w, 450 + 10)
+	# Забиваем ВСЕ слоты всех складов, но один из них — неполным стаком соли.
+	for s: Dictionary in w.storage.storages:
+		var stacks: Array = s["stacks"] as Array
+		stacks.clear()
+		stacks.append(StackUtil.make("salt", 1, false))
+		var def: ItemDef = DB.item("relic")
+		for i: int in int(s["capacity"]) - 1:
+			stacks.append(StackUtil.make("relic", def.stack_size, false))
+	t.check_eq(int(w.storage.totals().get("salt", 0)), 1, "на складе 1 соль")
+	t.check_eq(ProductionSystem.idle_reason(w.buildings.buildings[evap], w), "",
+		"место под соль есть — станция не жалуется")
+	# Конец отлива: испаритель отдаёт соль.
+	t.run_ticks(w, 1500 - 10 + 5)
+	t.check_eq(int(w.storage.totals().get("salt", 0)), 2,
+		"соль слилась с неполным стаком, а не просыпалась на землю")
+
+## Пассивная станция с полными складами обязана честно говорить «некуда»:
+## её выход просыпается на землю, а испаритель стоит на затопляемой отметке.
+static func test_passive_station_reports_no_space(t: TestCtx) -> void:
+	var w: SimWorld = _world(59)
+	var evap: int = _station(w, "evaporator", -1, 14)
+	t.run_ticks(w, 450 + 10)                      # дождались Отлива
+	for s: Dictionary in w.storage.storages:
+		var stacks: Array = s["stacks"] as Array
+		stacks.clear()
+		var def: ItemDef = DB.item("relic")
+		for i: int in int(s["capacity"]):
+			stacks.append(StackUtil.make("relic", def.stack_size, false))
+	t.check_eq(ProductionSystem.idle_reason(w.buildings.buildings[evap], w),
+		"no_space", "склады полны — испарителю некуда девать соль")
 
 ## TEST-03 · лебёдка ПЕРЕНОСИТ, а не производит (SIM-03). Раньше подъём шёл
 ## через выход рецепта, который пересоздавал стак: мокрый плавник всплывал

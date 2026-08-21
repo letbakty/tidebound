@@ -127,8 +127,14 @@ static func idle_reason(b: Dictionary, w: SimWorld) -> String:
 	if rid.is_empty():
 		# Пассивные станции (испаритель, дождесборник, конденсатор) агента не
 		# ждут: у них «работает» = не накрыло водой в эту фазу (docs/00 §9.1).
-		if not _passive_recipe(b, w).is_empty():
-			return "flooded" if bool(b["flooded"]) or bool(b["flooded_in_phase"]) else ""
+		var passive: String = _passive_recipe(b, w)
+		if not passive.is_empty():
+			if bool(b["flooded"]) or bool(b["flooded_in_phase"]):
+				return "flooded"
+			# Пассивная станция «работает» и с полными складами — выход просто
+			# просыпается на землю. Молчать об этом нельзя: испаритель стоит
+			# на затопляемой отметке, и там его соль исчезает бесследно.
+			return "" if _outputs_fit(DB.recipe(passive), w) else "no_space"
 		return "no_recipe"
 	var r: RecipeDef = DB.recipe(rid)
 	if not has_inputs(b, r):
@@ -140,12 +146,20 @@ static func idle_reason(b: Dictionary, w: SimWorld) -> String:
 			if k != "driftwood":
 				only_fuel = false
 		return "no_fuel" if only_fuel else "no_materials"
-	for k2: String in r.outputs:
-		if not w.storage.has_space(k2, int(r.outputs[k2])):
-			return "no_space"
+	if not _outputs_fit(r, w):
+		return "no_space"
 	if r.needs_agent and w.policies.get_value(SimTypes.Policy.SUPPLY) == 0:
 		return "no_worker"
 	return ""
+
+## Есть ли на складах место под весь выход рецепта.
+static func _outputs_fit(r: RecipeDef, w: SimWorld) -> bool:
+	if r == null:
+		return true
+	for k: String in r.outputs:
+		if not w.storage.has_space(k, int(r.outputs[k])):
+			return false
+	return true
 
 ## Первый доступный пассивный рецепт станции ("" — нет такого).
 static func _passive_recipe(b: Dictionary, w: SimWorld) -> String:
@@ -215,21 +229,21 @@ func _produce(b: Dictionary, item_id: String, n: int, w: SimWorld) -> void:
 ## это перепутать: _produce принимает id и количество, _deposit — готовый стак.
 func _deposit(b: Dictionary, stack: Dictionary, w: SimWorld) -> void:
 	var item_id: String = str(stack["item_id"])
-	var n: int = int(stack["count"])
 	var cell: Vector2i = BuildingSystem.storage_cell(b)
-	var best: int = -1
-	var best_d: float = INF
-	for s: Dictionary in w.storage.storages:
-		if (s["stacks"] as Array).size() >= int(s["capacity"]):
-			continue
-		var c: Vector2i = s["cell"] as Vector2i
-		var d: float = absf(float(c.x - cell.x)) + absf(float(c.y - cell.y))
-		if d < best_d or (is_equal_approx(d, best_d) and int(s["id"]) < best):
-			best_d = d
-			best = int(s["id"])
-	var left: int = n
-	if best >= 0:
-		left = w.storage.store(best, stack)
+	var left: int = int(stack["count"])
+	var rest: Dictionary = stack.duplicate()
+	# ⚠️ Склады перебираются ПОДРЯД, от ближнего к дальнему, а не «выбрали один
+	# и на этом всё». Прежний выбор отбрасывал склад, у которого нет свободного
+	# СЛОТА, — хотя store() спокойно долил бы стак к такому же. На карте
+	# cliff_01 склад забивается к концу первого цикла, и со второго вся соль
+	# просыпалась на землю у испарителя, то есть на отметку −1, которую
+	# затапливает каждый цикл: соляная цепочка производила ровно один раз
+	# за забег (docs/BUG-salt-chain.md).
+	for sid: int in _storages_by_distance(cell, w):
+		if left <= 0:
+			break
+		rest["count"] = left
+		left = w.storage.store(sid, rest)
 	if left <= 0:
 		return
 	var spill: Dictionary = stack.duplicate()
@@ -237,6 +251,32 @@ func _deposit(b: Dictionary, stack: Dictionary, w: SimWorld) -> void:
 	w.storage.drop(cell, spill)
 	_pending.append(SimEvent.make("production_spilled",
 		{"id": int(b["id"]), "item": item_id, "n": left}))
+
+## Идентификаторы складов по возрастанию расстояния от клетки.
+## Тай-брейк по id обязателен: без него порядок при равных расстояниях
+## не определён и два забега с одним сидом разойдутся (research/11 §1.1).
+## Выборка минимума, а не sort_custom: складов единицы, зато компаратор
+## заведомо тотальный.
+static func _storages_by_distance(cell: Vector2i, w: SimWorld) -> Array[int]:
+	var out: Array[int] = []
+	var used: Dictionary[int, bool] = {}
+	for _i: int in w.storage.storages.size():
+		var best: int = -1
+		var best_d: float = INF
+		for s: Dictionary in w.storage.storages:
+			var sid: int = int(s["id"])
+			if used.has(sid):
+				continue
+			var c: Vector2i = s["cell"] as Vector2i
+			var d: float = absf(float(c.x - cell.x)) + absf(float(c.y - cell.y))
+			if d < best_d or (is_equal_approx(d, best_d) and sid < best):
+				best_d = d
+				best = sid
+		if best < 0:
+			break
+		used[best] = true
+		out.append(best)
+	return out
 
 # --- Лебёдка --------------------------------------------------------------
 
