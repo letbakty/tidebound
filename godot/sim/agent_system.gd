@@ -103,8 +103,7 @@ func _tick_agent(a: SimAgent, w: SimWorld) -> void:
 		SimTypes.AgentState.HAUL:
 			_do_haul(a, w)
 		SimTypes.AgentState.WORK:
-			# Станции — этап 08; до тех пор состояние просто отпускает агента.
-			_finish_job(a, w)
+			_do_work(a, w)
 		_:
 			pass
 
@@ -132,8 +131,9 @@ func _tick_needs(a: SimAgent, w: SimWorld) -> void:
 
 func _near_heat(a: SimAgent, w: SimWorld) -> bool:
 	var cell: Vector2i = agent_cell(a, w)
+	var radius: int = w.heat_radius()
 	for h: Vector2i in w.heat_sources():
-		if absi(h.x - cell.x) + absi(h.y - cell.y) <= Balance.HEAT_RADIUS:
+		if absi(h.x - cell.x) + absi(h.y - cell.y) <= radius:
 			return true
 	return false
 
@@ -406,21 +406,56 @@ func _do_haul(a: SimAgent, w: SimWorld) -> void:
 		if j.is_empty():
 			_finish_job(a, w)
 			return
-		# Первая нога: подобрать груз с земли.
-		var picked: Array[Dictionary] = w.storage.pickup_at(j["cell"] as Vector2i)
-		if picked.is_empty():
+		if not _pick_up(a, j, w):
 			_finish_job(a, w)
 			return
-		for st: Dictionary in picked:
-			a.bag.append(st)
 		w.jobs.mark_dirty()
 		_retarget(a, w, j["to_cell"] as Vector2i)
 		return
-	# Вторая нога: разгрузиться.
-	var sid: int = w.storage.storage_at(agent_cell(a, w))
-	if sid < 0:
+	if not _put_down(a, j, w):
 		_finish_job(a, w)
 		return
+	w.jobs.mark_dirty()
+	_finish_job(a, w)
+
+## Первая нога переноски: взять груз с земли или со склада.
+func _pick_up(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
+	if str(j["from_kind"]) == "storage":
+		var from_id: int = w.storage.storage_at(agent_cell(a, w))
+		if from_id < 0:
+			return false
+		var got: Array[Dictionary] = w.storage.take(from_id, str(j["item_id"]),
+			int(j["n"]), true)
+		if got.is_empty():
+			return false
+		for st: Dictionary in got:
+			a.bag.append(st)
+		return true
+	var picked: Array[Dictionary] = w.storage.pickup_at(j["cell"] as Vector2i)
+	if picked.is_empty():
+		return false
+	for st2: Dictionary in picked:
+		a.bag.append(st2)
+	return true
+
+## Вторая нога: сдать груз на склад или в буфер постройки.
+func _put_down(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
+	if not j.is_empty() and str(j["to_kind"]) == "building":
+		var bid: int = int(j["to_id"])
+		if not w.buildings.buildings.has(bid):
+			return false
+		var left_b: Array[Dictionary] = []
+		for st: Dictionary in a.bag:
+			var rest_b: int = w.buildings.deliver(bid, st, w)
+			if rest_b > 0:
+				var keep_b: Dictionary = st.duplicate()
+				keep_b["count"] = rest_b
+				left_b.append(keep_b)
+		a.bag = left_b
+		return true
+	var sid: int = w.storage.storage_at(agent_cell(a, w))
+	if sid < 0:
+		return false
 	var left: Array[Dictionary] = []
 	for st2: Dictionary in a.bag:
 		var rest: int = w.storage.store(sid, st2)
@@ -429,8 +464,21 @@ func _do_haul(a: SimAgent, w: SimWorld) -> void:
 			keep["count"] = rest
 			left.append(keep)
 	a.bag = left
-	w.jobs.mark_dirty()
-	_finish_job(a, w)
+	return true
+
+## Стройка и ремонт: агент стоит у постройки и вкладывает тики.
+func _do_work(a: SimAgent, w: SimWorld) -> void:
+	var j: Dictionary = w.jobs.jobs.get(a.job_id, {})
+	if j.is_empty():
+		_finish_job(a, w)
+		return
+	if not _at_goal(a):
+		_advance_path(a, w)
+		return
+	# work_mult черты Трудяга ускоряет и стройку: вкладываем больше тика за тик.
+	var step: int = maxi(1, int(round(a.modifier("work_mult"))))
+	if w.buildings.advance_construction(int(j["target_id"]), step, w):
+		_finish_job(a, w)
 
 func _retarget(a: SimAgent, w: SimWorld, cell: Vector2i) -> void:
 	var pid: int = w.terrain.platform_at(cell)

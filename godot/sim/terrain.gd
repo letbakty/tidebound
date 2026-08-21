@@ -152,6 +152,30 @@ func platform_at(cell: Vector2i) -> int:
 func platform_of_mark(mark: int) -> int:
 	return _mark_to_platform.get(mark, -1)
 
+## Твёрдая опора — ПОЛ площадки в этой колонке. Постройка ставится на него,
+## а не «где-то на ярусе»: иначе она повиснет в воздухе.
+func is_solid_ground(cell: Vector2i) -> bool:
+	var mark: int = mark_of_cell(cell)
+	if cell.y != Balance.mark_to_floor_cell_y(mark):
+		return false
+	return platform_at(cell) >= 0
+
+## Помост расширяет существующую площадку. Версия графа бампается: агенты
+## с закэшированным путём обязаны узнать, что дорога изменилась.
+func extend_platform(mark: int, x0: int, x1: int) -> bool:
+	var id: int = _mark_to_platform.get(mark, -1)
+	if id < 0:
+		return false
+	var p: Dictionary = platforms[id]
+	var new_x0: int = mini(int(p["x0"]), x0)
+	var new_x1: int = maxi(int(p["x1"]), x1)
+	if new_x0 == int(p["x0"]) and new_x1 == int(p["x1"]):
+		return false
+	p["x0"] = new_x0
+	p["x1"] = new_x1
+	_rebuild_graph()
+	return true
+
 func is_flooded(cell: Vector2i, water_level: float) -> bool:
 	return Balance.is_mark_flooded(mark_of_cell(cell), water_level)
 

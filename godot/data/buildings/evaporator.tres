@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/building_def.gd" id="1_yu4rq"]
+
+[resource]
+script = ExtResource("1_yu4rq")
+id = "evaporator"
+display_key = "BLD_EVAPORATOR"
+size = Vector2i(3, 1)
+cost = Dictionary[String, int]({
+"scrap": 4
+})
+min_mark = -2
+max_mark = 0
+storm_breaks = true
+special = "evaporator"

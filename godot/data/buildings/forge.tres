@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/building_def.gd" id="1_8m84s"]
+
+[resource]
+script = ExtResource("1_8m84s")
+id = "forge"
+display_key = "BLD_FORGE"
+size = Vector2i(2, 2)
+cost = Dictionary[String, int]({
+"scrap": 6
+})
+min_mark = 1
+flood_rule = 4
+special = "forge"

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/building_def.gd" id="1_lmrs5"]
+
+[resource]
+script = ExtResource("1_lmrs5")
+id = "bunk"
+display_key = "BLD_BUNK"
+size = Vector2i(2, 1)
+cost = Dictionary[String, int]({
+"driftwood": 2
+})
+min_mark = 1
+flood_rule = 4
+special = "bunk"

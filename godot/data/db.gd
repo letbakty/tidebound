@@ -9,6 +9,7 @@ extends RefCounted
 
 static var _items: Dictionary[String, ItemDef] = {}
 static var _traits: Dictionary[String, TraitDef] = {}
+static var _buildings: Dictionary[String, BuildingDef] = {}
 static var _loaded: bool = false
 
 # Задел под этапы 07/08/05/10/11 — папки уже существуют, загрузчик один и тот же.
@@ -27,11 +28,13 @@ static func ensure_loaded() -> void:
 	_loaded = true
 	_load_dir(str(DIRS["items"]), _items)
 	_load_dir(str(DIRS["traits"]), _traits)
+	_load_dir(str(DIRS["buildings"]), _buildings)
 
 ## Сбрасывает кэш. Нужен только тестам, которые проверяют сам загрузчик.
 static func reload() -> void:
 	_items.clear()
 	_traits.clear()
+	_buildings.clear()
 	_loaded = false
 	ensure_loaded()
 
@@ -88,6 +91,24 @@ static func trait_def(id: String) -> TraitDef:
 static func has_trait(id: String) -> bool:
 	ensure_loaded()
 	return _traits.has(id)
+
+static func building(id: String) -> BuildingDef:
+	ensure_loaded()
+	var d: BuildingDef = _buildings.get(id, null)
+	if d == null:
+		push_error("DB: нет постройки '%s'" % id)
+	return d
+
+static func has_building(id: String) -> bool:
+	ensure_loaded()
+	return _buildings.has(id)
+
+static func building_ids() -> Array[String]:
+	ensure_loaded()
+	var ids: Array[String] = []
+	ids.assign(_buildings.keys())
+	ids.sort()
+	return ids
 
 static func trait_ids() -> Array[String]:
 	ensure_loaded()

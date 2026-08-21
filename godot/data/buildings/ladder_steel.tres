@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/building_def.gd" id="1_lmpff"]
+
+[resource]
+script = ExtResource("1_lmpff")
+id = "ladder_steel"
+display_key = "BLD_LADDER_STEEL"
+size = Vector2i(1, 3)
+cost = Dictionary[String, int]({
+"part": 2
+})
+special = "ladder"
+unlock_id = "u_steel_ladder"

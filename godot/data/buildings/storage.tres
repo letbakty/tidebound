@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/building_def.gd" id="1_dpmm8"]
+
+[resource]
+script = ExtResource("1_dpmm8")
+id = "storage"
+display_key = "BLD_STORAGE"
+size = Vector2i(2, 2)
+cost = Dictionary[String, int]({
+"driftwood": 5
+})
+storm_breaks = true
+hp = 2
+special = "storage"

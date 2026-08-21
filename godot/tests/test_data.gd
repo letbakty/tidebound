@@ -62,6 +62,13 @@ static func test_i18n_keys_exist(t: TestCtx) -> void:
 		t.check(known.has(d.desc_key), "нет ключа '%s' (описание черты %s)" % [d.desc_key, tid])
 	for bio: String in AgentPools.BIO_KEYS:
 		t.check(known.has(bio), "нет ключа биографии '%s'" % bio)
+	for bid: String in DB.building_ids():
+		var bd: BuildingDef = DB.building(bid)
+		t.check(known.has(bd.display_key),
+			"нет ключа '%s' (постройка %s)" % [bd.display_key, bid])
+	for err: String in ["ERR_LOCKED", "ERR_MARK", "ERR_OCCUPIED", "ERR_NO_SUPPORT",
+			"ERR_NO_LADDER_SPOT"]:
+		t.check(known.has(err), "нет ключа причины отказа '%s'" % err)
 
 static func test_all_traits_present(t: TestCtx) -> void:
 	t.check_eq(DB.trait_ids().size(), 20, "все 20 черт docs/00 §6.4 загружены")
@@ -76,6 +83,39 @@ static func test_trait_keys_are_known(t: TestCtx) -> void:
 		for key: String in DB.trait_def(tid).modifiers:
 			t.check(not TraitKeys.fold_of(key).is_empty(),
 				"черта %s: ключ '%s' не из TraitKeys" % [tid, key])
+
+static func test_all_buildings_present(t: TestCtx) -> void:
+	t.check_eq(DB.building_ids().size(), 17, "все 17 построек docs/00 §8 загружены")
+	for id: String in ["ladder_wood", "ladder_steel", "platform", "storage",
+			"hearth", "bunk", "raincatcher", "forge", "workbench", "evaporator",
+			"saltery", "dryer", "ropery", "sluice", "lantern", "condenser", "winch"]:
+		t.check(DB.has_building(id), "есть постройка '%s'" % id)
+
+## Опечатка в id ресурса делает рецепт или постройку молча непостроимой.
+static func test_building_costs_reference_real_items(t: TestCtx) -> void:
+	for id: String in DB.building_ids():
+		var b: BuildingDef = DB.building(id)
+		for item_id: String in b.cost:
+			t.check(DB.has_item(item_id),
+				"постройка %s: неизвестный ресурс '%s'" % [id, item_id])
+		t.check(b.size.x > 0 and b.size.y > 0, "у %s ненулевой размер" % id)
+		t.check(b.min_mark <= b.max_mark, "у %s диапазон отметок не вывернут" % id)
+		t.check(b.hp >= 1, "у %s прочность хотя бы 1" % id)
+
+static func test_building_spec_details(t: TestCtx) -> void:
+	t.check_eq(DB.building("storage").hp, 2, "склад переживает два шторма")
+	t.check(DB.building("dryer").storm_always, "сушила срывает на любой отметке")
+	t.check(not DB.building("ladder_steel").storm_breaks, "стальная лестница штормоустойчива")
+	t.check(DB.building("ladder_wood").storm_breaks, "деревянная — нет")
+	t.check_eq(DB.building("hearth").min_mark, 1, "очаг только на жилых ярусах")
+	t.check_eq(DB.building("evaporator").max_mark, 0, "испаритель не выше нуля")
+	t.check_eq(DB.building("ladder_steel").unlock_id, "u_steel_ladder", "🔒 у стальной")
+	t.check_eq(DB.building("condenser").unlock_id, "u_condenser", "🔒 у конденсатора")
+	t.check_eq(DB.building("winch").unlock_id, "u_winch", "🔒 у лебёдки")
+	t.check(DB.building("forge").flood_rule == SimTypes.FloodRule.DISABLED,
+		"горн под водой не работает")
+	t.check(DB.building("sluice").flood_rule == SimTypes.FloodRule.OK,
+		"шлюз под водой работает — в этом его смысл")
 
 static func test_agent_pools(t: TestCtx) -> void:
 	t.check_eq(AgentPools.NAMES.size(), 40, "пул имён — 40 штук")
@@ -115,6 +155,10 @@ static func _snapshot() -> String:
 	for tid: String in DB.trait_ids():
 		var td: TraitDef = DB.trait_def(tid)
 		all.append([td.id, td.display_key, td.desc_key, td.modifiers])
+	for bid: String in DB.building_ids():
+		var bd: BuildingDef = DB.building(bid)
+		all.append([bd.id, bd.display_key, str(bd.size), bd.cost, bd.min_mark,
+			bd.max_mark, int(bd.flood_rule), bd.storm_breaks, bd.hp, bd.special])
 	return JSON.stringify(all)
 
 ## Загрузчик обязан пережить перезагрузку кэша: ensure_loaded() зовётся из

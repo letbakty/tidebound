@@ -28,10 +28,13 @@ const DEPOSIT_COLORS: Dictionary = {
 @onready var ladders: TileMapLayer = $Ladders
 @onready var deposits_root: Node2D = $Deposits
 @onready var agents_root: Node2D = $Agents
+@onready var buildings_root: Node2D = $Buildings
+@onready var ghost: BuildGhost = $BuildGhost
 @onready var camera: CameraRig = $CameraRig
 
 var _deposit_nodes: Dictionary[int, Node2D] = {}
 var _agent_views: Dictionary[int, AgentView] = {}
+var _building_views: Dictionary[int, BuildingView] = {}
 var _drawn_graph_version: int = -1
 
 func _ready() -> void:
@@ -40,6 +43,9 @@ func _ready() -> void:
 	Events.agent_spawned.connect(_on_agent_spawned)
 	Events.agent_died.connect(_on_agent_died)
 	Events.run_ended.connect(_clear_agent_views.unbind(1))
+	Events.building_placed.connect(_on_building_placed)
+	Events.building_state_changed.connect(_on_building_changed)
+	Events.building_removed.connect(_on_building_removed)
 	if _terrain() != null:
 		_rebuild_all()
 
@@ -66,6 +72,7 @@ func _rebuild_all() -> void:
 	_draw_ladders(t)
 	_rebuild_deposits(t)
 	_rebuild_agents()
+	_rebuild_buildings()
 	camera.setup(Game.cliff_def())
 
 # --- Отрисовка рельефа ----------------------------------------------------
@@ -228,6 +235,43 @@ func _on_agent_died(id: int, cause: String) -> void:
 	_agent_views.erase(id)
 	v.play_death_and_free(cause)
 
+# --- Постройки ------------------------------------------------------------
+
+func _rebuild_buildings() -> void:
+	for v: BuildingView in _building_views.values():
+		v.queue_free()
+	_building_views.clear()
+	if Game.world == null:
+		return
+	for id: int in Game.world.buildings.order:
+		_on_building_placed(id)
+
+func _on_building_placed(id: int) -> void:
+	if _building_views.has(id) or Game.world == null:
+		return
+	var b: Dictionary = Game.world.buildings.buildings.get(id, {})
+	if b.is_empty():
+		return
+	var v: BuildingView = BuildingView.new()
+	v.setup(id, str(b["def_id"]))
+	v.position = WorldGeo.cell_to_world(b["cell"] as Vector2i)
+	buildings_root.add_child(v)
+	_building_views[id] = v
+
+func _on_building_changed(id: int) -> void:
+	var v: BuildingView = _building_views.get(id, null)
+	if v == null:
+		_on_building_placed(id)
+		return
+	v.refresh()
+
+func _on_building_removed(id: int) -> void:
+	var v: BuildingView = _building_views.get(id, null)
+	if v == null:
+		return
+	_building_views.erase(id)
+	v.queue_free()
+
 # --- Координаты и хит-тест ------------------------------------------------
 # ЕДИНСТВЕННЫЙ хелпер конверсии экран↔мир на весь проект (docs/01 §1.1).
 # Конвертировать «на месте» в других файлах запрещено.
@@ -255,6 +299,10 @@ func pick_at(world_pos: Vector2) -> Dictionary:
 			hit_id = id
 	if hit_id >= 0:
 		return {"kind": "agent", "id": hit_id, "cell": cell}
+	if Game.world != null:
+		var bid: int = Game.world.buildings.building_at(cell)
+		if bid >= 0:
+			return {"kind": "building", "id": bid, "cell": cell}
 	var t: Terrain = _terrain()
 	if t != null:
 		var dep: int = t.deposit_at(cell)
@@ -269,9 +317,19 @@ func _unhandled_input(event: InputEvent) -> void:
 	var mb: InputEventMouseButton = event as InputEventMouseButton
 	if mb == null or not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
 		return
-	var hit: Dictionary = pick_at(screen_to_world(mb.position))
-	if str(hit["kind"]) != "agent":
+	var world_pos: Vector2 = screen_to_world(mb.position)
+	# Активен призрак — клик ставит постройку, а не выбирает.
+	if not ghost.def_id.is_empty():
+		if Game.cmd_place_building(ghost.def_id, WorldGeo.world_to_cell(world_pos)):
+			ghost.set_def("")
 		return
-	var info: Dictionary = Game.query_agent(int(hit["id"]))
-	print("[world] выбран агент: ", info.get("name", "?"))
-	Events.ui_panel_opened.emit("agent_stub")   # карточка — этап 14
+	var hit: Dictionary = pick_at(world_pos)
+	match str(hit["kind"]):
+		"agent":
+			print("[world] выбран агент: ",
+				Game.query_agent(int(hit["id"])).get("name", "?"))
+			Events.ui_panel_opened.emit("agent_stub")   # карточка — этап 14
+		"building":
+			print("[world] выбрана постройка: ",
+				Game.query_building(int(hit["id"])).get("def_id", "?"))
+			Events.ui_panel_opened.emit("building_stub")

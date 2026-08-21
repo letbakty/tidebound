@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/building_def.gd" id="1_1wlvk"]
+
+[resource]
+script = ExtResource("1_1wlvk")
+id = "sluice"
+display_key = "BLD_SLUICE"
+size = Vector2i(1, 2)
+cost = Dictionary[String, int]({
+"part": 3
+})
+min_mark = -4
+max_mark = 0
+special = "sluice"

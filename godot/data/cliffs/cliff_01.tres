@@ -134,3 +134,13 @@ deposit_slots = Array[Dictionary]([{
 }])
 spawn_cell = Vector2i(6, 14)
 start_storage_cell = Vector2i(9, 14)
+start_buildings = Array[Dictionary]([{
+"cell": Vector2i(9, 12),
+"def_id": "storage"
+}, {
+"cell": Vector2i(4, 13),
+"def_id": "hearth"
+}, {
+"cell": Vector2i(2, 7),
+"def_id": "raincatcher"
+}])

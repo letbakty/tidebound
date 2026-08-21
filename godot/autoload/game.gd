@@ -149,6 +149,47 @@ func query_agent_pos(id: int) -> Vector2:
 	var y: float = WorldGeo.mark_to_world_y(mark) 		+ float((Balance.TILES_PER_MARK - 1) * WorldGeo.TILE)
 	return Vector2(a.x * float(WorldGeo.TILE) + float(WorldGeo.TILE) * 0.5, y)
 
+## Размещение постройки. Возвращает false, если место невалидно — тогда
+## команда даже не уйдёт в очередь.
+func cmd_place_building(def_id: String, cell: Vector2i) -> bool:
+	if world == null or not world.buildings.can_place(def_id, cell, world):
+		return false
+	world.apply_command({"kind": "place_building", "def_id": def_id,
+		"cell": SimTypes.v2i_to_arr(cell)})
+	return true
+
+func cmd_demolish(building_id: int) -> void:
+	if world == null:
+		return
+	world.apply_command({"kind": "demolish", "id": building_id})
+
+## Синхронное чтение для призрака размещения — тот же разрешённый «pull»,
+## что и query_agent. Зовётся при смене клетки, а не каждый кадр.
+func query_can_place(def_id: String, cell: Vector2i) -> bool:
+	if world == null:
+		return false
+	return world.buildings.can_place(def_id, cell, world)
+
+## Причина отказа ключом локализации ("" = можно) — для подсказки этапа 14.
+func query_place_error(def_id: String, cell: Vector2i) -> String:
+	if world == null:
+		return "ERR_OCCUPIED"
+	return world.buildings.place_error(def_id, cell, world)
+
+func query_building(id: int) -> Dictionary:
+	if world == null:
+		return {}
+	var b: Dictionary = world.buildings.buildings.get(id, {})
+	if b.is_empty():
+		return {}
+	return {
+		"id": id, "def_id": str(b["def_id"]), "cell": b["cell"],
+		"state": int(b["state"]), "flooded": bool(b["flooded"]),
+		"damaged": bool(b["damaged"]), "hp": int(b["hp"]),
+		"progress": world.buildings.build_progress(b),
+		"working": world.buildings.is_working(b),
+	}
+
 func tick_budget_ms() -> float:
 	return _tick_budget_ms
 
@@ -192,6 +233,12 @@ func _flush_events() -> void:
 				Events.agent_drowning.emit(int(e.data["id"]))
 			"recall_issued":
 				Events.recall_issued.emit(bool(e.data["hard"]))
+			"building_placed":
+				Events.building_placed.emit(int(e.data["id"]))
+			"building_state_changed":
+				Events.building_state_changed.emit(int(e.data["id"]))
+			"building_removed":
+				Events.building_removed.emit(int(e.data["id"]))
 			"policy_changed":
 				Events.policy_changed.emit(int(e.data["policy"]), int(e.data["value"]))
 			"beacon_moved":

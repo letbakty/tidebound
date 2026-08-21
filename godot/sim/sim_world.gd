@@ -16,6 +16,7 @@ var terrain: Terrain = Terrain.new()
 var storage: StorageSystem = StorageSystem.new()
 var agents: AgentSystem = AgentSystem.new()
 var jobs: JobSystem = JobSystem.new()
+var buildings: BuildingSystem = BuildingSystem.new()
 var policies: PolicySet = PolicySet.new()
 
 ## Разбирается Game после tick(); Game обязан очистить массив.
@@ -60,6 +61,7 @@ func new_run(seed_value: int, cliff: CliffDef) -> void:
 	storage = StorageSystem.new()
 	agents = AgentSystem.new()
 	jobs = JobSystem.new()
+	buildings = BuildingSystem.new()
 	policies = PolicySet.new()
 	_cliff = cliff
 	events_out.clear()
@@ -72,8 +74,15 @@ func new_run(seed_value: int, cliff: CliffDef) -> void:
 	else:
 		terrain.build(cliff, rng)
 		storage.new_run(cliff)
-		agents.new_run(self)
 		jobs.new_run()
+		# Стартовый склад — тоже постройка, поэтому запасы кладём после неё.
+		buildings.new_run(self, cliff)
+		storage.stock_start(cliff)
+		# Очаг горит с первого тика: иначе колония весь первый цикл живёт
+		# без единого источника тепла.
+		buildings.light_start_fires()
+		refresh_heat_sources()
+		agents.new_run(self)
 	events_out.append(SimEvent.make("run_started", {"seed": seed_value}))
 	events_out.append(SimEvent.make("cycle_started", {"cycle": clock.cycle}))
 
@@ -101,6 +110,12 @@ func _consume_commands() -> void:
 					jobs.mark_dirty()
 					events_out.append(SimEvent.make("policy_changed",
 						{"policy": pol, "value": policies.get_value(pol)}))
+			"place_building":
+				var def_id: String = str(cmd.get("def_id", ""))
+				var pcell: Vector2i = SimTypes.arr_to_v2i(cmd.get("cell", [0, 0]) as Array)
+				buildings.place(def_id, pcell, self)
+			"demolish":
+				buildings.demolish(int(cmd.get("id", -1)), self)
 			"set_beacon":
 				var cell: Vector2i = SimTypes.arr_to_v2i(cmd.get("cell", [0, 0]) as Array)
 				jobs.beacon_cell = cell
@@ -129,11 +144,14 @@ func tick() -> void:
 			e.data.merge(storage.on_cycle_ended(), true)
 			e.data.merge(agents.on_cycle_ended(self), true)
 			e.data.merge(jobs.on_cycle_ended(), true)
+		elif e.type == "phase_changed":
+			buildings.on_phase_started(int(e.data["phase"]))
 		elif e.type == "cycle_started":
 			events_out.append_array(terrain.on_cycle_started(rng))
 			storage.spawn_driftwood(terrain, rng)
 			agents.on_cycle_started(self)
 			jobs.on_cycle_started()
+			buildings.on_cycle_started(self)
 	events_out.append_array(tide.update(clock))
 	# Заглушки будущих систем — порядок задан здесь, чтобы этапы 05–11
 	# вставляли вызовы на готовые места, а не спорили об очерёдности.
@@ -144,6 +162,7 @@ func tick() -> void:
 	_tick_agents()
 	_tick_storage()
 	_tick_run_state()
+	events_out.append_array(buildings.drain_events())
 	events_out.append_array(jobs.drain_events())
 	events_out.append_array(agents.drain_events())
 	events_out.append_array(storage.drain_events())
@@ -153,7 +172,8 @@ func _tick_crises() -> void:
 	pass    # этап 09
 
 func _tick_buildings() -> void:
-	pass    # этап 07
+	buildings.tick(self)
+	refresh_heat_sources()
 
 func _tick_production() -> void:
 	pass    # этап 08
@@ -174,20 +194,34 @@ func _tick_run_state() -> void:
 func cliff_spawn_cell() -> Vector2i:
 	return _cliff.spawn_cell if _cliff != null else Vector2i.ZERO
 
-## Источники тепла (радиус Balance.HEAT_RADIUS).
-## TODO(этап 07): заменить на клетки построенных очагов. Пока это «костёр
-## лагеря» на клетке спавна плюс список, который наполняет тест.
+## Разблокировки Журнала. Наполняет этап 11; до тех пор — пустой список,
+## и 🔒-постройки просто недоступны.
+var unlocked: Array[String] = []
+
+## Источники тепла — клетки РАБОТАЮЩИХ незатопленных очагов (заглушка этапа 05
+## закрыта). debug_heat_sources остаётся для тестов, которым нужен очаг
+## в произвольном месте.
 var debug_heat_sources: Array[Vector2i] = []
+## Пересчитывается раз в тик, а не на каждого агента: _near_heat зовётся
+## шесть раз за тик, и перебирать постройки каждый раз было заметно дорого.
+var _heat_cache: Array[Vector2i] = []
 
 func beacon_cell() -> Vector2i:
 	return jobs.beacon_cell
 
 func heat_sources() -> Array[Vector2i]:
-	var out: Array[Vector2i] = []
-	if _cliff != null:
-		out.append(_cliff.spawn_cell)
-	out.append_array(debug_heat_sources)
-	return out
+	return _heat_cache
+
+func refresh_heat_sources() -> void:
+	_heat_cache.clear()
+	for b: Dictionary in buildings.with_special("hearth"):
+		if buildings.is_working(b):
+			_heat_cache.append(b["cell"] as Vector2i)
+	_heat_cache.append_array(debug_heat_sources)
+
+func heat_radius() -> int:
+	return Balance.HEAT_RADIUS_BIG if unlocked.has(Balance.UNLOCK_HEARTH_BIG) \
+		else Balance.HEAT_RADIUS
 
 # --- Реплей ---------------------------------------------------------------
 
@@ -220,6 +254,7 @@ func to_dict() -> Dictionary:
 		"storage": storage.to_dict(),
 		"agents": agents.to_dict(),
 		"jobs": jobs.to_dict(),
+		"buildings": buildings.to_dict(),
 		"policies": policies.to_dict(),
 	}
 
@@ -243,6 +278,8 @@ func from_dict(d: Dictionary, cliff: CliffDef = null) -> void:
 	storage.from_dict(d.get("storage", {}) as Dictionary)
 	agents.from_dict(d.get("agents", {}) as Dictionary)
 	jobs.from_dict(d.get("jobs", {}) as Dictionary)
+	buildings.from_dict(d.get("buildings", {}) as Dictionary)
+	refresh_heat_sources()
 	policies.from_dict(d.get("policies", {}) as Dictionary)
 	events_out.clear()
 	_commands.clear()

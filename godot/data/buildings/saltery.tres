@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/building_def.gd" id="1_ojkel"]
+
+[resource]
+script = ExtResource("1_ojkel")
+id = "saltery"
+display_key = "BLD_SALTERY"
+size = Vector2i(2, 1)
+cost = Dictionary[String, int]({
+"driftwood": 3,
+"ingot": 1
+})
+min_mark = 1
+flood_rule = 4
+special = "saltery"

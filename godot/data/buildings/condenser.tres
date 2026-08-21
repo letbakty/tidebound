@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/building_def.gd" id="1_y70ih"]
+
+[resource]
+script = ExtResource("1_y70ih")
+id = "condenser"
+display_key = "BLD_CONDENSER"
+size = Vector2i(1, 2)
+cost = Dictionary[String, int]({
+"part": 2
+})
+min_mark = 4
+special = "condenser"
+unlock_id = "u_condenser"

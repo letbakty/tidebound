@@ -11,6 +11,11 @@ enum Policy { GREED, CAUTION, REPAIR, BUILD, SUPPLY, REST }
 enum FloodRule { OK, WET, LOSE_HALF, DESTROY, DISABLED }
 enum CrisisType { SPRING_TIDE, STORM, VISIT }   # сизигия, шторм, приход
 enum RunEnd { SHIP, WIPE, EARLY }
+## Расширение контракта docs/02 §3.1 (этап 07): три состояния постройки.
+## Именно три + два ортогональных флага (flooded, damaged), а не пять
+## состояний: постройка бывает ACTIVE+flooded+damaged одновременно, и правила
+## для каждой комбинации свои — enum из пяти дал бы комбинаторный взрыв.
+enum BuildState { PLANNED, UNDER_CONSTRUCTION, ACTIVE }
 
 ## Порядок обхода фаз внутри цикла. Заведён отдельно от enum'а, чтобы код
 ## переходов не полагался на арифметику по значениям.

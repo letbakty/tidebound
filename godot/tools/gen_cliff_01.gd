@@ -65,6 +65,13 @@ func _initialize() -> void:
 	def.height = 45
 	def.spawn_cell = Vector2i(6, Balance.mark_to_floor_cell_y(2))
 	def.start_storage_cell = Vector2i(9, Balance.mark_to_floor_cell_y(2))
+	# Стартовые постройки (docs/00 §11.1). Клетка — ВЕРХНИЙ левый угол:
+	# постройка опирается нижним рядом на пол яруса.
+	def.start_buildings = [
+		{"def_id": "storage", "cell": Vector2i(9, Balance.mark_to_floor_cell_y(2) - 2)},
+		{"def_id": "hearth", "cell": Vector2i(4, Balance.mark_to_floor_cell_y(2) - 1)},
+		{"def_id": "raincatcher", "cell": Vector2i(2, Balance.mark_to_floor_cell_y(4) - 1)},
+	]
 
 	var ok: bool = true
 	for p: Variant in PLATFORMS:

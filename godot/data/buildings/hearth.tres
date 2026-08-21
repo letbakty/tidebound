@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/building_def.gd" id="1_qanl4"]
+
+[resource]
+script = ExtResource("1_qanl4")
+id = "hearth"
+display_key = "BLD_HEARTH"
+size = Vector2i(2, 1)
+cost = Dictionary[String, int]({
+"scrap": 2
+})
+min_mark = 1
+special = "hearth"

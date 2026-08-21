@@ -1,9 +1,10 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://game/world.gd" id="1_world"]
 [ext_resource type="TileSet" path="res://data/tilesets/placeholder.tres" id="2_tiles"]
 [ext_resource type="Script" path="res://game/camera_rig.gd" id="3_cam"]
 [ext_resource type="Script" path="res://game/water_view.gd" id="4_water"]
+[ext_resource type="Script" path="res://game/build_ghost.gd" id="5_ghost"]
 
 [node name="World" type="Node2D"]
 script = ExtResource("1_world")
@@ -20,8 +21,13 @@ collision_enabled = false
 
 [node name="Deposits" type="Node2D" parent="."]
 
+[node name="Buildings" type="Node2D" parent="."]
+
 [node name="Agents" type="Node2D" parent="."]
 y_sort_enabled = true
+
+[node name="BuildGhost" type="Node2D" parent="."]
+script = ExtResource("5_ghost")
 
 [node name="CameraRig" type="Camera2D" parent="."]
 script = ExtResource("3_cam")

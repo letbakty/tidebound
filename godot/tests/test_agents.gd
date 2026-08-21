@@ -229,7 +229,13 @@ static func test_warmth_at_heat_source(t: TestCtx) -> void:
 	a.wet = true
 	a.needs["warmth"] = 40_000
 	# Заглушка источника тепла ровно там, где стоит агент (TODO этапа 07).
-	w.debug_heat_sources = [w.agents.agent_cell(a, w)]
+	# Очаги вдоль всей площадки: агент в IDLE бродит по ней, и с одним
+	# источником он половину цикла оказывался бы вне радиуса тепла.
+	# Тест про цифры отогрева, а не про маршрут прогулки.
+	var floor_y: int = Balance.mark_to_floor_cell_y(2)
+	w.debug_heat_sources = [Vector2i(2, floor_y), Vector2i(6, floor_y),
+		Vector2i(10, floor_y)]
+	w.refresh_heat_sources()
 	var before: float = a.warmth()
 	t.run_ticks(w, Balance.TICKS_PER_CYCLE)
 	# Мокрый теряет 25, у очага получает 30 — итог +5 за цикл.

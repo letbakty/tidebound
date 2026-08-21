@@ -83,3 +83,25 @@ TRAIT_THRIFTY,Запасливый,Thrifty
 TRAIT_THRIFTY_D,Переносит груз быстрее,Carries loads faster
 TRAIT_CHIPPER,Бодряк,Chipper
 TRAIT_CHIPPER_D,Первые четыре цикла не нуждается в отдыхе,Needs no rest for the first four cycles
+BLD_LADDER_WOOD,Лестница деревянная,Wooden ladder
+BLD_LADDER_STEEL,Лестница стальная,Steel ladder
+BLD_PLATFORM,Помост,Platform
+BLD_STORAGE,Склад,Storage
+BLD_HEARTH,Очаг,Hearth
+BLD_BUNK,Койка,Bunk
+BLD_RAINCATCHER,Дождесборник,Rain catcher
+BLD_FORGE,Горн,Forge
+BLD_WORKBENCH,Верстак,Workbench
+BLD_EVAPORATOR,Испаритель,Evaporator
+BLD_SALTERY,Солильня,Saltery
+BLD_DRYER,Сушила,Dryer
+BLD_ROPERY,Канатная,Ropery
+BLD_SLUICE,Шлюз,Sluice
+BLD_LANTERN,Фонарь,Lantern
+BLD_CONDENSER,Конденсатор,Condenser
+BLD_WINCH,Лебёдка,Winch
+ERR_LOCKED,Ещё не разблокировано,Not unlocked yet
+ERR_MARK,Не та отметка,Wrong mark
+ERR_OCCUPIED,Место занято,Space occupied
+ERR_NO_SUPPORT,Не на что опереть,Nothing to stand on
+ERR_NO_LADDER_SPOT,Здесь лестница не встанет,A ladder cannot go here

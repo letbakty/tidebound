@@ -58,6 +58,7 @@ func _rebuild(w: SimWorld) -> void:
 	jobs = kept
 	_generate_gather(w)
 	_generate_haul(w)
+	_generate_build(w)
 	_generate_needs(w)
 	_reorder()
 	_assign_gear(w)
@@ -78,6 +79,8 @@ func _make_job(job_class: int, kind: String, cell: Vector2i, w: SimWorld) -> Dic
 		"base": float(Balance.JOB_BASE[job_class]),
 		"taken_by": -1, "item_id": "", "n": 0,
 		"target_id": -1, "to_cell": cell, "to_id": -1,
+		# Откуда берём и куда несём: "ground"/"storage" → "storage"/"building".
+		"from_kind": "ground", "to_kind": "storage",
 		# Общая задача: её могут исполнять несколько агентов сразу.
 		# Склад кормит всю колонию, очаг греет всех — резервировать их значит
 		# отправить обедать ровно одного и оставить пятерых голодными.
@@ -129,6 +132,30 @@ func _generate_haul(w: SimWorld) -> void:
 		j["item_id"] = str((g["stack"] as Dictionary)["item_id"])
 		j["to_id"] = dest
 		j["to_cell"] = w.storage.storages[w.storage.storage_index(dest)]["cell"]
+
+## Стройка и ремонт «рекламируются» самой постройкой.
+func _generate_build(w: SimWorld) -> void:
+	for id: int in w.buildings.order:
+		var b: Dictionary = w.buildings.buildings[id]
+		var damaged: bool = bool(b["damaged"])
+		var building: bool = int(b["state"]) == int(SimTypes.BuildState.UNDER_CONSTRUCTION)
+		if not damaged and not building:
+			continue
+		var kind: String = "repair" if damaged else "build"
+		if _has_job_for(kind, id):
+			continue
+		var job_class: int = SimTypes.JobClass.REPAIR if damaged else SimTypes.JobClass.BUILD
+		var cell: Vector2i = b["cell"] as Vector2i
+		var j: Dictionary = _make_job(job_class, kind, cell, w)
+		j["target_id"] = id
+		# Постройка может стоять в воздухе над полом — работать идут на её пол.
+		j["platform"] = w.terrain.platform_at(_work_cell(b, w))
+
+## Клетка, откуда до постройки можно дотянуться: пол под её нижним рядом.
+static func _work_cell(b: Dictionary, _w: SimWorld) -> Vector2i:
+	var d: BuildingDef = DB.building(str(b["def_id"]))
+	var cell: Vector2i = b["cell"] as Vector2i
+	return Vector2i(cell.x, cell.y + d.size.y - 1)
 
 ## Потребности тоже «рекламируются»: еда — складом с провизией, отдых —
 ## жилой площадкой. Кому это нужно, решает скоринг (urgency у каждого свой).
@@ -188,6 +215,23 @@ func _still_valid(j: Dictionary, w: SimWorld) -> bool:
 			var sid: int = int(j["target_id"])
 			return w.storage.storage_index(sid) >= 0
 		"rest":
+			return true
+		"build":
+			var b: Dictionary = w.buildings.buildings.get(int(j["target_id"]), {})
+			return not b.is_empty() \
+				and int(b["state"]) == int(SimTypes.BuildState.UNDER_CONSTRUCTION)
+		"repair":
+			var b2: Dictionary = w.buildings.buildings.get(int(j["target_id"]), {})
+			return not b2.is_empty() and bool(b2["damaged"])
+		"haul_request":
+			# Носильщик с грузом доносит его до конца.
+			if _carrier_holds(j, w):
+				return true
+			if str(j["to_kind"]) == "building" \
+					and not w.buildings.buildings.has(int(j["to_id"])):
+				return false
+			if str(j["from_kind"]) == "storage":
+				return w.storage.count_in(int(j["target_id"]), str(j["item_id"])) > 0
 			return true
 	return true
 
@@ -283,6 +327,8 @@ func _applies_to(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
 			return float(Balance.cell_to_mark(j["cell"] as Vector2i)) >= min_mark
 		"haul_ground":
 			return a.bag_free_slots() > 0 and _is_dry(j["cell"] as Vector2i, w)
+		"haul_request":
+			return a.bag_free_slots() > 0 or not a.bag.is_empty()
 	return true
 
 ## Цель ПОД ВОДОЙ прямо сейчас — не «риск», а бессмыслица: под водой не
@@ -452,14 +498,14 @@ func drain_events() -> Array[SimEvent]:
 ## тиков нагенерит десять задач (research/16 §9).
 func request_haul(from: Dictionary, to: Dictionary, item_id: String, n: int,
 		w: SimWorld) -> int:
-	var key: int = _cell_key(to["cell"] as Vector2i) * 31 + item_id.hash() % 31
-	if _has_job_for("haul_request", key):
-		return -1
 	var j: Dictionary = _make_job(SimTypes.JobClass.HAUL, "haul_request",
 		from["cell"] as Vector2i, w)
-	j["target_id"] = key
+	# target_id — источник: по нему проверяется, что материал ещё на месте.
+	j["target_id"] = int(from.get("id", -1))
+	j["from_kind"] = str(from.get("kind", "storage"))
 	j["item_id"] = item_id
 	j["n"] = n
+	j["to_kind"] = str(to.get("kind", "storage"))
 	j["to_id"] = int(to.get("id", -1))
 	j["to_cell"] = to["cell"]
 	_reorder()
@@ -488,6 +534,7 @@ func to_dict() -> Dictionary:
 			"n": int(j["n"]), "target_id": int(j["target_id"]),
 			"to_cell": SimTypes.v2i_to_arr(j["to_cell"] as Vector2i),
 			"to_id": int(j["to_id"]), "shared": bool(j["shared"]),
+			"from_kind": str(j["from_kind"]), "to_kind": str(j["to_kind"]),
 		})
 	var gathered: Dictionary = {}
 	var keys: Array[String] = []
@@ -512,6 +559,8 @@ func from_dict(d: Dictionary) -> void:
 			"n": int(s["n"]), "target_id": int(s["target_id"]),
 			"to_cell": SimTypes.arr_to_v2i(s["to_cell"] as Array),
 			"to_id": int(s["to_id"]), "shared": bool(s.get("shared", false)),
+			"from_kind": str(s.get("from_kind", "ground")),
+			"to_kind": str(s.get("to_kind", "storage")),
 		}
 	_next_id = int(d.get("next_id", 1))
 	_gathered_cycle.clear()

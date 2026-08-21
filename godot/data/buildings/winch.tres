@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BuildingDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/building_def.gd" id="1_mnnys"]
+
+[resource]
+script = ExtResource("1_mnnys")
+id = "winch"
+display_key = "BLD_WINCH"
+size = Vector2i(1, 2)
+cost = Dictionary[String, int]({
+"part": 2,
+"rope": 1
+})
+flood_rule = 4
+special = "winch"
+unlock_id = "u_winch"

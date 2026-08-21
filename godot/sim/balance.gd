@@ -186,6 +186,22 @@ const GATHER_SEC_PER_UNIT: float = 2.0
 const EAT_WANT_MILLI: int = 55_000
 const REST_WANT_MILLI: int = 55_000
 
+# --- Постройки (docs/00 §8) -----------------------------------------------
+## 5 секунд на каждую единицу стоимости — суммарное время стройки.
+const BUILD_SEC_PER_UNIT: float = 5.0
+## Ремонт стоит половину материалов (округление вниз) и столько же времени.
+const REPAIR_COST_FRACTION: int = 2
+## Снос возвращает половину, округление вниз.
+const DEMOLISH_REFUND_FRACTION: int = 2
+## Отметка, выше которой шторм постройки не трогает (docs/00 §9.4).
+const STORM_SAFE_MARK: int = 3
+## Топливо: очаг жжёт 1 сухой плавник за цикл, фонарь — за два.
+const HEARTH_FUEL_CYCLES: int = 1
+const LANTERN_FUEL_CYCLES: int = 2
+## Радиус тепла очага; с разблокировкой u_hearth_big — больше.
+const HEAT_RADIUS_BIG: int = 6
+const UNLOCK_HEARTH_BIG: String = "u_hearth_big"
+
 ## Затопление: клетка мокрая, если её отметка НИЖЕ уровня воды.
 ## Эпсилон обязателен — уровень считается по smoothstep и на плато даёт
 ## −7.9999999, а не −8.0. Без него нижняя ступень мигала бы от float-шума,

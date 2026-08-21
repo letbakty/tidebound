@@ -204,18 +204,38 @@ func ground_at(cell: Vector2i) -> Array[Dictionary]:
 
 # --- Старт забега ---------------------------------------------------------
 
-func new_run(cliff: CliffDef) -> void:
+func new_run(_cliff: CliffDef) -> void:
 	storages.clear()
 	ground.clear()
 	_next_storage_id = 0
 	_pending.clear()
 	_totals.clear()
+	_washed_this_cycle = 0
 	_last_level = Balance.HIGH_LEVEL
-	var id: int = add_storage(cliff.start_storage_cell)
+
+## Стартовые запасы кладутся ПОСЛЕ того, как BuildingSystem поставит стартовый
+## склад: сам склад теперь постройка, а не отдельная сущность (docs/00 §11.1).
+func stock_start(cliff: CliffDef) -> void:
+	var id: int = storage_at(cliff.start_storage_cell)
+	if id < 0:
+		id = add_storage(cliff.start_storage_cell)
 	for pair: Array in Balance.START_ITEMS:
 		store(id, StackUtil.make(str(pair[0]), int(pair[1]), false))
 	_pending.clear()                  # старт — не «изменение» для UI
 	_totals = totals()
+
+## Снос склада: содержимое не пропадает, а падает на землю рядом.
+func remove_storage(id: int, w: SimWorld) -> bool:
+	var i: int = storage_index(id)
+	if i < 0:
+		return false
+	var cell: Vector2i = storages[i]["cell"] as Vector2i
+	for v: Variant in storages[i]["stacks"] as Array:
+		drop(cell, v as Dictionary)
+	storages.remove_at(i)
+	w.jobs.mark_dirty()
+	_pending.append(SimEvent.make("storage_changed", {"id": id}))
+	return true
 
 # --- Тик, циклы, вода -----------------------------------------------------
 

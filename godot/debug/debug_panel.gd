@@ -27,6 +27,7 @@ var _water_slider: HSlider = null
 var _water_on: CheckBox = null
 var _seed_edit: LineEdit = null
 var _beacon_label: Label = null
+var _build_hint: Label = null
 var _policy_sliders: Dictionary[int, HSlider] = {}
 var _policy_labels: Dictionary[int, Label] = {}
 
@@ -134,6 +135,23 @@ func _build_ui() -> void:
 	beacon_row.add_child(_beacon_label)
 	_button(beacon_row, "поставить по курсору", _on_place_beacon)
 	_button(beacon_row, "отзыв", func() -> void: Game.cmd_recall(false))
+
+	# --- Стройка (радиал — этап 14; здесь дебажный дублёр) ---
+	_head("СТРОЙКА")
+	var row1: HBoxContainer = _row()
+	var row2: HBoxContainer = _row()
+	var i: int = 0
+	for bid: String in DB.building_ids():
+		var target: HBoxContainer = row1 if i < 9 else row2
+		i += 1
+		var b: Button = Button.new()
+		b.text = tr(DB.building(bid).display_key).substr(0, 4)
+		b.tooltip_text = bid
+		b.pressed.connect(func() -> void: _select_building(bid))
+		target.add_child(b)
+	var row3: HBoxContainer = _row()
+	_button(row3, "отменить призрак", func() -> void: _select_building(""))
+	_build_hint = _label("—")
 
 	# --- Забег ---
 	_head("ЗАБЕГ")
@@ -244,6 +262,7 @@ func _process(_delta: float) -> void:
 		return
 	_refresh_time()
 	_refresh_policies()
+	_refresh_build_hint()
 	if _log_dirty:
 		_log_dirty = false
 		_log_label.text = "\n".join(_log)
@@ -319,6 +338,24 @@ func _on_place_beacon() -> void:
 	var vp: Viewport = world_view.get_viewport()
 	var world_pos: Vector2 = world_view.call("screen_to_world", vp.get_mouse_position())
 	Game.cmd_set_beacon(WorldGeo.world_to_cell(world_pos))
+
+## Включает призрак размещения выбранной постройки.
+func _select_building(def_id: String) -> void:
+	var ghost: Node = get_tree().root.find_child("BuildGhost", true, false)
+	if ghost == null:
+		return
+	ghost.call("set_def", def_id)
+	_build_hint.text = "—" if def_id.is_empty() else def_id
+
+func _refresh_build_hint() -> void:
+	var ghost: Node = get_tree().root.find_child("BuildGhost", true, false)
+	if ghost == null or str(ghost.get("def_id")).is_empty():
+		return
+	var def_id: String = str(ghost.get("def_id"))
+	var cell: Vector2i = ghost.call("current_cell")
+	var err: String = Game.query_place_error(def_id, cell)
+	_build_hint.text = "%s @ %d,%d — %s" % [def_id, cell.x, cell.y,
+		"можно" if err.is_empty() else tr(err)]
 
 func _on_new_run() -> void:
 	Game.cmd_new_run(_seed_edit.text.to_int())
