@@ -36,12 +36,14 @@ CODE=${PIPESTATUS[0]}
 # пользуются и сам код (мягкий отказ на битых данных), и тесты, проверяющие
 # этот отказ, и TestCtx.check — провал check и так виден по коду возврата.
 # SCRIPT ERROR / SCRIPT FAILED / ERROR — рантайм движка, всегда дефект.
+# `ERROR: FAIL ...` — это TestCtx.check через push_error: провал теста, а не
+# ошибка движка, и он уже виден по коду возврата.
 ERR_RE='^(SCRIPT ERROR|SCRIPT FAILED|ERROR):'
-ENGINE_ERRORS=$(grep -cE "$ERR_RE" "$LOG" || true)
+ENGINE_ERRORS=$(grep -E "$ERR_RE" "$LOG" | grep -vc '^ERROR: FAIL ' || true)
 if [ "${ENGINE_ERRORS:-0}" -gt 0 ]; then
 	echo ""
 	echo "❌ ошибок движка за прогон: $ENGINE_ERRORS"
-	grep -E "$ERR_RE" "$LOG" | sort | uniq -c | sort -rn | head -20
+	grep -E "$ERR_RE" "$LOG" | grep -v '^ERROR: FAIL ' | sort | uniq -c | sort -rn | head -20
 	exit 1
 fi
 
