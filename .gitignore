@@ -1,7 +1,7 @@
 # Godot 4
 godot/.godot/
 godot/android/
-godot/*.translation
+godot/**/*.translation
 
 # Экспорт
 godot/build/
