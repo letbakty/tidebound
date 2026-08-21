@@ -364,21 +364,34 @@ func _step_x(c: Dictionary, goal_x: float, step: float) -> void:
 
 ## Существо рядом — минус дух, ОДИН раз за цикл на агента (иначе −10
 ## прилетало бы каждые десять тиков).
+##
+## ⚠️ Радиус духа — CREATURE_FEAR_TILES для ВСЕХ (docs/00 §6.3: «существо
+## в пределах 4 тайлов −10»). Раньше здесь стоял panic_range, и черта Пугливый
+## работала как «шире радиус минус-духа» — то есть чистый штраф без обещанной
+## паники. Сам panic_range теперь означает ровно то, что называется:
+## дистанцию, с которой Пугливый впадает в PANIC (AgentSystem._creature_panic).
 func _scare_agents(w: SimWorld) -> void:
 	for a: SimAgent in w.agents.agents:
 		if not a.is_alive() or a.scared_this_cycle:
 			continue
-		var range_tiles: float = a.modifier("panic_range", Balance.CREATURE_FEAR_TILES)
-		var cell: Vector2i = w.agents.agent_cell(a, w)
-		for c: Dictionary in creatures:
-			var cy: int = Balance.mark_to_floor_cell_y(_creature_mark(c, w))
-			var d: float = absf(float(cell.x) - float(c["x"])) \
-				+ absf(float(cell.y - cy))
-			if d > range_tiles:
-				continue
-			a.scared_this_cycle = true
-			a.change_need("mood", -Balance.MOOD_CREATURE_MILLI)
-			break
+		if not creature_within(a, w, Balance.CREATURE_FEAR_TILES):
+			continue
+		a.scared_this_cycle = true
+		a.change_need("mood", -Balance.MOOD_CREATURE_MILLI)
+
+## Есть ли существо в range_tiles от агента. Метрика — манхэттен по клеткам,
+## одна на весь испуг: и минус дух, и паника обязаны мерить одинаково.
+func creature_within(a: SimAgent, w: SimWorld, range_tiles: float) -> bool:
+	if creatures.is_empty() or range_tiles <= 0.0:
+		return false
+	var cell: Vector2i = w.agents.agent_cell(a, w)
+	for c: Dictionary in creatures:
+		var cy: int = Balance.mark_to_floor_cell_y(_creature_mark(c, w))
+		var d: float = absf(float(cell.x) - float(c["x"])) \
+			+ absf(float(cell.y - cy))
+		if d <= range_tiles:
+			return true
+	return false
 
 # --- Итог цикла -----------------------------------------------------------
 

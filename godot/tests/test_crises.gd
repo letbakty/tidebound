@@ -368,6 +368,64 @@ static func test_creature_scare_once_per_cycle(t: TestCtx) -> void:
 	t.run_ticks(w, 200)
 	t.check_approx(a.mood(), after, 1.0, "повторно за тот же цикл — не пугается")
 
+## SIM-06 · Пугливый впадает в панику от существа, остальные — только теряют дух.
+##
+## Раньше существа влияли только на настроение, а panic_range служил радиусом
+## этого же минус-духа: черта была чистым штрафом, а обещанный docs §9.3
+## косвенный путь смерти от существ не существовал вовсе.
+static func test_creature_panics_skittish_only(t: TestCtx) -> void:
+	var w: SimWorld = _world(53)
+	_ladders_down_to(w, -8)
+	_until(t, w, 4, SimTypes.Phase.HIGH, 5)
+	t.check_eq(w.crisis.creatures.size(), 1, "существо пришло")
+	# Переставляем существо на −1: спавн всегда на самом глубоком затопленном
+	# ярусе, а нам нужен СУХОЙ ярус прямо над ним — иначе агент утонет,
+	# и DROWNING перекроет PANIC, который мы и проверяем.
+	var c: Dictionary = w.crisis.creatures[0]
+	var mark: int = -1
+	c["platform"] = w.terrain.platform_of_mark(mark)
+	c["climb_to"] = -1
+	c["climb_t"] = 0.0
+	var cx: int = w.terrain.platform_x_range(mark)[0]
+	c["x"] = float(cx)
+
+	# Политики в ноль: иначе агентов уведёт работа ровно от того, что проверяем.
+	for pol: int in SimTypes.POLICY_ORDER:
+		w.policies.set_value(pol, 0)
+	w.jobs.mark_dirty()
+
+	var skittish: SimAgent = w.agents.agents[0]
+	var calm: SimAgent = w.agents.agents[1]
+	skittish.trait_ids = ["skittish"]
+	skittish.recompute_from_traits()
+	calm.trait_ids = []
+	calm.recompute_from_traits()
+	var range_tiles: float = skittish.modifier("panic_range", 0.0)
+	t.check_approx(range_tiles, 8.0, 0.01, "у Пугливого радиус паники 8 тайлов")
+
+	# Ярусом ВЫШЕ существа (на его площадке агент просто утонет — DROWNING
+	# приоритетнее PANIC) и на три тайла в сторону: суммарно шесть клеток —
+	# дальше радиуса духа (4), но внутри радиуса паники Пугливого (8).
+	var span: Array[int] = w.terrain.platform_x_range(mark + 1)
+	t.check(not span.is_empty(), "над существом есть площадка")
+	var ax: int = clampi(cx + Balance.TILES_PER_MARK, span[0], span[1])
+	var dist: float = absf(float(ax - cx)) + float(Balance.TILES_PER_MARK)
+	t.check(dist > Balance.CREATURE_FEAR_TILES and dist <= range_tiles,
+		"агенты стоят между радиусом духа и радиусом паники (%.0f клеток)" % dist)
+	_put(w, skittish, mark + 1, ax)
+	_put(w, calm, mark + 1, ax)
+	var calm_mood: float = calm.mood()
+	# Три тика: паника проверяется каждый тик, а существо за это время
+	# не успевает уползти и сменить расстояние.
+	t.run_ticks(w, 3)
+
+	t.check_eq(int(skittish.state), int(SimTypes.AgentState.PANIC),
+		"Пугливый паникует от существа за пределами радиуса духа")
+	t.check(int(calm.state) != int(SimTypes.AgentState.PANIC),
+		"обычный агент — нет")
+	t.check(not calm.scared_this_cycle, "и духа за пределами 4 тайлов не теряет")
+	t.check_approx(calm.mood(), calm_mood, 1.0, "дух обычного агента не тронут")
+
 # --- Отчёт и сериализация -------------------------------------------------
 
 static func test_cycle_report_has_crises(t: TestCtx) -> void:

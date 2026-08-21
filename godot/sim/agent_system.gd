@@ -114,6 +114,12 @@ func _tick_agent(a: SimAgent, w: SimWorld) -> void:
 		_:
 			pass
 
+## Пугает ли агента существо. Ноль по умолчанию — не «4 тайла»: черты
+## panic_range нет у всех, кроме Пугливого, и паниковать должен только он.
+func _creature_panic(a: SimAgent, w: SimWorld) -> bool:
+	var range_tiles: float = a.modifier("panic_range", 0.0)
+	return range_tiles > 0.0 and w.crisis.creature_within(a, w, range_tiles)
+
 # --- Потребности ----------------------------------------------------------
 
 func _tick_needs(a: SimAgent, w: SimWorld) -> void:
@@ -189,10 +195,14 @@ func _check_recall(a: SimAgent, w: SimWorld) -> bool:
 	_do_return(a, w)
 	return true
 
-## РЕШЕНИЕ: существ ещё нет (этап 09), поэтому паника опирается на вторую
-## половину условия docs/00 §6.2 — «Дух<30 в воде». Считаем «в воде» как
-## «на дне, ниже отметки 0»: там агента и застаёт прилив.
-## Этап 09 добавит сюда проверку дистанции до существа и panic_range.
+## PANIC по docs/00 §6.2: «Дух<30 в воде/рядом существо». «В воде» считаем как
+## «ниже опасной отметки цикла» — там агента и застаёт прилив.
+##
+## Второе условие — существо рядом — работает ТОЛЬКО для Пугливого
+## (docs/00 §9.3: «агент в 4 тайлах — Дух −10, паника у Пугливых»): дистанцию
+## задаёт его модификатор panic_range, у остальных черт его нет. Без этого
+## черта была чистым штрафом, а обещанный docs косвенный путь смерти
+## от существ («паника → не успел уйти от воды») не существовал (SIM-06).
 func _check_panic(a: SimAgent, w: SimWorld) -> bool:
 	var panicking: bool = a.state == SimTypes.AgentState.PANIC
 	if a.modifier("no_panic", 0.0) > 0.0:
@@ -202,12 +212,13 @@ func _check_panic(a: SimAgent, w: SimWorld) -> bool:
 	var low: int = Balance.NEED_LOW_ENTER_MILLI
 	var exit_v: int = Balance.NEED_LOW_EXIT_MILLI
 	var mark: float = agent_mark_f(a, w)
+	var scared: bool = _creature_panic(a, w)
 	if not panicking:
-		if int(a.needs["mood"]) >= low or mark >= w.danger_mark():
+		if not scared and (int(a.needs["mood"]) >= low or mark >= w.danger_mark()):
 			return false
 		_set_state(a, SimTypes.AgentState.PANIC, w)
 		_set_return_target(a, w)
-	elif int(a.needs["mood"]) >= exit_v and mark >= w.danger_mark():
+	elif not scared and int(a.needs["mood"]) >= exit_v and mark >= w.danger_mark():
 		_set_state(a, SimTypes.AgentState.IDLE, w)
 		return false
 	_do_return(a, w)
