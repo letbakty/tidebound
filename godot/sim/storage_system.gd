@@ -180,6 +180,24 @@ func totals() -> Dictionary[String, int]:
 			sorted[id2] = out[id2]
 	return sorted
 
+## Есть ли куда положить n единиц предмета: свободный слот или неполный стак.
+## Нужна StationPanel, чтобы отличить «некуда класть готовое» от прочих
+## причин простоя (docs/03 §5.4).
+func has_space(item_id: String, n: int = 1) -> bool:
+	var def: ItemDef = DB.item(item_id)
+	if def == null:
+		return false
+	for s: Dictionary in storages:
+		var stacks: Array = s["stacks"] as Array
+		if stacks.size() < int(s["capacity"]):
+			return true
+		for v: Variant in stacks:
+			var cur: Dictionary = v as Dictionary
+			if str(cur["item_id"]) == item_id and not bool(cur["wet"]) \
+					and int(cur["count"]) + n <= def.stack_size:
+				return true
+	return false
+
 ## То же, но только СУХОЕ. Нужен HUD'у: «топливо-сухое» — не то же, что
 ## «плавник вообще», мокрый в очаг не пойдёт (docs/00 §7).
 func totals_dry() -> Dictionary[String, int]:

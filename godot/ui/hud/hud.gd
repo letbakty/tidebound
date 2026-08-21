@@ -10,6 +10,7 @@ signal camera_focus_requested(world_pos: Vector2)
 signal agent_card_requested(agent_id: int)
 signal overlay_requested(mode: String)
 signal legend_requested()
+signal beacon_mode_requested()
 
 ## Фолбэк обязателен: на десктопе и в headless get_display_safe_area вернёт
 ## весь экран, разность окажется нулём и отступов не будет вовсе (research/20 §7).
@@ -29,7 +30,7 @@ var _building_state: Dictionary[int, Dictionary] = {}
 var _banner_paused: bool = false
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	# Полноэкранный Control поверх мира со STOP гарантированно сломал бы всё
 	# управление миром (research/19 §5, п.4).
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -41,7 +42,7 @@ func _ready() -> void:
 func _build() -> void:
 	_margin = MarginContainer.new()
 	_margin.name = "Safe"
-	_margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_margin)
 
@@ -67,6 +68,8 @@ func _build() -> void:
 	tide_gauge.name = "TideGauge"
 	middle.add_child(tide_gauge)
 	tide_gauge.legend_requested.connect(func() -> void: legend_requested.emit())
+	tide_gauge.beacon_mode_requested.connect(func() -> void:
+		beacon_mode_requested.emit())
 
 	var right: Control = Control.new()
 	right.name = "Right"
@@ -77,20 +80,20 @@ func _build() -> void:
 
 	toasts = ToastStack.new()
 	toasts.name = "ToastStack"
-	toasts.set_anchors_preset(Control.PRESET_FULL_RECT)
+	toasts.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	right.add_child(toasts)
 	toasts.focus_requested.connect(_on_toast_focus)
 
 	recall = RecallButton.new()
 	recall.name = "RecallButton"
-	recall.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	recall.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	recall.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	recall.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	right.add_child(recall)
 
 	banner = BannerView.new()
 	banner.name = "Banner"
-	banner.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	banner.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
 	banner.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	banner.custom_minimum_size = Vector2(560.0, 0.0)
 	banner.dismissed.connect(_on_banner_dismissed)

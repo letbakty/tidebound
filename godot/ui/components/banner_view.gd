@@ -35,7 +35,7 @@ func _build() -> void:
 	box.add_child(_title)
 	_text = Label.new()
 	_text.name = "Text"
-	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UILayout.wrap(_text, 420.0)
 	box.add_child(_text)
 	_button = PixelButton.new()
 	_button.name = "Ok"

@@ -16,8 +16,7 @@ func _build() -> void:
 	_label = Label.new()
 	_label.name = "Text"
 	_label.theme_type_variation = &"TooltipLabel"
-	_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_label.custom_minimum_size = Vector2(180.0, 0.0)
+	UILayout.wrap(_label, 180.0)
 	add_child(_label)
 
 ## text — уже переведённая строка: тултип часто собирают из чисел.

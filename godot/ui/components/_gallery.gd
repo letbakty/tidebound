@@ -17,7 +17,7 @@ var _confirm: ConfirmDialog = null
 var _toast_box: VBoxContainer = null
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme = load("res://ui/theme/main_theme.tres") as Theme
 	_build()
 
@@ -25,13 +25,13 @@ func _build() -> void:
 	_backdrop = ColorRect.new()
 	_backdrop.name = "Backdrop"
 	_backdrop.color = UITokens.PAPER
-	_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_backdrop)
 
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.name = "Scroll"
-	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(scroll)
 
 	var root: VBoxContainer = VBoxContainer.new()
@@ -161,7 +161,7 @@ func _build_panels(root: VBoxContainer) -> void:
 	panel.setup("GALLERY_PANEL_TITLE", true)
 	var inner: Label = Label.new()
 	inner.text = "GALLERY_PANEL_BODY"
-	inner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UILayout.wrap(inner, 280.0)
 	panel.add_content(inner)
 
 	var tip: TooltipView = TooltipView.new()

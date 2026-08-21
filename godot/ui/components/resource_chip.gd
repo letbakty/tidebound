@@ -57,16 +57,17 @@ func setup(id: String, count: int, trend: int) -> void:
 	_build()
 	item_id = id
 	_trend = signi(trend)
-	_icon.setup(_letter_for(id), _color_for(id), ICON_PX)
+	_icon.setup(letter_for(id), color_for(id), ICON_PX)
 	_count.text = str(count)
 	# Ноль показывается нулём, а не исчезает (docs/03 §8).
 	tooltip_text = "ITEM_%s" % id.to_upper()
 	_arrow.queue_redraw()
 
-static func _letter_for(id: String) -> String:
+static func letter_for(id: String) -> String:
 	return id.substr(0, 1)
 
-static func _color_for(id: String) -> Color:
+## Цвет предмета: им пользуются и панели, поэтому публичный.
+static func color_for(id: String) -> Color:
 	match id:
 		"rations", "catch": return UITokens.SUCCESS
 		"freshwater": return UITokens.WATER_COLD

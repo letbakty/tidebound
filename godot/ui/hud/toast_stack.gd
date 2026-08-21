@@ -26,7 +26,7 @@ func _ready() -> void:
 func _build() -> void:
 	_box = VBoxContainer.new()
 	_box.name = "Box"
-	_box.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_box.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	_box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_box.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_box.alignment = BoxContainer.ALIGNMENT_END

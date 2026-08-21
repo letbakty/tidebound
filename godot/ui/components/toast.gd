@@ -39,9 +39,8 @@ func _build() -> void:
 	row.add_child(_icon)
 	_text = Label.new()
 	_text.name = "Text"
-	_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UILayout.wrap(_text, 200.0)
 	_text.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	_text.custom_minimum_size = Vector2(200.0, 0.0)
 	_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_text)
 	_count = Label.new()

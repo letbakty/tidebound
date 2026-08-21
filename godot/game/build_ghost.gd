@@ -5,8 +5,17 @@ extends Node2D
 
 const OK_COLOR: Color = Color(0.45, 1.0, 0.5, 0.55)
 const BAD_COLOR: Color = Color(1.0, 0.4, 0.4, 0.55)
+## Пунктир до складов с материалами — паттерн Against the Storm: игрок сразу
+## видит, откуда понесут (промпт 14 п.2).
+const LINE_COLOR: Color = Color(0.91, 0.76, 0.44, 0.5)
+const DASH_PX: float = 6.0
 
 var def_id: String = ""
+## Клетки складов, где лежит нужное. Считаются при смене постройки, а не
+## каждый кадр: запрос в sim дорог, а склады за кадр не переезжают.
+var _sources: Array[Vector2i] = []
+var _error_key: String = ""
+var _font: Font = ThemeDB.fallback_font
 
 var _rect: ColorRect = null
 var _last_cell: Vector2i = Vector2i(-9999, -9999)
@@ -24,6 +33,9 @@ func set_def(id: String) -> void:
 	def_id = id
 	visible = not id.is_empty()
 	_last_cell = Vector2i(-9999, -9999)
+	_sources = Game.query_material_sources(id) if visible else ([] as Array[Vector2i])
+	_error_key = ""
+	queue_redraw()
 	if visible:
 		var d: BuildingDef = DB.building(id)
 		if d != null:
@@ -48,4 +60,25 @@ func _process(_delta: float) -> void:
 		return
 	_last_cell = cell
 	position = WorldGeo.cell_to_world(cell)
-	_rect.color = OK_COLOR if Game.query_can_place(def_id, cell) else BAD_COLOR
+	_error_key = Game.query_place_error(def_id, cell)
+	_rect.color = OK_COLOR if _error_key.is_empty() else BAD_COLOR
+	queue_redraw()
+
+## Пунктирные линии до складов с материалами и причина отказа текстом.
+func _draw() -> void:
+	if def_id.is_empty():
+		return
+	var from: Vector2 = _rect.size * 0.5
+	for cell: Vector2i in _sources:
+		var to: Vector2 = to_local(WorldGeo.cell_center_world(cell))
+		var total: float = from.distance_to(to)
+		var dir: Vector2 = (to - from).normalized()
+		var t: float = 0.0
+		while t < total:
+			var seg: float = minf(DASH_PX, total - t)
+			draw_line(from + dir * t, from + dir * (t + seg), LINE_COLOR, 1.0)
+			t += DASH_PX * 2.0
+	if _error_key.is_empty():
+		return
+	draw_string(_font, Vector2(0.0, -4.0), tr(_error_key),
+		HORIZONTAL_ALIGNMENT_LEFT, -1.0, ThemeDB.fallback_font_size, BAD_COLOR)

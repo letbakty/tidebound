@@ -83,6 +83,9 @@ func place(def_id: String, cell: Vector2i, w: SimWorld, instant: bool = false) -
 		"flooded": false, "damaged": false, "hp": d.hp,
 		"progress_ticks": 0, "buffer": {}, "pending_jobs": [] as Array[int],
 		"edge_id": -1, "lit": false, "fuel_left": 0,
+		# Игрок нажал «Починить»: ремонт этой постройки идёт вне очереди
+		# (Balance.URGENCY_CRITICAL_REPAIR). Снимается по завершении ремонта.
+		"repair_urgent": false,
 		# Был ли затоплен хоть раз за фазу — нужно испарителю (этап 08):
 		# соль не даёт цикл, в середине которого его накрыло.
 		"flooded_in_phase": false,
@@ -282,6 +285,7 @@ func advance_construction(building_id: int, ticks: int, w: SimWorld) -> bool:
 		b["progress_ticks"] = int(b["progress_ticks"]) + ticks
 		if int(b["progress_ticks"]) >= _repair_ticks(d):
 			b["damaged"] = false
+			b["repair_urgent"] = false          # приказ выполнен
 			b["hp"] = d.hp
 			b["progress_ticks"] = 0
 			_on_became_active(b, w)
@@ -532,6 +536,7 @@ func to_dict() -> Dictionary:
 			"edge_id": int(b["edge_id"]), "lit": bool(b["lit"]),
 			"fuel_left": int(b["fuel_left"]),
 			"flooded_in_phase": bool(b["flooded_in_phase"]),
+			"repair_urgent": bool(b["repair_urgent"]),
 		})
 	return {"next_id": _next_id, "last_level": _last_level, "buildings": list}
 
@@ -556,6 +561,7 @@ func from_dict(d: Dictionary) -> void:
 			"edge_id": int(s["edge_id"]), "lit": bool(s["lit"]),
 			"fuel_left": int(s["fuel_left"]),
 			"flooded_in_phase": bool(s.get("flooded_in_phase", false)),
+			"repair_urgent": bool(s.get("repair_urgent", false)),
 		}
 		buildings[int(s["id"])] = b
 		_occupy(b, true)

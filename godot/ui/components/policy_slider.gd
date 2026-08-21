@@ -50,7 +50,7 @@ func _build() -> void:
 	_desc = Label.new()
 	_desc.name = "Desc"
 	_desc.theme_type_variation = &"LabelSmall"
-	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UILayout.wrap(_desc, 240.0)
 	add_child(_desc)
 
 func setup(policy_id: int, current: int, name_key: String,

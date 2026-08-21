@@ -36,6 +36,8 @@ const DEPOSIT_COLORS: Dictionary = {
 
 ## Игровые оверлеи (этап 13): отметки ярусов, зона затопления, занятия.
 var overlay: GameOverlay = null
+## Маркер маяка (этап 14).
+var beacon: BeaconView = null
 
 func get_overlay() -> GameOverlay:
 	return overlay
@@ -50,6 +52,9 @@ func _ready() -> void:
 	overlay = GameOverlay.new()
 	overlay.name = "GameOverlay"
 	add_child(overlay)
+	beacon = BeaconView.new()
+	beacon.name = "BeaconView"
+	add_child(beacon)
 	Events.run_started.connect(_on_run_started)
 	Events.deposit_changed.connect(_on_deposit_changed)
 	Events.agent_spawned.connect(_on_agent_spawned)
@@ -348,25 +353,5 @@ func pick_at(world_pos: Vector2) -> Dictionary:
 	return {"kind": "cell", "id": -1, "cell": cell}
 
 
-## Тап/клик по миру. Полноценные жесты — этап 12; здесь минимум, чтобы
-## хит-тест агентов было чем проверить.
-func _unhandled_input(event: InputEvent) -> void:
-	var mb: InputEventMouseButton = event as InputEventMouseButton
-	if mb == null or not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
-		return
-	var world_pos: Vector2 = screen_to_world(mb.position)
-	# Активен призрак — клик ставит постройку, а не выбирает.
-	if not ghost.def_id.is_empty():
-		if Game.cmd_place_building(ghost.def_id, WorldGeo.world_to_cell(world_pos)):
-			ghost.set_def("")
-		return
-	var hit: Dictionary = pick_at(world_pos)
-	match str(hit["kind"]):
-		"agent":
-			print("[world] выбран агент: ",
-				Game.query_agent(int(hit["id"])).get("name", "?"))
-			Events.ui_panel_opened.emit("agent_stub")   # карточка — этап 14
-		"building":
-			print("[world] выбрана постройка: ",
-				Game.query_building(int(hit["id"])).get("def_id", "?"))
-			Events.ui_panel_opened.emit("building_stub")
+## Ввод по миру разбирает Main (жесты InputService + pick_at): держать второй
+## обработчик здесь значит ловить один тап дважды.

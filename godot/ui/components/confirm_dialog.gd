@@ -22,20 +22,20 @@ func _ready() -> void:
 func _build() -> void:
 	if _panel != null:
 		return
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	# Модальное окно блокирует ввод в мир — здесь STOP уместен (docs/03 §1).
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
 	var dim: ColorRect = ColorRect.new()
 	dim.name = "Dim"
 	dim.color = Color(UITokens.PAPER.r, UITokens.PAPER.g, UITokens.PAPER.b, 0.6)
-	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dim)
 
 	var center: CenterContainer = CenterContainer.new()
 	center.name = "Center"
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(center)
 
@@ -48,7 +48,7 @@ func _build() -> void:
 
 	_body = Label.new()
 	_body.name = "Body"
-	_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UILayout.wrap(_body, 380.0)
 	_panel.add_content(_body)
 
 	_word_hint = Label.new()

@@ -39,7 +39,8 @@ func _build() -> void:
 	_title.name = "Title"
 	_title.theme_type_variation = &"LabelTitle"
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# Заголовки короткие: автоперенос без заданной ширины раздул бы панель.
+	_title.clip_text = true
 	_header.add_child(_title)
 
 	_close = PixelButton.new()

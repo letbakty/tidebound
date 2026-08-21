@@ -35,11 +35,11 @@ func _build() -> void:
 	_title = Label.new()
 	_title.name = "Title"
 	_title.theme_type_variation = &"LabelTitle"
-	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UILayout.wrap(_title, 190.0)
 	box.add_child(_title)
 	_desc = Label.new()
 	_desc.name = "Desc"
-	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	UILayout.wrap(_desc, 190.0)
 	_desc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	box.add_child(_desc)
 	_tag = Label.new()

@@ -47,6 +47,7 @@ var _font_size: int = UITokens.FONT_S
 var _timer: Timer = null
 var _phase_label: Label = null
 var _time_label: Label = null
+var _beacon_button: PixelButton = null
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(float(UITokens.TIDE_WIDTH), 0.0)
@@ -70,7 +71,7 @@ func _build() -> void:
 	var box: VBoxContainer = VBoxContainer.new()
 	box.name = "Header"
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	box.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	add_child(box)
 	_phase_label = Label.new()
 	_phase_label.name = "Phase"
@@ -94,6 +95,19 @@ func _build() -> void:
 	_timer.autostart = true
 	_timer.timeout.connect(_tick_second)
 	add_child(_timer)
+
+	# Маяк живёт на шкале: это единственная кнопка, кроме Отзыва, которая
+	# что-то делает с миром (docs/00 §13).
+	_beacon_button = PixelButton.new()
+	_beacon_button.name = "Beacon"
+	_beacon_button.setup("HUD_BEACON", PixelButton.Variant.GHOST)
+	_beacon_button.tooltip_text = "HUD_BEACON_TIP"
+	_beacon_button.custom_minimum_size = Vector2(float(UITokens.TIDE_WIDTH),
+		float(UITokens.TOUCH_MIN))
+	_beacon_button.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_beacon_button.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_beacon_button.pressed.connect(func() -> void: beacon_mode_requested.emit())
+	add_child(_beacon_button)
 
 	var hold: TouchTooltip = TouchTooltip.new()
 	hold.name = "Hold"
@@ -175,10 +189,6 @@ func _gui_input(event: InputEvent) -> void:
 	var touch: InputEventScreenTouch = event as InputEventScreenTouch
 	if touch != null and not touch.pressed:
 		legend_requested.emit()
-		accept_event()
-		return
-	if event.is_action_pressed("beacon"):
-		beacon_mode_requested.emit()
 		accept_event()
 
 # --- Геометрия ------------------------------------------------------------

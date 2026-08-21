@@ -286,6 +286,13 @@ func cmd_place_building(def_id: String, cell: Vector2i) -> bool:
 		"cell": SimTypes.v2i_to_arr(cell)})
 	return true
 
+## «Починить» из панели постройки: ремонт и так рекламируется сам, но приказ
+## игрока поднимает его срочность выше прочих дел (docs/03 §5.4).
+func cmd_repair(building_id: int) -> void:
+	if world == null:
+		return
+	world.apply_command({"kind": "repair", "id": building_id})
+
 func cmd_demolish(building_id: int) -> void:
 	if world == null:
 		return
@@ -312,11 +319,135 @@ func query_building(id: int) -> Dictionary:
 		return {}
 	return {
 		"id": id, "def_id": str(b["def_id"]), "cell": b["cell"],
-		"state": int(b["state"]), "flooded": bool(b["flooded"]),
+		"mark": int(b["mark"]), "state": int(b["state"]),
+		"flooded": bool(b["flooded"]),
 		"damaged": bool(b["damaged"]), "hp": int(b["hp"]),
 		"progress": world.buildings.build_progress(b),
 		"working": world.buildings.is_working(b),
+		# Очагу и фонарю нужен остаток топлива (docs/03 §5.5).
+		"lit": bool(b["lit"]), "fuel_left": int(b["fuel_left"]),
 	}
+
+## Срез станции для StationPanel: рецепт, буфер, прогресс и ПРИЧИНА ПРОСТОЯ
+## текстом. Причину считает sim (одна логика на всех), панель только переводит.
+func query_station(id: int) -> Dictionary:
+	if world == null:
+		return {}
+	var b: Dictionary = world.buildings.buildings.get(id, {})
+	if b.is_empty():
+		return {}
+	var rid: String = world.production.pick_recipe(b, world, true)
+	var inputs: Dictionary = {}
+	var outputs: Dictionary = {}
+	var work_seconds: float = 0.0
+	if not rid.is_empty():
+		var r: RecipeDef = DB.recipe(rid)
+		inputs = r.inputs.duplicate()
+		outputs = r.outputs.duplicate()
+		work_seconds = r.work_seconds
+	var have: Dictionary = {}
+	for k: Variant in inputs:
+		have[str(k)] = BuildingSystem.buffer_count(b, str(k), false)
+	var progress: float = 0.0
+	if work_seconds > 0.0:
+		progress = clampf(float(int(b["progress_ticks"]))
+			/ (work_seconds * float(Balance.TICKS_PER_SEC)), 0.0, 1.0)
+	return {
+		"id": id, "def_id": str(b["def_id"]), "cell": b["cell"],
+		"recipe": rid, "inputs": inputs, "outputs": outputs, "have": have,
+		"progress": progress, "damaged": bool(b["damaged"]),
+		"flooded": bool(b["flooded"]),
+		"reason": ProductionSystem.idle_reason(b, world),
+		"repair_cost": BuildingSystem.repair_cost(DB.building(str(b["def_id"]))),
+	}
+
+## Срез склада для StoragePanel: стаки со влажностью и остатком до порчи.
+func query_storage(id: int) -> Dictionary:
+	if world == null:
+		return {}
+	var i: int = world.storage.storage_index(id)
+	if i < 0:
+		return {}
+	var s: Dictionary = world.storage.storages[i]
+	var stacks: Array = []
+	for v: Variant in s["stacks"] as Array:
+		var cur: Dictionary = v as Dictionary
+		var def: ItemDef = DB.item(str(cur["item_id"]))
+		stacks.append({
+			"item_id": str(cur["item_id"]), "count": int(cur["count"]),
+			"wet": bool(cur["wet"]), "spoil_left": int(cur["spoil_left"]),
+			"spoil_cycles": 0 if def == null else def.spoil_cycles,
+		})
+	var cell: Vector2i = s["cell"] as Vector2i
+	return {
+		"id": id, "cell": cell, "mark": Balance.cell_to_mark(cell),
+		"capacity": int(s["capacity"]), "stacks": stacks,
+	}
+
+## id склада в клетке (склад — постройка, но склады нумерует StorageSystem).
+func query_storage_at(cell: Vector2i) -> int:
+	if world == null:
+		return -1
+	var floor_cell: Vector2i = Vector2i(cell.x,
+		Balance.mark_to_floor_cell_y(Balance.cell_to_mark(cell)))
+	var id: int = world.storage.storage_at(floor_cell)
+	return id if id >= 0 else world.storage.storage_at(cell)
+
+## Срез депозита для подсказки: сколько осталось, восполняется ли, реликвия.
+func query_deposit(id: int) -> Dictionary:
+	if world == null:
+		return {}
+	for d: Dictionary in world.terrain.deposits:
+		if int(d["id"]) != id:
+			continue
+		var kind: String = str(d["kind"])
+		var def: Dictionary = Balance.DEPOSIT_KINDS.get(kind, {}) as Dictionary
+		var cell: Vector2i = d["cell"] as Vector2i
+		return {
+			"id": id, "kind": kind, "cell": cell,
+			"item": str(def.get("item", "")),
+			"amount": int(d["amount"]), "capacity": int(def.get("capacity", 0)),
+			"refill": int(def.get("refill", 0)),
+			"relic": not bool(d["relic_taken"])
+				and Balance.cell_to_mark(cell) <= Balance.RELIC_MARK_MAX,
+			"relic_marked": bool(d["relic_marked"]),
+		}
+	return {}
+
+## Текущие значения политик — панель открывается уже настроенной, даже если
+## policy_changed прилетал до её создания.
+func query_policies() -> Dictionary:
+	var out: Dictionary = {}
+	if world == null:
+		return out
+	for pol: int in SimTypes.POLICY_ORDER:
+		out[pol] = world.policies.get_value(pol)
+	return out
+
+## Списки для панелей и радиала: что вообще можно построить в этом забеге.
+func query_unlocked_buildings() -> Array[String]:
+	var out: Array[String] = []
+	for bid: String in DB.building_ids():
+		var d: BuildingDef = DB.building(bid)
+		if d.unlock_id.is_empty() or (world != null and world.unlocked.has(d.unlock_id)):
+			out.append(bid)
+	return out
+
+## Ближайшие склады, где лежит нужный материал — для линий призрака стройки
+## (паттерн Against the Storm).
+func query_material_sources(def_id: String) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if world == null:
+		return out
+	var d: BuildingDef = DB.building(def_id)
+	if d == null:
+		return out
+	for s: Dictionary in world.storage.storages:
+		for k: String in d.cost:
+			if world.storage.count_in(int(s["id"]), k) > 0:
+				out.append(s["cell"] as Vector2i)
+				break
+	return out
 
 ## Мировая позиция существа — для CreatureView каждый кадр.
 func query_creature_pos(id: int) -> Vector2:

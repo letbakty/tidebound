@@ -59,7 +59,7 @@ func setup(world: Node2D) -> void:
 	world.add_child(_overlay)
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_LEFT_WIDE)
+	set_anchors_and_offsets_preset(Control.PRESET_LEFT_WIDE)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	visible = false
 	_build_ui()
@@ -67,7 +67,7 @@ func _ready() -> void:
 
 func _build_ui() -> void:
 	var panel: PanelContainer = PanelContainer.new()
-	panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	panel.custom_minimum_size = Vector2(PANEL_W, 0.0)
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(panel)

@@ -220,3 +220,85 @@ TOAST_RECALL_HARD,Жёсткий отзыв: груз брошен,Hard recall: 
 CAUSE_DROWN,утонул,drowned
 CAUSE_STORM,шторм,storm
 CAUSE_UNKNOWN,неизвестно,unknown
+PANEL_POLICIES,Политики,Policies
+PANEL_AGENT,Человек,Colonist
+PANEL_STATION,Станция,Station
+PANEL_BUILDING,Постройка,Building
+PANEL_STORAGE,Склад,Storage
+POLICY_HINT,"Прямых приказов нет: люди работают сами, а политики говорят, чего от них ждут","There are no direct orders: people work on their own, policies tell them what to expect"
+POLICY_0_0,Жадность 0: возвращаются с первым же грузом,Greed 0: they come back with the first load
+POLICY_0_1,Жадность 1: набирают половину котомки,Greed 1: they fill half the bag
+POLICY_0_2,Жадность 2: набирают полную котомку,Greed 2: they fill the whole bag
+POLICY_0_3,Жадность 3: берут всё до последнего,Greed 3: they take everything to the last piece
+POLICY_1_0,Осторожность 0: возвращаются в последний момент,Caution 0: they return at the last moment
+POLICY_1_1,Осторожность 1: возврат за 20 секунд до воды,Caution 1: return 20 seconds before the water
+POLICY_1_2,Осторожность 2: возврат за 40 секунд до воды,Caution 2: return 40 seconds before the water
+POLICY_1_3,Осторожность 3: возврат за минуту до воды,Caution 3: return a minute before the water
+POLICY_2_0,Ремонт 0: чинят только когда нечем заняться,Repair 0: they mend only when idle
+POLICY_2_1,Ремонт 1: чинят между делом,Repair 1: they mend between other work
+POLICY_2_2,Ремонт 2: чинят до добычи,Repair 2: mending comes before gathering
+POLICY_2_3,Ремонт 3: латают всё сразу,Repair 3: everything gets patched at once
+POLICY_3_0,Стройка 0: не строят вовсе,Building 0: nothing gets built
+POLICY_3_1,Стройка 1: строят между делом,Building 1: they build between other work
+POLICY_3_2,Стройка 2: стройка наравне с добычей,Building 2: building matches gathering
+POLICY_3_3,Стройка 3: стройка важнее всего,Building 3: building comes first
+POLICY_4_0,Заготовка 0: станции стоят,Stockpiling 0: the stations stand idle
+POLICY_4_1,Заготовка 1: работают, когда есть лишние руки,"Stockpiling 1: they work when hands are free"
+POLICY_4_2,Заготовка 2: держат запас на два цикла,Stockpiling 2: they keep two cycles of stock
+POLICY_4_3,Заготовка 3: станции работают всегда,Stockpiling 3: the stations always run
+POLICY_5_0,Отдых 0: спят только падая с ног,Rest 0: they sleep only when they drop
+POLICY_5_1,Отдых 1: короткий отдых на исходе сил,Rest 1: a short rest when spent
+POLICY_5_2,Отдых 2: отдыхают вовремя,Rest 2: they rest in good time
+POLICY_5_3,Отдых 3: отдыхают при первой усталости,Rest 3: they rest at the first sign of tiredness
+NEED_SATIETY,Сытость,Satiety
+NEED_WARMTH,Тепло,Warmth
+NEED_MOOD,Дух,Spirit
+AGENT_BAG,Котомка,Bag
+AGENT_SHOW,К человеку,Show
+STATE_0,Без дела,Idle
+STATE_1,Идёт,Walking
+STATE_2,Работает,Working
+STATE_3,Несёт груз,Hauling
+STATE_4,Добывает,Gathering
+STATE_5,Возвращается,Returning
+STATE_6,Отдыхает,Resting
+STATE_7,Ест,Eating
+STATE_8,В панике,Panicking
+STATE_9,Тонет,Drowning
+STATE_10,Погиб,Dead
+ACT_REPAIR,Починить,Repair
+ACT_DEMOLISH,Снести,Demolish
+CONFIRM_DEMOLISH,"Постройку снесут, часть материалов вернётся на склад","The building comes down; some materials return to storage"
+STATION_WORKING,Работает,Running
+STATION_BUILDING,Ещё строится,Still under construction
+STATION_DAMAGED,"Повреждена: нужен ремонт","Damaged: needs repair"
+STATION_FLOODED,"Затоплена: под водой не работает","Flooded: it does not work under water"
+STATION_NO_RECIPE,Нечего делать: рецепт недоступен,Nothing to do: no recipe available
+STATION_NO_MATERIALS,Нет материалов: некому или нечего принести,No materials: nothing to bring, or nobody to bring it
+STATION_NO_FUEL,Нет сухого топлива,No dry fuel
+STATION_NO_WORKER,"Никто не идёт: Заготовка на нуле","Nobody comes: Stockpiling is at zero"
+STATION_NO_SPACE,Некуда класть готовое: склады полны,Nowhere to put the output: storages are full
+BUILDING_OK,Цела и работает,Whole and working
+BUILDING_DAMAGED,Повреждена,Damaged
+BUILDING_FLOODED_OK,Под водой; работает,Under water; still working
+BUILDING_FLOODED_OFF,Под водой; не работает,Under water; not working
+BUILDING_UNDER_CONSTRUCTION,Строится,Under construction
+BUILDING_FUEL,Топлива на {n} цикл(а); {state},Fuel for {n} more cycle(s); {state}
+BUILDING_LIT,горит,lit
+BUILDING_UNLIT,не горит,unlit
+STORAGE_MARK,Отметка {mark},Mark {mark}
+STORAGE_SPRING_WARN,В сизигию этот склад уйдёт под воду,A spring tide will put this storage under water
+STORAGE_WET,Мокрое,Wet
+STORAGE_SPOIL,До порчи,Until it spoils
+RADIAL_MORE,Ещё,More
+DEPOSIT_RUINS_NEAR,Ближние руины,Near ruins
+DEPOSIT_RUINS_DEEP,Дальние руины,Deep ruins
+DEPOSIT_SHALLOW,Отмель,Shallows
+DEPOSIT_KELP,Водоросли,Kelp bed
+DEPOSIT_LEFT,Осталось {n} из {total} ({item}),{n} of {total} left ({item})
+DEPOSIT_REFILL,"Восполняется: +{n} за отлив","Refills: +{n} each ebb"
+DEPOSIT_NO_REFILL,Не восполняется,Does not refill
+DEPOSIT_RELIC_CHANCE,Шанс реликвии {p}%,Relic chance {p}%
+DEPOSIT_RELIC_MARKED,Здесь помечена реликвия,A relic is marked here
+HUD_BEACON,Маяк,Beacon
+HUD_BEACON_TIP,"Поставить маяк: работы рядом с ним важнее прочих","Place the beacon: work near it outweighs the rest"

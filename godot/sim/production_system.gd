@@ -108,6 +108,57 @@ static func has_inputs(b: Dictionary, r: RecipeDef) -> bool:
 			return false
 	return true
 
+## Почему станция стоит. Пустая строка = работает. Возвращает КОДЫ, а не ключи
+## локализации: sim об интерфейсе не знает, ключи подставит панель (docs/03 §5.4).
+##
+## Без этой функции игрок не понимает, почему цепочка встала — главный
+## источник фрустрации в жанре.
+static func idle_reason(b: Dictionary, w: SimWorld) -> String:
+	var d: BuildingDef = DB.building(str(b["def_id"]))
+	if d == null:
+		return "no_recipe"
+	if int(b["state"]) != int(SimTypes.BuildState.ACTIVE):
+		return "under_construction"
+	if bool(b["damaged"]):
+		return "damaged"
+	if bool(b["flooded"]) and d.flood_rule == SimTypes.FloodRule.DISABLED:
+		return "flooded"
+	var rid: String = w.production.pick_recipe(b, w, true)
+	if rid.is_empty():
+		# Пассивные станции (испаритель, дождесборник, конденсатор) агента не
+		# ждут: у них «работает» = не накрыло водой в эту фазу (docs/00 §9.1).
+		if not _passive_recipe(b, w).is_empty():
+			return "flooded" if bool(b["flooded"]) or bool(b["flooded_in_phase"]) else ""
+		return "no_recipe"
+	var r: RecipeDef = DB.recipe(rid)
+	if not has_inputs(b, r):
+		# «Нет топлива» отделяем от «нет материалов»: игроку это разные беды.
+		var only_fuel: bool = true
+		for k: String in r.inputs:
+			if BuildingSystem.buffer_count(b, k, _dry_only(k, r)) >= int(r.inputs[k]):
+				continue
+			if k != "driftwood":
+				only_fuel = false
+		return "no_fuel" if only_fuel else "no_materials"
+	for k2: String in r.outputs:
+		if not w.storage.has_space(k2, int(r.outputs[k2])):
+			return "no_space"
+	if r.needs_agent and w.policies.get_value(SimTypes.Policy.SUPPLY) == 0:
+		return "no_worker"
+	return ""
+
+## Первый доступный пассивный рецепт станции ("" — нет такого).
+static func _passive_recipe(b: Dictionary, w: SimWorld) -> String:
+	var special: String = DB.building(str(b["def_id"])).special
+	for rid: String in recipes_for(special):
+		var r: RecipeDef = DB.recipe(rid)
+		if r.needs_agent:
+			continue
+		if not r.unlock_id.is_empty() and not w.unlocked.has(r.unlock_id):
+			continue
+		return rid
+	return ""
+
 ## Один тик работы агента у станции. Возвращает true, когда цикл рецепта
 ## завершён (или стал невозможен).
 func advance_work(building_id: int, ticks: int, a: SimAgent, w: SimWorld) -> bool:

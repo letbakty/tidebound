@@ -156,6 +156,7 @@ func cmd_recall(hard: bool = false) -> void
 func cmd_set_policy(policy: int, value: int) -> void
 func cmd_place_building(def_id: String, cell: Vector2i) -> bool  # false = невалидно
 func cmd_demolish(building_id: int) -> void
+func cmd_repair(building_id: int) -> void   # приказ «починить сейчас»: ремонт вне очереди
 func cmd_set_beacon(cell: Vector2i) -> void
 func cmd_pick_card(card_id: String) -> void
 func cmd_set_speed(mult: int) -> void            # 0,1,2,3

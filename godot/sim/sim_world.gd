@@ -132,6 +132,13 @@ func _consume_commands() -> void:
 				buildings.place(def_id, pcell, self)
 			"demolish":
 				buildings.demolish(int(cmd.get("id", -1)), self)
+			"repair":
+				var rid: int = int(cmd.get("id", -1))
+				var rb: Dictionary = buildings.buildings.get(rid, {})
+				if not rb.is_empty() and bool(rb["damaged"]):
+					rb["repair_urgent"] = true
+					jobs.mark_dirty()
+					events_out.append(SimEvent.make("building_state_changed", {"id": rid}))
 			"pick_card":
 				run_state.pick_card(str(cmd.get("card", "")), self)
 			"leave_early":

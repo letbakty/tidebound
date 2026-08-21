@@ -36,11 +36,11 @@
 | 12 | ui-foundation | [19](19-ui-theme-components.md) | [20](20-input-gestures-gamepad.md), **[28](28-fonts-localization-process.md) (шрифт!)**, [32](32-accessibility-remap.md) |
 | 13 | ui-hud | [21](21-hud-panels-tween.md) | [06](06-pixel-art-pitfalls.md) §9 |
 | 14 | ui-panels-game | [21](21-hud-panels-tween.md) | [17](17-buildings-production.md) §3 (призрак) |
-| 15 | ui-screens | [22](22-screens-routing-i18n.md) | [28](28-fonts-localization-process.md) §4, [32](32-accessibility-remap.md) |
+| 15 | ui-screens | [22](22-screens-routing-i18n.md) | [28](28-fonts-localization-process.md) §4, [32](32-accessibility-remap.md), [36](36-crash-reporting-and-feedback.md) §2, [38](38-legal-minimum.md) §1 |
 | 16 | touch-gamepad | [20](20-input-gestures-gamepad.md) | [27](27-steam-integration.md) §4 (Deck), [26](26-build-size-and-optimization.md) §2, [33](33-mobile-gpu-water-shader.md) |
-| 17 | audio | [23](23-audio-architecture.md) | — |
-| 18 | visual-polish | [07](07-stage-18-plan.md) | [00](00-godot-4.7-api-facts.md)–[06](06-pixel-art-pitfalls.md) — весь блок шейдеров; [29](29-art-pipeline.md), [33](33-mobile-gpu-water-shader.md) |
-| 19 | release-hardening | [24](24-testing-headless-hardening.md) + [26](26-build-size-and-optimization.md) | [30](30-balancing-methodology.md), [27](27-steam-integration.md) §7 |
+| 17 | audio | [23](23-audio-architecture.md) + **[35](35-audio-sources-and-design.md)** | — |
+| 18 | visual-polish | [07](07-stage-18-plan.md) + **[34](34-capture-and-marketing-assets.md)** | [00](00-godot-4.7-api-facts.md)–[06](06-pixel-art-pitfalls.md) — весь блок шейдеров; [29](29-art-pipeline.md), [33](33-mobile-gpu-water-shader.md) |
+| 19 | release-hardening | [24](24-testing-headless-hardening.md) + [26](26-build-size-and-optimization.md) | [30](30-balancing-methodology.md), [27](27-steam-integration.md) §7, [36](36-crash-reporting-and-feedback.md), [38](38-legal-minimum.md) |
 
 ---
 
@@ -94,8 +94,31 @@
 | [31-web-export-itch.md](31-web-export-itch.md) | Тянет ли Godot 4.7 Web наш проект: только Compatibility, однопоточный экспорт по умолчанию, IndexedDB-сейвы, вердикт и запасной план | до недели 7 |
 | [32-accessibility-remap.md](32-accessibility-remap.md) | AccessKit в 4.5+, «не только цветом», контраст палитры, `reduce_motion`, архитектура под будущий ремап | **12**, 15, 18 |
 | [33-mobile-gpu-water-shader.md](33-mobile-gpu-water-shader.md) | Цена бэкбуфера на тайловых GPU, фиксы Foundation после Kamaeru и Rift Riff, `water_lite`, точность float и `sim_time`, чек-лист замеров | замерять с **02**, решать на 18 |
+| [34-capture-and-marketing-assets.md](34-capture-and-marketing-assets.md) | **Movie Maker mode**, режим съёмки в коде, целочисленный апскейл, GIF по палитре игры, точные размеры ассетов Steam, вертикальный кадр 9:16 | **18** (функции в код), itch-прототип, Steam-страница |
+| [35-audio-sources-and-design.md](35-audio-sources-and-design.md) | Откуда берутся звуки: Sonniss/CC0/CC-BY, слои воды против усталости уха, колокол Сигнала, почему не процедурная генерация, −16 LUFS | **17**, 15, 38 |
+| [36-crash-reporting-and-feedback.md](36-crash-reporting-and-feedback.md) | Файловое логирование и бэктрейсы в релизе, кнопка «сообщить о проблеме» с сидом и журналом команд, Sentry — за и против, приватность | **15**, 16, 19 |
+| [37-playtest-and-telemetry.md](37-playtest-and-telemetry.md) | Что мерить в колони-симе, локальный CSV без сервера, волны тестеров, «не понял» против «не понравилось», стыковка с методикой баланса | после **15**, 19 |
+| [38-legal-minimum.md](38-legal-minimum.md) | Титры и лицензии (Godot MIT, OFL, CC-BY), политика приватности, IARC, Steam Direct и налоговые формы, нужен ли EULA | **15**, 16, 19 |
 
 ⚠️ **Чего в ресерче сознательно нет:** модинг, мультиплеер, процедурная генерация утёсов, облачные сейвы помимо Steam, подпись iOS/TestFlight/App Store, глубокое профилирование через Tracy, план Б на GDExtension/C#, телеметрия плейтестов. Первые четыре — в списке «не входит никогда» из ТЗ, остальные — фаза 2. Ресерч по ним породил бы соблазн их сделать.
+
+
+---
+
+## Блок 4 — взгляд со стороны: стоит ли строить именно это
+
+Файлы 00–38 отвечают на вопрос «как построить». Этот блок — про другой: **сойдётся ли задуманное с реальностью**. Разбор ведётся по нашим же документам (`docs/00`, `docs/01`, `docs/03`, `design/`), с указанием разделов и с ценником на каждую идею.
+
+| Файл | Оптика | Главное |
+|---|---|---|
+| **[42-verdict.md](42-verdict.md)** | сводка | **Читать первым.** Три угрозы, три возможности, план на неделю |
+| [39-design-critique.md](39-design-critique.md) | геймдизайнер | Одно действие в минуту; шесть пустых циклов из двенадцати; центральный конфликт поддержан одной постройкой; метапрогрессии хватает на 10–16 часов |
+| [40-marketing-positioning.md](40-marketing-positioning.md) | маркетолог | **Название занято** игрой того же поля с издателем; полка выбрана неверно; в плане нет Next Fest |
+| [41-player-experience.md](41-player-experience.md) | игрок | Первые 10 минут поминутно; три точки выхода; 27 автопауз за забег; обещание «провал = просчёт» интерфейсом не поддержано |
+
+⚠️ Это разбор **документов**, а не игры: играбельной сборки нет. Выводы помечены `⚠️ НЕ ПОДТВЕРЖДЕНО` там, где нужен плейтест. Хвалебных разделов в этих файлах нет намеренно.
+
+**Формат идей.** В каждом файле — финальная таблица «идея → что даёт → дней → **что вырезать взамен** → приоритет». Правило проекта: новая фича не добавляется, а меняется местами с запланированной. Идеи дороже недели вынесены в «отложить до второй игры».
 
 
 ---
@@ -110,6 +133,11 @@
 | [code/world_geo.gd](code/world_geo.gd) | `game/world_geo.gd` | 02 |
 | [code/save_io.gd](code/save_io.gd) | `autoload/save_io.gd` (или внутрь `save_service.gd`) | 11 |
 | [code/input_service.gd](code/input_service.gd) | `ui/input_service.gd` | 12 |
+| [code/crash_report.gd](code/crash_report.gd) | `autoload/crash_report.gd` | 15 |
+| [code/credits_builder.gd](code/credits_builder.gd) | `ui/screens/credits_builder.gd` | 15 |
+| [code/telemetry.gd](code/telemetry.gd) | `autoload/telemetry.gd` (только пресет `playtest`) | после 15 |
+| [code/capture_mode.gd](code/capture_mode.gd) | `game/capture_mode.gd` | 18 |
+| [code/make_gif.sh](code/make_gif.sh) | `tools/make_gif.sh` | 18 |
 | [code/water.gdshader](code/water.gdshader) | `assets/shaders/water.gdshader` | 18 |
 | [code/water_view.gd](code/water_view.gd) | `game/water_view.gd` | 18 (заготовка — 02) |
 | [code/depth_fog.gdshader](code/depth_fog.gdshader) | `assets/shaders/depth_fog.gdshader` | 18 |
@@ -148,6 +176,10 @@
 16. **Шрифт обязан покрывать кириллицу И CJK в одной пиксельной сетке.** monogram/Press Start 2P из промпта 12 ведут в тупик при ZH-Hans; кандидат — Ark Pixel 12 px (OFL). → [28](28-fonts-localization-process.md) §2
 17. **Размеры спрайтов и origin — контракт, а не вкус.** Заглушки этапов 02–09 задают сетку, в которую обязан встать финальный арт без правки кода. → [29](29-art-pipeline.md) §1
 18. **Баланс измеряется профилями стратегий, а не одним автопилотом.** Один профиль, выигрывающий более чем в половине сидов, — доминирующая стратегия. → [30](30-balancing-methodology.md) §2
+19. **Ролики снимаются Movie Maker mode, а не захватом экрана.** Режим включается сам по `OS.has_feature("movie")`, кадр пишется вне реального времени — идеальный тайминг и целочисленный апскейл 640×360 → 1920×1080. → [34](34-capture-and-marketing-assets.md) §1
+20. **Процедурного звука в рантайме нет.** Документация Godot: `AudioStreamGenerator` *«best used from C# or from a compiled language via GDExtension»*, а проект — чистый GDScript. Вода и ветер — лупы. → [35](35-audio-sources-and-design.md) §4
+21. **Ничего не отправляется по сети без действия игрока.** Диагностика — файл, который игрок сам присылает; телеметрия плейтеста — локальный CSV за feature-тегом. Это и техническое упрощение, и юридическое. → [36](36-crash-reporting-and-feedback.md) §4, [37](37-playtest-and-telemetry.md) §5
+22. ⚠️ **Три вывода блока 4, которые меняют план, а не код:** название «Tidebound» занято на Steam и его надо сменить до создания страницы; полка сравнения — Loop Hero и Dome Keeper, а не Against the Storm; политики размечены в секундах, а опасность измеряется в ярусах — и связи между ними в интерфейсе нет. → [42](42-verdict.md)
 
 ---
 
@@ -177,6 +209,10 @@
 - Ни одна информация в UI не передаётся ТОЛЬКО цветом; тест контраста палитры — 20 строк. → [32](32-accessibility-remap.md) §2
 - Ветка `USE_ATLAS: bool = false` в `theme_builder.gd` — не забыть.
 - `keep_rounding_remainders = false` и subpixel positioning disabled у шрифта, иначе текст поедет на полпикселя. → [19](19-ui-theme-components.md) §4
+
+**Этап 17.** Звук берётся из Sonniss GDC Bundle (royalty-free, **атрибуция не нужна**) и CC0; CC-BY-NC и CC-BY-SA в проект не попадают вовсе. `assets/sfx/SOURCES.csv` заводится с первого файла — иначе титры к релизу не собрать. → [35](35-audio-sources-and-design.md) §1
+
+**Этап 18.** Пять функций режима съёмки (скрытие слоёв, автоопределение записи, фиксированная скорость, перемотка по журналу команд, `stretch_scale_mode = integer` на время сессии). Без них каждый дубль ролика переснимается вручную. → [34](34-capture-and-marketing-assets.md) §0
 
 **Этап 13.**
 - ⚠️ В 4.7 `CanvasItem` больше не добавляет antialiasing feather при рисовании линий (GH-105122). `TideGauge` рисуется через `_draw()` — ширину линий задавать явно. → [06](06-pixel-art-pitfalls.md) §9

@@ -430,6 +430,11 @@ func score(a: SimAgent, j: Dictionary, w: SimWorld) -> int:
 
 func _urgency(a: SimAgent, j: Dictionary, w: SimWorld) -> float:
 	var u: float = 1.0
+	# Игрок нажал «Починить» в панели постройки: этот ремонт важнее прочих дел.
+	if str(j["kind"]) == "repair":
+		var b: Dictionary = w.buildings.buildings.get(int(j["target_id"]), {})
+		if not b.is_empty() and bool(b.get("repair_urgent", false)):
+			u *= Balance.URGENCY_CRITICAL_REPAIR
 	if str(j["kind"]) == "haul_ground":
 		var def: ItemDef = DB.item(str(j["item_id"]))
 		if def != null and def.spoil_cycles > 0:

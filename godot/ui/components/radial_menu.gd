@@ -31,7 +31,7 @@ func _ready() -> void:
 	_apply_theme()
 
 func _apply_defaults() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	focus_mode = Control.FOCUS_ALL
 	visible = false
@@ -73,6 +73,10 @@ func close() -> void:
 
 func is_open() -> bool:
 	return visible
+
+## Точка, вокруг которой раскрыт радиал — нужна владельцу при смене страницы.
+func center() -> Vector2:
+	return _center
 
 # --- Геометрия ------------------------------------------------------------
 
