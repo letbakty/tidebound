@@ -6,6 +6,10 @@ extends Node
 ## файле это дыра (docs/02 §10).
 
 const RUN_PATH: String = "user://save_run.json"
+## Журнал команд лежит ОТДЕЛЬНО от сейва (ARCH-08): сейв читается в меню при
+## каждом запуске, а журнал нужен только для баг-репорта и воспроизведения.
+## Внутри сейва он бы удорожал каждое чтение ради редкого сценария.
+const COMMANDS_PATH: String = "user://save_commands.json"
 const SAVE_VERSION: int = 1
 
 func _ready() -> void:
@@ -39,6 +43,8 @@ func has_save() -> bool:
 func delete_run() -> void:
 	if has_save():
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(RUN_PATH))
+	if FileAccess.file_exists(COMMANDS_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(COMMANDS_PATH))
 
 ## ui — секция интерфейса (показанные банеры и подсказки): её наполняют
 ## этапы 13 и 15, sim о ней не знает.
@@ -51,6 +57,10 @@ func save_run(ui: Dictionary = {}) -> bool:
 		"world": Game.world.to_dict(),
 		"ui": ui.duplicate(true),
 	}
+	# Журнал пишется только когда он ведётся (debug-сборка): в релизе файла
+	# просто нет, и это не отказ.
+	if not Game.world.command_log.is_empty():
+		SaveIO.write_json(COMMANDS_PATH, Game.world.commands_to_dict())
 	return SaveIO.write_json(RUN_PATH, data) == OK
 
 ## Возвращает false, если файла нет или он несовместим.
@@ -64,7 +74,21 @@ func load_run() -> bool:
 			% [v, SAVE_VERSION])
 		return false
 	Game.restore_world(d.get("world", {}) as Dictionary)
+	_load_commands(Game.world)
 	return true
+
+## Журнал команд после загрузки. Чужой журнал (от другого забега) молча не
+## подставляем: сид обязан совпасть, иначе воспроизведение даст другой мир.
+func _load_commands(world: SimWorld) -> void:
+	if world == null:
+		return
+	var d: Dictionary = SaveIO.read_json(COMMANDS_PATH)
+	if d.is_empty():
+		return
+	if int(d.get("seed", -1)) != world.rng.seed_value:
+		push_warning("журнал команд от другого забега — не подставляем")
+		return
+	world.commands_from_dict(d)
 
 ## Короткая справка о сейве для меню: на каком цикле остановились и какой сид.
 ## Читает файл, а не мир: в меню мира ещё нет.

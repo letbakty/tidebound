@@ -116,13 +116,13 @@ RCP_DRYER_FIBER,Волокно,Fiber
 RCP_RAINCATCHER_WATER,Дождевая вода,Rainwater
 RCP_CONDENSER_WATER,Конденсат,Condensate
 CARD_DEEP_DIVE,Глубокий заход,Deep dive
-CARD_DEEP_DIVE_D,"Отлив уходит до −10, но времени на дне меньше","The ebb drops to −10, but there is less time down there"
+CARD_DEEP_DIVE_D,"Вода уходит ниже дна: нижний ярус открыт раньше, но времени на нём меньше","Water falls below the floor: the bottom tier opens sooner, but you get less time on it"
 CARD_FAST_HAUL,Быстрый сбор,Fast haul
 CARD_FAST_HAUL_D,"Переносить быстрее, но котомка меньше","Carry faster, but the bag is smaller"
 CARD_CAREFUL,Осторожно,Careful
 CARD_CAREFUL_D,"Возвращаются раньше и дольше держатся под водой, но добывают медленнее","They return earlier and hold their breath longer, but gather slower"
 CARD_GREAT_EBB,Великий отлив,Great ebb
-CARD_GREAT_EBB_D,Дно открыто до −12 и надолго; следующая сизигия выше,The floor opens to −12 and for longer; the next spring tide runs higher
+CARD_GREAT_EBB_D,"Вода уходит далеко: нижний ярус открыт надолго; следующая сизигия выше","Water falls far: the bottom tier stays open much longer; the next spring tide runs higher"
 CARD_CALM_WATER,Тихая вода,Calm water
 CARD_CALM_WATER_D,Приход этого цикла отменён,This cycle's visit is cancelled
 CARD_THE_FIND,Находка,The find

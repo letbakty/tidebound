@@ -255,6 +255,31 @@ static func test_command_log_replay(t: TestCtx) -> void:
 	t.check_eq(TestCtx.state_hash(replayed), TestCtx.state_hash(w),
 		"реплей по сиду и журналу воспроизводит состояние")
 
+## ARCH-08: журнал команд обязан пережить сохранение. Иначе воспроизвести
+## можно только забег, сыгранный в одну сессию, — то есть ровно не тот
+## случай, ради которого журнал заведён (баг-репорт игрока).
+static func test_command_log_survives_save(t: TestCtx) -> void:
+	var w: SimWorld = SimWorld.new(true)
+	w.new_run(909, _cliff())
+	w.events_out.clear()
+	t.run_ticks(w, 40)
+	w.apply_command({"kind": "set_policy", "policy": SimTypes.Policy.GREED, "value": 3})
+	t.run_ticks(w, 60)
+	t.check_eq(w.command_log.size(), 1, "команда в журнале")
+
+	# Круг «сохранили — загрузили»: мир из сейва, журнал из своего файла.
+	var restored: SimWorld = SimWorld.new()
+	restored.from_dict(w.to_dict(), _cliff())
+	t.check(restored.command_log.is_empty(), "сам сейв журнал не несёт")
+	restored.commands_from_dict(w.commands_to_dict())
+	t.check_eq(restored.command_log.size(), 1, "журнал восстановлен отдельно")
+	t.check_eq(int(restored.command_log[0]["t"]), 40, "с тем же тиком команды")
+
+	# И по восстановленному журналу забег воспроизводится побитово.
+	var replayed: SimWorld = SimWorld.replay(909, restored.command_log, 100, _cliff())
+	t.check_eq(TestCtx.state_hash(replayed), TestCtx.state_hash(w),
+		"реплей по восстановленному журналу совпал с оригиналом")
+
 static func test_rng_state_survives_save(t: TestCtx) -> void:
 	var w: SimWorld = _world(2024)
 	for i: int in 50:

@@ -309,19 +309,36 @@ func heat_radius() -> int:
 
 ## Воспроизводит забег из сида и журнала команд: сид + килобайты лога вместо
 ## полного сейва (research/25 §2.1). Нужен баг-репортам и сценарным тестам.
-static func replay(seed_value: int, log: Array[Dictionary], until_tick: int,
+## ⚠️ Параметр называется commands, а не log: `log` — встроенная функция
+## GDScript, и внутри такой функции натуральный логарифм молча становится
+## массивом (SIM-12).
+static func replay(seed_value: int, commands: Array[Dictionary], until_tick: int,
 		cliff: CliffDef) -> SimWorld:
 	var w: SimWorld = SimWorld.new()
 	w.new_run(seed_value, cliff)
 	w.events_out.clear()
 	var i: int = 0
 	while w.clock.total_ticks() < until_tick:
-		while i < log.size() and int(log[i]["t"]) == w.clock.total_ticks():
-			w.apply_command(log[i]["cmd"] as Dictionary)
+		while i < commands.size() and int(commands[i]["t"]) == w.clock.total_ticks():
+			w.apply_command(commands[i]["cmd"] as Dictionary)
 			i += 1
 		w.tick()
 		w.events_out.clear()
 	return w
+
+## Журнал команд для сохранения рядом с сейвом (ARCH-08). Отдельным файлом,
+## а не внутри сейва: журнал нужен для баг-репорта и весит килобайты, а сейв
+## читается в меню при каждом запуске.
+func commands_to_dict() -> Dictionary:
+	return {"seed": rng.seed_value, "commands": command_log.duplicate(true)}
+
+## Восстанавливает журнал после загрузки: без него воспроизвести можно только
+## забег, сыгранный в одну сессию, — то есть ровно не тот случай, ради
+## которого журнал заведён.
+func commands_from_dict(d: Dictionary) -> void:
+	command_log.clear()
+	for v: Variant in d.get("commands", []) as Array:
+		command_log.append((v as Dictionary).duplicate(true))
 
 # --- Сериализация ---------------------------------------------------------
 
