@@ -165,8 +165,25 @@ func cmd_save() -> void / cmd_load() -> bool     # тонкие обёртки �
 # НЕ-командные методы Game (вне sim):
 func has_save() -> bool
 func rebroadcast_state() -> void                 # после load: повторная эмиссия agent_spawned и т.п. для UI
-func query_agent(id: int) -> Dictionary          # ЕДИНСТВЕННЫЙ разрешённый pull: синхронное чтение среза данных агента для AgentCard (только чтение, только через Game)
 func resume_prev_speed() -> void                 # снятие автопаузы Итога цикла/драфта: вернуть скорость, бывшую до паузы
+func push_pause() -> void / pop_pause() -> void  # автопауза СЧЁТЧИКОМ: два окна подряд не снимут паузу раньше времени
+func note_banner(type: int) -> bool              # банер этого кризиса ещё не показывали за забег (ui-секция сейва)
+func note_hint(id: String) -> bool               # то же для карточек-уроков
+```
+
+**Синхронные запросы (`query_*`) — единственный разрешённый «pull» из sim.**
+Только чтение, только через `Game`, только по месту, где поток событий не годится
+(срез данных для окна, валидация клетки под курсором). Sim об UI по-прежнему не знает.
+```gdscript
+func query_agent(id: int) -> Dictionary          # срез агента для AgentCard и AgentView
+func query_agent_pos(id: int) -> Vector2         # мировая позиция агента (каждый кадр)
+func query_creature_pos(id: int) -> Vector2      # то же для существа
+func query_building(id: int) -> Dictionary       # состояние постройки для HUD и панелей
+func query_can_place(def_id: String, cell: Vector2i) -> bool     # призрак размещения
+func query_place_error(def_id: String, cell: Vector2i) -> String # причина отказа ключом локализации
+func query_clock() -> Dictionary                 # фаза, цикл, тики до конца фазы, плато, объявленные кризисы
+func query_totals() -> Dictionary                # остатки складов (стартовый запас приходит без события)
+func query_dry_totals() -> Dictionary            # сухие остатки: «топливо-сухое» ≠ «плавник вообще»
 ```
 Внутри sim команды применяются как `world.apply(SimCommand)` — очередь, разбирается в начале тика (детерминизм).
 

@@ -80,6 +80,9 @@ func count() -> int:
 
 func restart_timer() -> void:
 	_build()
+	# Timer вне дерева ругается: тост может быть собран заранее и добавлен позже.
+	if not is_inside_tree():
+		return
 	if _life_sec <= 0.0:
 		_timer.stop()
 		return

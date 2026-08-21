@@ -180,6 +180,24 @@ func totals() -> Dictionary[String, int]:
 			sorted[id2] = out[id2]
 	return sorted
 
+## То же, но только СУХОЕ. Нужен HUD'у: «топливо-сухое» — не то же, что
+## «плавник вообще», мокрый в очаг не пойдёт (docs/00 §7).
+func totals_dry() -> Dictionary[String, int]:
+	var out: Dictionary[String, int] = {}
+	var ids: Array[String] = DB.item_ids()
+	for s: Dictionary in storages:
+		for v: Variant in s["stacks"] as Array:
+			var cur: Dictionary = v as Dictionary
+			if bool(cur["wet"]):
+				continue
+			var id: String = str(cur["item_id"])
+			out[id] = int(out.get(id, 0)) + int(cur["count"])
+	var sorted: Dictionary[String, int] = {}
+	for id2: String in ids:
+		if out.has(id2):
+			sorted[id2] = out[id2]
+	return sorted
+
 # --- Предметы на земле ----------------------------------------------------
 
 func drop(cell: Vector2i, stack: Dictionary) -> void:

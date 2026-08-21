@@ -243,8 +243,13 @@ static func buffer_count(b: Dictionary, item_id: String, dry_only: bool) -> int:
 static func buffer_take(b: Dictionary, item_id: String, n: int, dry_only: bool) -> int:
 	var buf: Dictionary = b["buffer"] as Dictionary
 	var left: int = n
-	var order: Array[String] = [item_id] if dry_only \
-		else [StackUtil.buffer_key(item_id, true), item_id]
+	# Тернарник вернул бы нетипизированный Array и уронил присваивание
+	# в Array[String] (SCRIPT ERROR в рантайме). Обычный if типизацию сохраняет.
+	var order: Array[String] = []
+	if dry_only:
+		order = [item_id]
+	else:
+		order = [StackUtil.buffer_key(item_id, true), item_id]
 	for key: String in order:
 		if left <= 0:
 			break

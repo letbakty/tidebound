@@ -7,6 +7,7 @@ extends Control
 const DEV_SEED: int = 20260821
 const WORLD_SCENE: String = "res://game/world.tscn"
 const UI_THEME: String = "res://ui/theme/main_theme.tres"
+const HUD_SCENE: String = "res://ui/hud/hud.tscn"
 
 @onready var input_service: InputService = $InputService
 @onready var world_container: SubViewportContainer = $WorldContainer
@@ -16,20 +17,47 @@ const UI_THEME: String = "res://ui/theme/main_theme.tres"
 @onready var banner_layer: CanvasLayer = $BannerLayer
 @onready var debug_layer: CanvasLayer = $DebugLayer
 
-var world_view: Node2D = null
+var world_view: WorldView = null
+var hud: Hud = null
 
 func _ready() -> void:
 	# TODO(этап 15): забег начинает MainMenu, автостарт убрать.
 	Events.phase_changed.connect(_on_phase_changed)
 	Events.cycle_ended.connect(_on_cycle_ended)
 	Events.draft_ready.connect(_on_draft_ready)
-	# Забег создаётся ДО мира: World в _ready() уже видит рельеф и рисует его
-	# сразу, без пустого кадра.
-	Game.cmd_new_run(DEV_SEED)
-	world_view = (load(WORLD_SCENE) as PackedScene).instantiate() as Node2D
+	# Сначала собирается ВСЯ сцена, и только потом стартует забег: стартовые
+	# события (ресурсы, постройки, агенты) уходят один раз, и подписчик,
+	# созданный позже, их уже не увидит. World рисует рельеф по run_started.
+	world_view = (load(WORLD_SCENE) as PackedScene).instantiate() as WorldView
 	world_viewport.add_child(world_view)
+	_spawn_hud()
+	_wire_gestures()
 	_spawn_debug_panel()
+	Game.cmd_new_run(DEV_SEED)
 	Game.cmd_set_speed(1)
+
+## HUD кладётся на свой слой через attach_ui: каскад темы на CanvasLayer
+## рвётся, и корню слоя тема нужна явно (research/19 §3).
+func _spawn_hud() -> void:
+	hud = (load(HUD_SCENE) as PackedScene).instantiate() as Hud
+	attach_ui(hud_layer, hud)
+	hud.camera_focus_requested.connect(world_view.camera.focus_on.bind(true))
+	hud.overlay_requested.connect(func(mode: String) -> void:
+		world_view.overlay.toggle(mode))
+
+## InputService эмитит свои сигналы и никого не зовёт сам — связывает их Main.
+## Радиал стройки по долгому нажатию подключит этап 14.
+func _wire_gestures() -> void:
+	var camera: CameraRig = world_view.camera
+	input_service.zoom_step.connect(func(delta: int) -> void:
+		if delta > 0:
+			camera.zoom_in()
+		else:
+			camera.zoom_out())
+	input_service.world_dragged.connect(camera.pan_by)
+	# Двойной тап по пустому месту — цикл скоростей (docs/00 §13).
+	input_service.world_double_tapped.connect(func(_pos: Vector2) -> void:
+		Game.cmd_set_speed(1 if Game.speed >= 3 else Game.speed + 1))
 
 ## Дебаг-панель именно СОЗДАЁТСЯ по гейту, а не прячется: скрытая утащила бы
 ## в релиз сцену, скрипт и все подписки на Events.
@@ -75,4 +103,4 @@ func attach_ui(layer: CanvasLayer, node: Control) -> void:
 func set_world_zoom(factor: int) -> void:
 	if world_view == null:
 		return
-	(world_view.get_node("CameraRig") as CameraRig).set_zoom_step(clampi(factor, 2, 4))
+	world_view.camera.set_zoom_step(clampi(factor, 2, 4))

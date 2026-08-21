@@ -16,6 +16,7 @@ const USE_ATLAS: bool = false
 ## Вариации типов из docs/01 §1.2. Ключ — имя вариации, значение — базовый тип.
 const VARIATIONS: Dictionary[String, String] = {
 	"PanelDark": "PanelContainer",
+	"PanelHud": "PanelContainer",
 	"PanelRaised": "PanelContainer",
 	"CardPanel": "PanelContainer",
 	"TooltipPanel": "PanelContainer",
@@ -233,6 +234,9 @@ static func _build_variations(th: Theme) -> void:
 		flat(UITokens.PAPER, UITokens.BORDER, UITokens.BORDER_W, UITokens.SPACE_3))
 	th.set_stylebox("panel", "PanelRaised",
 		flat(UITokens.RAISE, UITokens.BORDER_STRONG, UITokens.BORDER_W, UITokens.SPACE_3))
+	# Полоса HUD: отступы минимальные, иначе строка съедает восьмую часть экрана.
+	th.set_stylebox("panel", "PanelHud",
+		flat(UITokens.panel_color(), UITokens.BORDER, UITokens.BORDER_W, UITokens.SPACE_1))
 	th.set_stylebox("panel", "CardPanel",
 		flat(UITokens.RAISE, UITokens.BORDER, UITokens.BORDER_W, UITokens.SPACE_4))
 

@@ -125,10 +125,25 @@ static func test_salt_chain(t: TestCtx) -> void:
 	w.storage.store(0, StackUtil.make("freshwater", 20, false))
 	w.policies.set_value(SimTypes.Policy.SUPPLY, 3)
 	w.jobs.mark_dirty()
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE * 3)
-	t.check(int(w.storage.totals().get("rations", 0)) >= 8 + 2,
-		"к концу третьего цикла провизии стало больше стартовых восьми (%d)"
-		% int(w.storage.totals().get("rations", 0)))
+	# Считаем ПРОИЗВЕДЁННОЕ по отчётам циклов, а не остаток на складе: остаток
+	# зависит от того, сколько успела съесть колония и что смыло водой, и такой
+	# порог ловил бы что угодно, кроме самой цепочки.
+	var produced: Dictionary[String, int] = {}
+	for i: int in Balance.TICKS_PER_CYCLE * 3:
+		w.tick()
+		for e: SimEvent in w.events_out:
+			if e.type != "cycle_ended":
+				continue
+			var rep: Dictionary = e.data.get("produced", {}) as Dictionary
+			for k: Variant in rep:
+				produced[str(k)] = int(produced.get(str(k), 0)) + int(rep[k])
+		w.events_out.clear()
+	t.check(int(produced.get("salt", 0)) >= 3,
+		"испаритель дал соль в каждом из трёх циклов (%d)"
+		% int(produced.get("salt", 0)))
+	t.check(int(produced.get("rations", 0)) >= 2,
+		"солильня превратила соль в провизию (%d)"
+		% int(produced.get("rations", 0)))
 
 ## Испаритель, накрытый водой в середине отлива, соли в этом цикле не даёт.
 static func test_evaporator_needs_dry_low(t: TestCtx) -> void:

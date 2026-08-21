@@ -17,6 +17,7 @@ extends Camera2D
 ## этапу 18 это стоит проверить глазами на финальном арте.
 const ZOOM_FACTORS: Array[int] = [2, 3, 4]
 const ZOOM_TWEEN_SEC: float = 0.15
+const FOCUS_TWEEN_SEC: float = 0.35
 const PAN_SPEED_PX: float = 220.0
 ## Скорость таскания правой кнопкой: 1.0 = мир едет ровно за курсором.
 const DRAG_GAIN: float = 1.0
@@ -28,6 +29,7 @@ var _limit_max: Vector2 = Vector2.ZERO
 var _map_px: Vector2 = Vector2.ZERO
 var _dragging: bool = false
 var _zoom_tween: Tween = null
+var _focus_tween: Tween = null
 
 func setup(cliff: CliffDef) -> void:
 	_map_px = Vector2(float(cliff.width * WorldGeo.TILE), float(cliff.height * WorldGeo.TILE))
@@ -45,6 +47,7 @@ func _process(delta: float) -> void:
 	var dir: Vector2 = Input.get_vector("pan_left", "pan_right", "pan_up", "pan_down")
 	if dir != Vector2.ZERO:
 		_kill_zoom_tween()
+		_kill_focus_tween()
 		_virtual_pos += dir * PAN_SPEED_PX * delta / zoom.x
 		_commit()
 
@@ -62,8 +65,32 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	var mm: InputEventMouseMotion = event as InputEventMouseMotion
 	if mm != null and _dragging:
+		_kill_focus_tween()
 		_virtual_pos -= mm.relative * DRAG_GAIN / zoom.x
 		_commit()
+
+## Плавный центр камеры на точке мира. Зовёт HUD по тапу на чипе агента или
+## тосте — и только по явному действию игрока: событиями камеру не «похищаем»
+## (docs/01 §5, антипаттерн автозума Fallout Shelter).
+func focus_on(world_pos: Vector2, animated: bool = true) -> void:
+	_kill_focus_tween()
+	var target: Vector2 = world_pos.clamp(_limit_min, _limit_max)
+	if not animated or Game.fast_forwarding:
+		_virtual_pos = target
+		_commit()
+		return
+	_focus_tween = create_tween()
+	_focus_tween.tween_method(func(p: Vector2) -> void:
+		_virtual_pos = p
+		_commit(), _virtual_pos, target, FOCUS_TWEEN_SEC) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+## Любой ввод игрока прерывает наезд: камера не должна «доезжать» поверх
+## того, что игрок уже сам подвинул (research/21 §10).
+func _kill_focus_tween() -> void:
+	if _focus_tween != null and _focus_tween.is_valid():
+		_focus_tween.kill()
+	_focus_tween = null
 
 ## Зум ступенями. factor — из ZOOM_FACTORS; сюда переехал set_world_zoom этапа 00.
 func set_zoom_step(factor: int) -> void:
@@ -79,6 +106,13 @@ func zoom_in() -> void:
 
 func zoom_out() -> void:
 	set_zoom_step(ZOOM_FACTORS[maxi(_zoom_idx - 1, 0)])
+
+## Панорама пальцем: жест приходит из InputService через World (этап 13).
+func pan_by(screen_delta: Vector2) -> void:
+	_kill_focus_tween()
+	_kill_zoom_tween()
+	_virtual_pos -= screen_delta * DRAG_GAIN / zoom.x
+	_commit()
 
 func zoom_factor() -> int:
 	return ZOOM_FACTORS[_zoom_idx]

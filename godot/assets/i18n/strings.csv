@@ -192,3 +192,31 @@ GALLERY_CONFIRM_BODY,Это действие нельзя отменить,This 
 GALLERY_SLOT,Слот,Slot
 GALLERY_TOASTS,Тосты,Toasts
 GALLERY_TOAST,Событие,Event
+HUD_PAUSE,Пауза,Pause
+HUD_SPEED_1,x1,x1
+HUD_SPEED_2,x2,x2
+HUD_SPEED_3,x3,x3
+HUD_SPEED_TIP,"Скорость времени. На паузе доступно всё управление","Time speed. Everything stays usable while paused"
+HUD_CYCLE_OF,Цикл {n}/{total},Cycle {n}/{total}
+HUD_RECALL,Отзыв,Recall
+HUD_RECALL_TIP,"Все возвращаются наверх. Второе нажатие подряд — бросить груз и бежать","Everyone climbs back. Press twice to drop cargo and run"
+HUD_BELOW_LEFT,Внизу осталось: {n},Still below: {n}
+HUD_TIDE_TOOLTIP,"Шкала прилива: отметки ярусов, уровень воды, плато отлива и прогноз на три цикла","Tide gauge: tier marks, water level, ebb plateau and a three-cycle forecast"
+PHASE_EBB,Спад,Ebb
+PHASE_LOW,Низкая вода,Low water
+PHASE_SIGNAL,Сигнал,Signal
+PHASE_HIGH,Высокая вода,High water
+OVERLAY_FLOOD_TO,Затопит до {mark},Flooding up to {mark}
+TOAST_DROWNING,{name} тонет,{name} is drowning
+TOAST_DIED,"{name} погиб: {cause}","{name} died: {cause}"
+TOAST_CREATURE,Существо поднялось со дна,A creature has climbed up
+TOAST_DAMAGED,Повреждено: {name},Damaged: {name}
+TOAST_FLOODED,Затоплено: {name},Flooded: {name}
+TOAST_WASHED,Смыло стаков: {n},Stacks washed away: {n}
+TOAST_SPOILED,Испортилось: {n},Spoiled: {n}
+TOAST_SHIP,Судно у берега,The ship is here
+TOAST_RECALL,Отзыв объявлен,Recall issued
+TOAST_RECALL_HARD,Жёсткий отзыв: груз брошен,Hard recall: cargo dropped
+CAUSE_DROWN,утонул,drowned
+CAUSE_STORM,шторм,storm
+CAUSE_UNKNOWN,неизвестно,unknown

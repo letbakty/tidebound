@@ -1,3 +1,4 @@
+class_name WorldView
 extends Node2D
 ## Корень мира внутри мирового SubViewport: тайлмапы, депозиты, вода, камера.
 ##
@@ -33,6 +34,12 @@ const DEPOSIT_COLORS: Dictionary = {
 @onready var ghost: BuildGhost = $BuildGhost
 @onready var camera: CameraRig = $CameraRig
 
+## Игровые оверлеи (этап 13): отметки ярусов, зона затопления, занятия.
+var overlay: GameOverlay = null
+
+func get_overlay() -> GameOverlay:
+	return overlay
+
 var _deposit_nodes: Dictionary[int, Node2D] = {}
 var _agent_views: Dictionary[int, AgentView] = {}
 var _building_views: Dictionary[int, BuildingView] = {}
@@ -40,6 +47,9 @@ var _creature_views: Dictionary[int, CreatureView] = {}
 var _drawn_graph_version: int = -1
 
 func _ready() -> void:
+	overlay = GameOverlay.new()
+	overlay.name = "GameOverlay"
+	add_child(overlay)
 	Events.run_started.connect(_on_run_started)
 	Events.deposit_changed.connect(_on_deposit_changed)
 	Events.agent_spawned.connect(_on_agent_spawned)

@@ -26,6 +26,9 @@ var _error_count: int = 0
 var fast_forwarding: bool = false
 ## Скорость до автопаузы (драфт, итог цикла) — её возвращает resume_prev_speed.
 var _paused_speed: int = 1
+## Глубина автопаузы. СЧЁТЧИК, а не флаг: драфт может лечь поверх итога цикла,
+## и закрытие верхнего окна не должно снимать паузу нижнего (research/21 §5).
+var _pause_depth: int = 0
 ## Секция интерфейса в сейве: показанные банеры и подсказки. Наполняют
 ## этапы 13 и 15; sim о ней не знает.
 var ui_state: Dictionary = {}
@@ -63,6 +66,8 @@ func cmd_new_run(seed_value: int = 0) -> void:
 	SaveService.delete_run()
 	_accum = 0.0
 	_error_count = 0
+	_pause_depth = 0
+	ui_state = {"banners": [], "hints": []}
 	_flush_events()
 	cmd_set_speed(1)
 
@@ -91,6 +96,7 @@ func restore_world(data: Dictionary) -> void:
 	world.from_dict(data, cliff_def())
 	_accum = 0.0
 	_error_count = 0
+	_pause_depth = 0
 	world.events_out.clear()
 	rebroadcast_state()
 	cmd_set_speed(0)
@@ -134,6 +140,22 @@ func resume_prev_speed() -> void:
 	if speed == 0:
 		cmd_set_speed(maxi(1, _paused_speed))
 
+## Автопауза с глубиной: сколько сущностей просят паузу, столько раз надо её
+## снять. Все окна (драфт, итог цикла, банер, пауза) ходят через эту пару.
+func push_pause() -> void:
+	if _pause_depth == 0:
+		_paused_speed = maxi(1, speed)
+	_pause_depth += 1
+	cmd_set_speed(0)
+
+func pop_pause() -> void:
+	_pause_depth = maxi(_pause_depth - 1, 0)
+	if _pause_depth == 0:
+		cmd_set_speed(_paused_speed)
+
+func pause_depth() -> int:
+	return _pause_depth
+
 func cmd_set_policy(policy: int, value: int) -> void:
 	if world == null:
 		return
@@ -150,7 +172,7 @@ func cmd_pick_card(card_id: String) -> void:
 	if world == null:
 		return
 	world.apply_command({"kind": "pick_card", "card": card_id})
-	resume_prev_speed()
+	pop_pause()
 
 func cmd_set_speed(mult: int) -> void:
 	var m: int = clampi(mult, 0, 3)
@@ -212,6 +234,36 @@ func query_agent(id: int) -> Dictionary:
 		"mark": world.agents.agent_mark_f(a, world),
 		"bag": a.bag.duplicate(true),
 	}
+
+## Срез часов для шкалы прилива: таймер фазы и плато текущего цикла.
+## Зовётся раз в секунду, а не каждый кадр (research/21 §2).
+func query_clock() -> Dictionary:
+	if world == null:
+		return {}
+	return {
+		"phase": int(world.clock.phase), "cycle": world.clock.cycle,
+		"tick_in_phase": world.clock.tick_in_phase,
+		"phase_len": world.clock.phase_len(world.clock.phase),
+		"ticks_left": world.clock.ticks_left_in_phase(),
+		"level": world.tide.level,
+		"low_plateau": world.tide.low_plateau,
+		"high_plateau": world.tide.high_plateau,
+		"announced": world.crisis.announced.duplicate(),
+	}
+
+## Остатки на складах. Нужны на СТАРТЕ забега: стартовый запас кладётся без
+## события (storage.stock_start чистит pending — «старт не изменение»),
+## и без этого запроса чипы показывали бы нули до первой добычи.
+func query_totals() -> Dictionary:
+	if world == null:
+		return {}
+	return world.storage.totals()
+
+## Сухие остатки: «топливо-сухое» в HUD — не то же, что предмет вообще.
+func query_dry_totals() -> Dictionary:
+	if world == null:
+		return {}
+	return world.storage.totals_dry()
 
 ## Мировая позиция агента в пикселях — для AgentView каждый кадр.
 func query_agent_pos(id: int) -> Vector2:
@@ -298,6 +350,32 @@ func _on_run_ended(report: Dictionary) -> void:
 	cmd_set_speed(0)
 	Events.run_ended.emit(report)
 
+# --- Секция интерфейса в сейве --------------------------------------------
+
+## Банер первого появления кризиса за забег. Возвращает true, если тип этого
+## кризиса ещё не показывали — тогда HUD ставит автопаузу.
+##
+## Список, а не словарь: ключи Dictionary[int, bool] после JSON round-trip
+## станут строками (research/21 §5).
+func note_banner(type: int) -> bool:
+	var shown: Array = ui_state.get("banners", []) as Array
+	if shown.has(type):
+		return false
+	shown.append(type)
+	shown.sort()
+	ui_state["banners"] = shown
+	return true
+
+## То же для карточек-уроков (этап 15): показанные не повторяются.
+func note_hint(id: String) -> bool:
+	var shown: Array = ui_state.get("hints", []) as Array
+	if shown.has(id):
+		return false
+	shown.append(id)
+	shown.sort()
+	ui_state["hints"] = shown
+	return true
+
 # --- Трансляция событий ---------------------------------------------------
 
 ## events_out → сигналы Events. Ветка _: обязательна: без неё неизвестный тип
@@ -317,8 +395,7 @@ func _flush_events() -> void:
 				Events.cycle_started.emit(int(e.data["cycle"]))
 			"cycle_ended":
 				# Автопауза Итога цикла и автосейв на границе (docs/00 §4, §14).
-				_paused_speed = speed
-				cmd_set_speed(0)
+				push_pause()
 				SaveService.save_run(ui_state)
 				Events.cycle_ended.emit(e.data as Dictionary)
 			"run_started":
@@ -365,8 +442,7 @@ func _flush_events() -> void:
 					ids.append(str(v))
 				# Автопауза драфта: скорость запоминаем, чтобы вернуть её
 				# после выбора (docs/00 §4).
-				_paused_speed = speed
-				cmd_set_speed(0)
+				push_pause()
 				Events.draft_ready.emit(ids)
 			"card_picked":
 				Events.card_picked.emit(str(e.data["card"]))
