@@ -5,8 +5,16 @@ extends RefCounted
 
 const SEED: int = 4242
 
+## Новый забег с уже разобранным стартовым драфтом. Без этого первый же тик
+## отдаёт draft_ready и ставит автопаузу — любой тест «до границы цикла»
+## останавливался бы на первом тике, ничего не проверив.
 static func _fresh_run() -> void:
 	Game.cmd_new_run(SEED)
+	Game.cmd_set_speed(1)
+	Game._physics_process(0.2)
+	while Game.pause_depth() > 0:
+		Game.pop_pause()
+	Game._accum = 0.0
 
 static func _cleanup() -> void:
 	Game.cmd_set_speed(0)
@@ -43,6 +51,29 @@ static func test_cycle_boundary_keeps_speed(t: TestCtx) -> void:
 	while Game.pause_depth() > 0:
 		Game.pop_pause()
 	t.check_eq(Game.speed, 3, "после закрытия всех окон снова ×3")
+	_cleanup()
+
+## SIM-10 · автопауза останавливает время немедленно, а не через 11 тиков.
+##
+## speed проверялся один раз на входе в _physics_process; cmd_set_speed(0)
+## из _flush_events цикл не прерывал, и при ×3 после конца цикла мир убегал
+## вперёд — отчёт показывал одно, картинка другое.
+static func test_autopause_stops_tick_immediately(t: TestCtx) -> void:
+	_fresh_run()
+	Game.cmd_set_speed(3)
+	var c: SimClock = Game.world.clock
+	# Два тика до конца Высокой воды, то есть до конца цикла.
+	c.phase = SimTypes.Phase.HIGH
+	c.tick_in_phase = c.phase_len(SimTypes.Phase.HIGH) - 2
+	Game._accum = 0.0
+	var before: int = c.total_ticks()
+	# Кадра с запасом хватило бы на 12 тиков (MAX_TICKS_PER_FRAME).
+	Game._physics_process(1.0)
+	t.check_eq(Game.speed, 0, "граница цикла поставила автопаузу")
+	t.check_eq(Game.world.clock.total_ticks() - before, 2,
+		"мир встал ровно на границе, а не убежал вперёд")
+	while Game.pause_depth() > 0:
+		Game.pop_pause()
 	_cleanup()
 
 ## Прогоняет мир до ближайшей границы цикла через сам Game.
