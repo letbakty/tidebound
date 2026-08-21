@@ -26,6 +26,18 @@ var _graph: Control = null
 var _water_slider: HSlider = null
 var _water_on: CheckBox = null
 var _seed_edit: LineEdit = null
+var _beacon_label: Label = null
+var _policy_sliders: Dictionary[int, HSlider] = {}
+var _policy_labels: Dictionary[int, Label] = {}
+
+const POLICY_NAMES: Dictionary = {
+	SimTypes.Policy.GREED: "Жадность",
+	SimTypes.Policy.CAUTION: "Осторожность",
+	SimTypes.Policy.REPAIR: "Ремонт",
+	SimTypes.Policy.BUILD: "Стройка",
+	SimTypes.Policy.SUPPLY: "Заготовка",
+	SimTypes.Policy.REST: "Отдых",
+}
 
 ## world — корень мира: в него кладётся оверлей, потому что он рисует
 ## мировые координаты.
@@ -95,6 +107,33 @@ func _build_ui() -> void:
 			if _overlay != null:
 				_overlay.set_flag(key, on))
 		_box.add_child(cb)
+
+	# --- Политики (панель игрока — этап 14; здесь дебажный дублёр) ---
+	_head("ПОЛИТИКИ")
+	_policy_labels.clear()
+	for pol: int in SimTypes.POLICY_ORDER:
+		var row: HBoxContainer = _row()
+		var lbl: Label = Label.new()
+		lbl.custom_minimum_size = Vector2(150.0, 0.0)
+		row.add_child(lbl)
+		_policy_labels[pol] = lbl
+		var sl: HSlider = HSlider.new()
+		sl.min_value = 0.0
+		sl.max_value = 3.0
+		sl.step = 1.0
+		sl.custom_minimum_size = Vector2(140.0, 0.0)
+		sl.value_changed.connect(func(v: float) -> void:
+			Game.cmd_set_policy(pol, int(v)))
+		row.add_child(sl)
+		_policy_sliders[pol] = sl
+
+	# --- Маяк ---
+	_head("МАЯК")
+	var beacon_row: HBoxContainer = _row()
+	_beacon_label = Label.new()
+	beacon_row.add_child(_beacon_label)
+	_button(beacon_row, "поставить по курсору", _on_place_beacon)
+	_button(beacon_row, "отзыв", func() -> void: Game.cmd_recall(false))
 
 	# --- Забег ---
 	_head("ЗАБЕГ")
@@ -204,6 +243,7 @@ func _process(_delta: float) -> void:
 	if not visible:
 		return
 	_refresh_time()
+	_refresh_policies()
 	if _log_dirty:
 		_log_dirty = false
 		_log_label.text = "\n".join(_log)
@@ -257,6 +297,28 @@ func _push_water() -> void:
 	if not is_nan(tide.level_override):
 		tide.level = tide.level_override
 	Events.water_level_changed.emit(tide.level)
+
+func _refresh_policies() -> void:
+	if Game.world == null:
+		return
+	for pol: int in SimTypes.POLICY_ORDER:
+		var v: int = Game.world.policies.get_value(pol)
+		(_policy_labels[pol] as Label).text = "%s %d" % [str(POLICY_NAMES[pol]), v]
+		var sl: HSlider = _policy_sliders[pol]
+		if int(sl.value) != v:
+			sl.set_value_no_signal(float(v))
+	var b: Vector2i = Game.world.beacon_cell()
+	_beacon_label.text = "нет" if b == Balance.NO_BEACON else "%d,%d" % [b.x, b.y]
+
+## Ставит маяк в клетку под курсором мыши. Полноценный режим установки —
+## этап 14; здесь достаточно кнопки для проверки скоринга.
+func _on_place_beacon() -> void:
+	var world_view: Node = get_tree().root.find_child("World", true, false)
+	if world_view == null:
+		return
+	var vp: Viewport = world_view.get_viewport()
+	var world_pos: Vector2 = world_view.call("screen_to_world", vp.get_mouse_position())
+	Game.cmd_set_beacon(WorldGeo.world_to_cell(world_pos))
 
 func _on_new_run() -> void:
 	Game.cmd_new_run(_seed_edit.text.to_int())

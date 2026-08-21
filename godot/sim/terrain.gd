@@ -15,7 +15,7 @@ var graph_version: int = 0
 var platforms: Array[Dictionary] = []
 ## {"id": int, "x": int, "mark_top": int} — связывает mark_top и mark_top−1.
 var ladders: Array[Dictionary] = []
-## {"id": int, "kind": String, "cell": Vector2i, "amount": int, "has_relic": bool}
+## {"id": int, "kind": String, "cell": Vector2i, "amount": int, "relic_taken": bool}
 var deposits: Array[Dictionary] = []
 
 var _cliff: CliffDef = null
@@ -66,17 +66,17 @@ func build(cliff: CliffDef, rng: SimRNG) -> void:
 
 ## Депозиты по слотам карты. Порядок обхода слотов = порядок обращений к rng,
 ## поэтому он обязан быть тем же, что в дефе.
-func _spawn_slot_deposits(cliff: CliffDef, rng: SimRNG) -> void:
+## rng не используется: реликвия разыгрывается в момент ДОБЫЧИ (этап 06,
+## docs/00 §3.2), а не при расстановке слотов. Аргумент оставлен, чтобы
+## сигнатура build() осталась прежней.
+func _spawn_slot_deposits(cliff: CliffDef, _rng: SimRNG) -> void:
 	for slot: Dictionary in cliff.deposit_slots:
 		var kind: String = str(slot["kind"])
 		var mark: int = int(slot["mark"])
 		var cell: Vector2i = Vector2i(int(slot["x"]), Balance.mark_to_floor_cell_y(mark))
-		var relic: bool = false
-		if kind == "ruins_deep" and mark <= Balance.RELIC_MARK_MAX:
-			relic = rng.chance(Balance.RELIC_CHANCE)
-		_add_deposit(kind, cell, relic)
+		_add_deposit(kind, cell, false)
 
-func _add_deposit(kind: String, cell: Vector2i, has_relic: bool) -> int:
+func _add_deposit(kind: String, cell: Vector2i, relic_taken: bool) -> int:
 	var def: Dictionary = Balance.DEPOSIT_KINDS.get(kind, {}) as Dictionary
 	if def.is_empty():
 		push_error("Terrain: неизвестный вид депозита '%s'" % kind)
@@ -85,7 +85,8 @@ func _add_deposit(kind: String, cell: Vector2i, has_relic: bool) -> int:
 	_next_deposit_id += 1
 	deposits.append({
 		"id": id, "kind": kind, "cell": cell,
-		"amount": int(def["capacity"]), "has_relic": has_relic,
+		# relic_taken: реликвию с депозита можно взять только один раз.
+		"amount": int(def["capacity"]), "relic_taken": relic_taken,
 	})
 	return id
 
@@ -118,6 +119,19 @@ func find_path(from_platform: int, to_platform: int) -> Array[int]:
 	for v: int in _astar.get_id_path(from_platform, to_platform):
 		out.append(int(v))
 	return out
+
+## Длина пути в тайлах. Считается по позициям узлов AStar (они уже в тайлах),
+## а не пересчётом по клеткам заново.
+func path_length_tiles(path: Array[int]) -> float:
+	if path.size() < 2:
+		return 0.0
+	var total: float = 0.0
+	for i: int in path.size() - 1:
+		var a: Vector2 = _astar.get_point_position(path[i])
+		var b: Vector2 = _astar.get_point_position(path[i + 1])
+		# Манхэттен, а не Евклид: агент идёт по горизонтали, потом лезет.
+		total += absf(a.x - b.x) + absf(a.y - b.y)
+	return total
 
 # --- Запросы по клеткам ---------------------------------------------------
 
@@ -272,7 +286,7 @@ func to_dict() -> Dictionary:
 		dep.append({
 			"id": int(d["id"]), "kind": str(d["kind"]),
 			"cell": SimTypes.v2i_to_arr(d["cell"] as Vector2i),
-			"amount": int(d["amount"]), "has_relic": bool(d["has_relic"]),
+			"amount": int(d["amount"]), "relic_taken": bool(d["relic_taken"]),
 		})
 	return {
 		"graph_version": graph_version,
@@ -296,7 +310,7 @@ func from_dict(d: Dictionary) -> void:
 		deposits.append({
 			"id": int(dd["id"]), "kind": str(dd["kind"]),
 			"cell": SimTypes.arr_to_v2i(dd["cell"] as Array),
-			"amount": int(dd["amount"]), "has_relic": bool(dd["has_relic"]),
+			"amount": int(dd["amount"]), "relic_taken": bool(dd["relic_taken"]),
 		})
 	_next_ladder_id = int(d.get("next_ladder_id", ladders.size()))
 	_next_deposit_id = int(d.get("next_deposit_id", deposits.size()))

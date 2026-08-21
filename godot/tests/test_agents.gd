@@ -13,6 +13,13 @@ static func _world(seed_value: int) -> SimWorld:
 	w.events_out.clear()
 	return w
 
+## Все политики в ноль: класс работы с весом 0 запрещён, и агенты остаются
+## на месте. Нужно тестам, которые меряют не поведение, а цифры.
+static func _no_jobs(w: SimWorld) -> void:
+	for p: int in SimTypes.POLICY_ORDER:
+		w.policies.set_value(p, 0)
+	w.jobs.mark_dirty()
+
 ## Ставит агента в конкретную клетку — тестам нужна воспроизводимая мизансцена.
 static func _place(w: SimWorld, a: SimAgent, cell: Vector2i) -> void:
 	a.platform_id = w.terrain.platform_at(cell)
@@ -178,6 +185,7 @@ static func test_hunger_drains_per_cycle(t: TestCtx) -> void:
 	var a: SimAgent = w.agents.agents[0]
 	a.trait_ids = []
 	a.recompute_from_traits()
+	_no_jobs(w)
 	# Убираем еду, иначе агент уйдёт есть и sat подскочит.
 	w.storage.storages.clear()
 	var before: float = a.satiety()
@@ -196,25 +204,28 @@ static func test_hungry_agent_eats(t: TestCtx) -> void:
 	t.check(a.satiety() >= 60.0, "голодный дошёл до склада и поел (%d тиков)" % ticks)
 	t.check(w.storage.count_in(0, "rations") < before_rations, "провизия израсходована")
 
-## Без гистерезиса агент вибрировал бы у порога каждый тик.
+## Без гистерезиса агент у порога голода уходил бы есть и возвращался каждый
+## тик. Считаем именно ВХОДЫ в еду: смены состояний по работе — это норма.
 static func test_needs_do_not_flicker(t: TestCtx) -> void:
 	var w: SimWorld = _world(1)
 	var a: SimAgent = w.agents.agents[0]
 	a.needs["satiety"] = Balance.NEED_LOW_ENTER_MILLI + 200
-	var switches: int = 0
-	var prev: SimTypes.AgentState = a.state
+	var meals: int = 0
+	var was_eating: bool = false
 	for i: int in 3000:
 		t.run_ticks(w, 1)
-		if a.state != prev:
-			switches += 1
-			prev = a.state
-	t.check(switches < 30, "смен состояния единицы, а не сотни (было %d)" % switches)
+		var eating: bool = a.state == SimTypes.AgentState.EAT
+		if eating and not was_eating:
+			meals += 1
+		was_eating = eating
+	t.check(meals <= 3, "походов за едой единицы, а не сотни (было %d)" % meals)
 
 static func test_warmth_at_heat_source(t: TestCtx) -> void:
 	var w: SimWorld = _world(1)
 	var a: SimAgent = w.agents.agents[0]
 	a.trait_ids = []
 	a.recompute_from_traits()
+	_no_jobs(w)                      # иначе агент уйдёт работать от очага
 	a.wet = true
 	a.needs["warmth"] = 40_000
 	# Заглушка источника тепла ровно там, где стоит агент (TODO этапа 07).
@@ -234,6 +245,7 @@ static func test_warmth_drains_without_heat(t: TestCtx) -> void:
 	# Вода убрана: тест про тепло, а не про утопление. Площадка −1 целиком
 	# дальше радиуса тепла от «костра лагеря» на клетке спавна.
 	w.tide.level_override = -12.0
+	_no_jobs(w)
 	_place(w, a, Vector2i(20, Balance.mark_to_floor_cell_y(-1)))
 	a.goto_platform = a.platform_id
 	a.goto_x = a.x

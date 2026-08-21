@@ -49,6 +49,13 @@ var heat_ticks: int = 0
 var drowning_warned: bool = false
 var recalled: bool = false
 var recall_hard: bool = false
+## Двусторонняя связь с резервированием: job.taken_by == id ⟺ agent.job_id == job.id.
+var job_id: int = -1
+## Тики, накопленные на текущем действии (добыча идёт 2 с на единицу).
+var work_ticks: int = 0
+## Сколько единиц агент добыл на глубине за цикл — по этому числу колония
+## решает, кому отдать Снаряжение (docs/00 §7).
+var deep_gathered: int = 0
 
 ## Троттлинг agent_updated: не чаще раза в секунду на агента.
 var last_update_tick: int = -1000
@@ -66,6 +73,8 @@ var fatigue_rate_milli: int = Balance.FATIGUE_PER_CYCLE_MILLI
 var fatigue_rest_milli: int = Balance.FATIGUE_REST_PER_CYCLE_MILLI
 var bag_slots: int = Balance.BAG_SLOTS
 var drown_limit_ticks: int = int(Balance.DROWN_SEC * Balance.TICKS_PER_SEC)
+## Тиков на единицу добычи: базовые 2 с, делённые на работоспособность черт.
+var gather_ticks_per_unit: int = int(Balance.GATHER_SEC_PER_UNIT * Balance.TICKS_PER_SEC)
 
 func init_needs() -> void:
 	for k: String in NEED_KEYS:
@@ -89,6 +98,8 @@ func recompute_from_traits() -> void:
 	var base_drown: float = Balance.DROWN_GEAR_SEC if has_gear else Balance.DROWN_SEC
 	drown_limit_ticks = int(modifier("drown_seconds", base_drown)
 		* float(Balance.TICKS_PER_SEC))
+	gather_ticks_per_unit = maxi(1, int(round(
+		Balance.GATHER_SEC_PER_UNIT * float(Balance.TICKS_PER_SEC) / modifier("work_mult"))))
 
 ## Свёртка модификаторов по чертам. Правило свёртки задаётся ключом
 ## (TraitKeys): множители перемножаются, прибавки суммируются, а
@@ -200,6 +211,7 @@ func to_dict() -> Dictionary:
 		"recalled": recalled, "recall_hard": recall_hard,
 		"last_update": last_update_tick, "update_pending": update_pending,
 		"idle_ticks": idle_ticks_cycle,
+		"job_id": job_id, "work_ticks": work_ticks, "deep_gathered": deep_gathered,
 	}
 
 func from_dict(d: Dictionary) -> void:
@@ -243,4 +255,7 @@ func from_dict(d: Dictionary) -> void:
 	last_update_tick = int(d["last_update"])
 	update_pending = bool(d["update_pending"])
 	idle_ticks_cycle = int(d["idle_ticks"])
+	job_id = int(d.get("job_id", -1))
+	work_ticks = int(d.get("work_ticks", 0))
+	deep_gathered = int(d.get("deep_gathered", 0))
 	recompute_from_traits()

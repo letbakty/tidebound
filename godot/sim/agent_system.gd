@@ -85,8 +85,6 @@ func _tick_agent(a: SimAgent, w: SimWorld) -> void:
 		return
 	if _check_panic(a, w):
 		return
-	if _check_needs(a, w):
-		return
 	match a.state:
 		SimTypes.AgentState.IDLE:
 			_do_idle(a, w)
@@ -100,9 +98,13 @@ func _tick_agent(a: SimAgent, w: SimWorld) -> void:
 			_do_eat(a, w)
 		SimTypes.AgentState.PANIC:
 			_do_return(a, w)
-		SimTypes.AgentState.GATHER, SimTypes.AgentState.HAUL, SimTypes.AgentState.WORK:
-			# Этап 06 наполнит эти состояния; пока агент просто освобождается.
-			_set_state(a, SimTypes.AgentState.IDLE, w)
+		SimTypes.AgentState.GATHER:
+			_do_gather(a, w)
+		SimTypes.AgentState.HAUL:
+			_do_haul(a, w)
+		SimTypes.AgentState.WORK:
+			# Станции — этап 08; до тех пор состояние просто отпускает агента.
+			_finish_job(a, w)
 		_:
 			pass
 
@@ -134,35 +136,6 @@ func _near_heat(a: SimAgent, w: SimWorld) -> bool:
 		if absi(h.x - cell.x) + absi(h.y - cell.y) <= Balance.HEAT_RADIUS:
 			return true
 	return false
-
-## Голод перебивает обычную работу, но не отзыв и не воду.
-## Гистерезис: входим при <30, выходим только выше 55 — иначе агент дребезжит
-## у порога каждый тик (research/15 §4).
-func _check_needs(a: SimAgent, w: SimWorld) -> bool:
-	# Уже идёт есть или ест — не перезапускать намерение каждый тик: иначе
-	# прерывание съедало бы тик, движение не выполнялось, и агент стоял бы
-	# голодным в двух шагах от склада.
-	if a.state == SimTypes.AgentState.EAT:
-		return false
-	if a.state == SimTypes.AgentState.GOTO and a.intent == SimTypes.AgentState.EAT:
-		return false
-	if int(a.needs["satiety"]) >= Balance.NEED_LOW_ENTER_MILLI:
-		return false
-	var st: int = _find_food_storage(w)
-	if st < 0:
-		return false
-	var cell: Vector2i = w.storage.storages[w.storage.storage_index(st)]["cell"] as Vector2i
-	_go_to_cell(a, w, cell, SimTypes.AgentState.EAT)
-	return true
-
-func _find_food_storage(w: SimWorld) -> int:
-	# Обход по порядку складов: он детерминирован, и «ближайший» без агентского
-	# скоринга (этап 06) считать нечем.
-	for s: Dictionary in w.storage.storages:
-		var id: int = int(s["id"])
-		if w.storage.count_in(id, "rations") > 0 or w.storage.count_in(id, "catch") > 0:
-			return id
-	return -1
 
 # --- Прерывания -----------------------------------------------------------
 
@@ -248,18 +221,20 @@ func _do_return(a: SimAgent, w: SimWorld) -> void:
 			_set_state(a, SimTypes.AgentState.IDLE, w)
 
 func _do_rest(a: SimAgent, w: SimWorld) -> void:
+	if not _at_goal(a):
+		_advance_path(a, w)
+		return
 	a.apply_rate("fatigue", a.fatigue_rest_milli)
 	if int(a.needs["fatigue"]) >= Balance.NEED_MAX_MILLI:
-		_set_state(a, SimTypes.AgentState.IDLE, w)
+		_finish_job(a, w)
 
 func _do_eat(a: SimAgent, w: SimWorld) -> void:
 	if not _at_goal(a):
-		if _advance_path(a, w):
-			pass
+		_advance_path(a, w)
 		return
 	var st: int = w.storage.storage_at(agent_cell(a, w))
 	if st < 0:
-		_set_state(a, SimTypes.AgentState.IDLE, w)
+		_finish_job(a, w)
 		return
 	# Провизия сытнее и не портит настроение — берём её первой.
 	var got: Array[Dictionary] = w.storage.take(st, "rations", 1)
@@ -270,14 +245,207 @@ func _do_eat(a: SimAgent, w: SimWorld) -> void:
 		gain = Balance.EAT_CATCH_MILLI
 		raw = true
 	if got.is_empty():
-		_set_state(a, SimTypes.AgentState.IDLE, w)
+		_finish_job(a, w)
 		return
 	a.change_need("satiety", gain)
 	if raw:
 		a.change_need("mood", -Balance.MOOD_RAW_FOOD_MILLI)
 	elif _near_heat(a, w):
 		a.change_need("mood", Balance.MOOD_WARM_MEAL_MILLI)   # тёплый ужин
+	_finish_job(a, w)
+
+# --- Работы ---------------------------------------------------------------
+# Задачу выдаёт JobSystem; здесь только исполнение. Резервирование —
+# двусторонняя связь job.taken_by ⟺ agent.job_id, и рвать её можно только
+# через JobSystem.release.
+
+## Свободен ли агент для новой задачи. Тонущий, паникующий и отозванный —
+## не свободны: их поведение приоритетнее любой работы.
+func can_take_job(a: SimAgent) -> bool:
+	return a.is_alive() and a.job_id == -1 and not a.recalled \
+		and a.state == SimTypes.AgentState.IDLE
+
+func start_job(a: SimAgent, j: Dictionary, w: SimWorld) -> void:
+	a.work_ticks = 0
+	var cell: Vector2i = j["cell"] as Vector2i
+	var then: SimTypes.AgentState = _state_for_class(int(j["class"]))
+	# Носильщик с полными руками идёт сразу к месту разгрузки.
+	if then == SimTypes.AgentState.HAUL and not a.bag.is_empty():
+		cell = j["to_cell"] as Vector2i
+	_go_to_cell(a, w, cell, then)
+
+func abandon_job(a: SimAgent, w: SimWorld) -> void:
+	a.work_ticks = 0
+	if not a.bag.is_empty():
+		_start_self_haul(a, w)          # с грузом в руках — сначала донести
+		return
 	_set_state(a, SimTypes.AgentState.IDLE, w)
+
+func _finish_job(a: SimAgent, w: SimWorld) -> void:
+	w.jobs.release(a)
+	a.work_ticks = 0
+	_set_state(a, SimTypes.AgentState.IDLE, w)
+
+static func _state_for_class(job_class: int) -> SimTypes.AgentState:
+	match job_class:
+		SimTypes.JobClass.GATHER:
+			return SimTypes.AgentState.GATHER
+		SimTypes.JobClass.HAUL:
+			return SimTypes.AgentState.HAUL
+		SimTypes.JobClass.EAT:
+			return SimTypes.AgentState.EAT
+		SimTypes.JobClass.REST:
+			return SimTypes.AgentState.REST
+	return SimTypes.AgentState.WORK
+
+## Добыча: 1 единица за GATHER_SEC_PER_UNIT секунд (быстрее у Трудяги).
+func _do_gather(a: SimAgent, w: SimWorld) -> void:
+	if not _at_goal(a):
+		_advance_path(a, w)
+		return
+	var j: Dictionary = w.jobs.jobs.get(a.job_id, {})
+	if j.is_empty():
+		_finish_job(a, w)
+		return
+	var di: int = w.terrain.deposit_index(int(j["target_id"]))
+	if di < 0 or a.bag_free_slots() <= 0:
+		_gather_done(a, w)
+		return
+	a.work_ticks += 1
+	if a.work_ticks < a.gather_ticks_per_unit:
+		return
+	a.work_ticks = 0
+	var dep: Dictionary = w.terrain.deposits[di]
+	var item_id: String = str(j["item_id"])
+	var got: int = w.terrain.take(int(j["target_id"]), 1)
+	if got <= 0:
+		_gather_done(a, w)
+		return
+	_put_in_bag(a, item_id, got)
+	var mark: int = Balance.cell_to_mark(dep["cell"] as Vector2i)
+	w.jobs.note_gathered(a, item_id, got, mark)
+	w.jobs.queue_event(SimEvent.make("deposit_changed", {"id": int(dep["id"])}))
+	_roll_relic(a, dep, mark, w)
+	if int(w.terrain.deposits[di]["amount"]) <= 0 or a.bag_free_slots() <= 0:
+		_gather_done(a, w)
+
+## Реликвия выпадает только в глубоких руинах и только раз с депозита
+## (docs/00 §3.2). Зоркий повышает шанс.
+func _roll_relic(a: SimAgent, dep: Dictionary, mark: int, w: SimWorld) -> void:
+	if str(dep["kind"]) != "ruins_deep" or mark > Balance.RELIC_MARK_MAX:
+		return
+	if bool(dep["relic_taken"]) or a.bag_free_slots() <= 0:
+		return
+	if not w.rng.chance(Balance.RELIC_CHANCE * a.modifier("relic_chance_mult")):
+		return
+	dep["relic_taken"] = true
+	_put_in_bag(a, "relic", 1)
+	for other: SimAgent in agents:
+		if other.is_alive():
+			other.change_need("mood", Balance.MOOD_RELIC_MILLI)
+	w.jobs.queue_event(SimEvent.make("relic_found", {"agent": a.id}))
+
+func _put_in_bag(a: SimAgent, item_id: String, n: int) -> void:
+	var fresh: Dictionary = StackUtil.make(item_id, n, false)
+	var def: ItemDef = DB.item(item_id)
+	for s: Dictionary in a.bag:
+		if StackUtil.can_merge(s, fresh) and int(s["count"]) < def.stack_size:
+			s["count"] = int(s["count"]) + n
+			return
+	a.bag.append(fresh)
+
+## Добыл сколько мог — теперь донести. Задача отпускается: пока агент идёт
+## со своим грузом, депозит должен быть доступен другим.
+func _gather_done(a: SimAgent, w: SimWorld) -> void:
+	w.jobs.release(a)
+	a.work_ticks = 0
+	if a.bag.is_empty():
+		_set_state(a, SimTypes.AgentState.IDLE, w)
+		return
+	_start_self_haul(a, w)
+
+func _start_self_haul(a: SimAgent, w: SimWorld) -> void:
+	var sid: int = _nearest_storage(a, w)
+	if sid < 0:
+		_set_state(a, SimTypes.AgentState.IDLE, w)
+		return
+	var cell: Vector2i = w.storage.storages[w.storage.storage_index(sid)]["cell"] as Vector2i
+	_go_to_cell(a, w, cell, SimTypes.AgentState.HAUL)
+
+func _nearest_storage(a: SimAgent, w: SimWorld) -> int:
+	var best: int = -1
+	var best_d: float = INF
+	for s: Dictionary in w.storage.storages:
+		if (s["stacks"] as Array).size() >= int(s["capacity"]):
+			continue
+		var pid: int = w.terrain.platform_at(s["cell"] as Vector2i)
+		if pid < 0:
+			continue
+		var d: float = w.terrain.path_length_tiles(
+			w.terrain.find_path(a.platform_id, pid))
+		if pid != a.platform_id and is_equal_approx(d, 0.0):
+			continue                                  # пути нет
+		d += absf(a.x - float((s["cell"] as Vector2i).x))
+		if d < best_d or (is_equal_approx(d, best_d) and int(s["id"]) < best):
+			best_d = d
+			best = int(s["id"])
+	return best
+
+## Переноска в две ноги: пустые руки — идём к грузу, полные — к складу.
+func _do_haul(a: SimAgent, w: SimWorld) -> void:
+	var j: Dictionary = w.jobs.jobs.get(a.job_id, {})
+	if not j.is_empty():
+		# Пустые руки — идём к грузу, полные — к складу.
+		var dest: Vector2i = (j["cell"] as Vector2i) if a.bag.is_empty() \
+			else (j["to_cell"] as Vector2i)
+		_retarget(a, w, dest)
+	if not _at_goal(a):
+		_advance_path(a, w)
+		return
+	if a.bag.is_empty():
+		if j.is_empty():
+			_finish_job(a, w)
+			return
+		# Первая нога: подобрать груз с земли.
+		var picked: Array[Dictionary] = w.storage.pickup_at(j["cell"] as Vector2i)
+		if picked.is_empty():
+			_finish_job(a, w)
+			return
+		for st: Dictionary in picked:
+			a.bag.append(st)
+		w.jobs.mark_dirty()
+		_retarget(a, w, j["to_cell"] as Vector2i)
+		return
+	# Вторая нога: разгрузиться.
+	var sid: int = w.storage.storage_at(agent_cell(a, w))
+	if sid < 0:
+		_finish_job(a, w)
+		return
+	var left: Array[Dictionary] = []
+	for st2: Dictionary in a.bag:
+		var rest: int = w.storage.store(sid, st2)
+		if rest > 0:
+			var keep: Dictionary = st2.duplicate()
+			keep["count"] = rest
+			left.append(keep)
+	a.bag = left
+	w.jobs.mark_dirty()
+	_finish_job(a, w)
+
+func _retarget(a: SimAgent, w: SimWorld, cell: Vector2i) -> void:
+	var pid: int = w.terrain.platform_at(cell)
+	if pid < 0 or (pid == a.goto_platform and is_equal_approx(a.goto_x, float(cell.x))):
+		return
+	a.goto_platform = pid
+	a.goto_x = float(cell.x)
+	_repath(a, w)
+
+## Авто-возврат по Осторожности. Флаг тот же, что у ручного Отзыва: снимается
+## на границе цикла.
+func force_return(a: SimAgent, w: SimWorld) -> void:
+	a.recalled = true
+	_set_state(a, SimTypes.AgentState.RETURN, w)
+	_set_return_target(a, w)
 
 # --- Движение -------------------------------------------------------------
 
@@ -463,6 +631,8 @@ func _kill(a: SimAgent, cause: String, w: SimWorld) -> void:
 		return
 	a.state = SimTypes.AgentState.DEAD
 	a.bag.clear()
+	a.has_gear = false                 # снаряжение теряется вместе с агентом
+	w.jobs.on_agent_died(a)
 	_pending.append(SimEvent.make("agent_died", {"id": a.id, "cause": cause}))
 	# Смерть бьёт по всем живым сразу, без проверки дистанции (docs/00 §6.3).
 	for other: SimAgent in agents:
@@ -481,6 +651,7 @@ func on_cycle_started(w: SimWorld) -> void:
 	clear_recall()
 	for a: SimAgent in agents:
 		a.idle_ticks_cycle = 0
+		a.deep_gathered = 0
 		a.wet = false                    # к началу нового цикла успел обсохнуть
 		if a.state == SimTypes.AgentState.RETURN:
 			_set_state(a, SimTypes.AgentState.IDLE, w)

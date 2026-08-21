@@ -9,6 +9,9 @@ static func _cliff() -> CliffDef:
 static func _world(seed_value: int) -> SimWorld:
 	var w: SimWorld = SimWorld.new()
 	w.new_run(seed_value, _cliff())
+	# Агентов убираем: сьют про рельеф и депозиты. Живые агенты с этапа 06
+	# сами ходят добывать, и тест восполнения мерил бы их аппетит.
+	w.agents.agents.clear()
 	w.events_out.clear()
 	return w
 

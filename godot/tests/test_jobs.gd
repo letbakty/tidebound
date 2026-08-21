@@ -1,0 +1,379 @@
+extends RefCounted
+## Приёмка этапа 06: скоринг, резервирование, политики, маяк, добыча,
+## авто-возврат Осторожности, автовыдача Снаряжения.
+
+const CLIFF: String = "res://data/cliffs/cliff_01.tres"
+
+static func _cliff() -> CliffDef:
+	return load(CLIFF) as CliffDef
+
+## Мир с достроенным спуском до −8: без лестниц дно недостижимо и добывать
+## нечего (стартовая лестница кончается на −2).
+static func _world(seed_value: int) -> SimWorld:
+	var w: SimWorld = SimWorld.new()
+	w.new_run(seed_value, _cliff())
+	for mark: int in range(-2, -9, -1):
+		var span: Array[int] = w.terrain.platform_x_range(mark)
+		var below: Array[int] = w.terrain.platform_x_range(mark - 1)
+		if span.is_empty() or below.is_empty():
+			continue
+		w.terrain.add_ladder(Vector2i(maxi(span[0], below[0]),
+			Balance.mark_to_floor_cell_y(mark)))
+	w.events_out.clear()
+	return w
+
+static func _totals(w: SimWorld) -> Dictionary:
+	return w.storage.totals()
+
+# --- Основной сценарий ----------------------------------------------------
+
+## Главная приёмка этапа: колония сама себя кормит и снабжает.
+static func test_colony_gathers_over_a_cycle(t: TestCtx) -> void:
+	var w: SimWorld = _world(4242)
+	t.run_ticks(w, Balance.TICKS_PER_CYCLE * 2)
+	var tot: Dictionary = _totals(w)
+	t.check(int(tot.get("scrap", 0)) >= 8 + 4,
+		"за два цикла принесли ≥8 утиля сверх стартовых 4 (стало %d)"
+		% int(tot.get("scrap", 0)))
+	t.check(int(tot.get("catch", 0)) >= 4,
+		"и ≥4 сырой добычи (стало %d)" % int(tot.get("catch", 0)))
+
+## Заготовка = 0 — класс запрещён целиком, а не «低ий приоритет».
+static func test_supply_zero_stops_gathering(t: TestCtx) -> void:
+	var w: SimWorld = _world(7)
+	w.policies.set_value(SimTypes.Policy.SUPPLY, 0)
+	w.jobs.mark_dirty()
+	var before: int = int(_totals(w).get("scrap", 0))
+	t.run_ticks(w, Balance.TICKS_PER_CYCLE)
+	t.check_eq(int(_totals(w).get("scrap", 0)), before, "при Заготовке 0 добычи нет")
+	for a: SimAgent in w.agents.agents:
+		t.check(a.state != SimTypes.AgentState.GATHER, "никто не добывает")
+
+# --- Жадность -------------------------------------------------------------
+
+## Жадность — фильтр по расстоянию цели от ближайшей лестницы.
+static func test_greed_limits_distance(t: TestCtx) -> void:
+	var w: SimWorld = _world(11)
+	w.policies.set_value(SimTypes.Policy.GREED, 0)
+	w.jobs.mark_dirty()
+	var limit: float = float(Balance.GREED_LADDER_LIMIT[0])
+	var violations: int = 0
+	for i: int in Balance.TICKS_PER_CYCLE:
+		t.run_ticks(w, 1)
+		for a: SimAgent in w.agents.agents:
+			if a.job_id == -1:
+				continue
+			var j: Dictionary = w.jobs.jobs.get(a.job_id, {})
+			if j.is_empty():
+				continue
+			var cell: Vector2i = j["cell"] as Vector2i
+			if Balance.cell_to_mark(cell) >= 0:
+				continue
+			if w.terrain.nearest_ladder_dist(cell) > limit:
+				violations += 1
+	t.check_eq(violations, 0, "при Жадности 0 никто не берёт цели дальше 4 тайлов")
+
+static func test_greed_three_allows_far_targets(t: TestCtx) -> void:
+	var far: Vector2i = Vector2i(46, Balance.mark_to_floor_cell_y(-8))
+	t.check(_far_job_taken(t, 3, far), "при Жадности 3 дальние цели берут")
+	t.check(not _far_job_taken(t, 0, far), "при Жадности 0 — нет")
+
+## Берёт ли кто-нибудь задачу дальше лимита Жадности 0 за цикл.
+static func _far_job_taken(t: TestCtx, greed: int, far_cell: Vector2i) -> bool:
+	var w: SimWorld = _world(11)
+	w.policies.set_value(SimTypes.Policy.GREED, greed)
+	w.policies.set_value(SimTypes.Policy.CAUTION, 0)    # чтобы не отзывали
+	w.jobs.mark_dirty()
+	var limit: float = float(Balance.GREED_LADDER_LIMIT[0])
+	for i: int in Balance.TICKS_PER_CYCLE:
+		t.run_ticks(w, 1)
+		for a: SimAgent in w.agents.agents:
+			if a.job_id == -1:
+				continue
+			var j: Dictionary = w.jobs.jobs.get(a.job_id, {})
+			if j.is_empty():
+				continue
+			var cell: Vector2i = j["cell"] as Vector2i
+			if Balance.cell_to_mark(cell) < 0 \
+					and w.terrain.nearest_ladder_dist(cell) > limit:
+				return true
+	return false
+
+# --- Осторожность ---------------------------------------------------------
+
+static func test_caution_three_brings_everyone_up(t: TestCtx) -> void:
+	var w: SimWorld = _world(21)
+	w.policies.set_value(SimTypes.Policy.CAUTION, 3)
+	w.policies.set_value(SimTypes.Policy.GREED, 3)
+	w.jobs.mark_dirty()
+	t.run_ticks(w, Balance.TICKS_PER_CYCLE)           # ровно до начала HIGH цикла 2
+	t.run_ticks(w, 450 + 1500 + 300)
+	for a: SimAgent in w.agents.agents:
+		if not a.is_alive():
+			continue
+		t.check(w.agents.agent_mark_f(a, w) >= -1.0,
+			"при Осторожности 3 к началу HIGH никто не ниже −1 (%s на %.1f)"
+			% [a.agent_name, w.agents.agent_mark_f(a, w)])
+
+## Обратная сторона: Осторожность 0 + Жадность 3 = кто-то реально мокнет.
+static func test_reckless_policies_get_agents_wet(t: TestCtx) -> void:
+	var w: SimWorld = _world(21)
+	w.policies.set_value(SimTypes.Policy.CAUTION, 0)
+	w.policies.set_value(SimTypes.Policy.GREED, 3)
+	w.jobs.mark_dirty()
+	var risked: bool = false
+	for i: int in Balance.TICKS_PER_CYCLE * 2:
+		t.run_ticks(w, 1)
+		for a: SimAgent in w.agents.agents:
+			if a.submerged_ticks > 0:
+				risked = true
+		if risked:
+			break
+	t.check(risked, "без Осторожности кто-то оказывается в воде")
+
+# --- Отдых ----------------------------------------------------------------
+
+static func test_rest_policy_on_high(t: TestCtx) -> void:
+	var w: SimWorld = _world(31)
+	w.policies.set_value(SimTypes.Policy.REST, 3)
+	w.policies.set_value(SimTypes.Policy.SUPPLY, 0)
+	w.jobs.mark_dirty()
+	for a: SimAgent in w.agents.agents:
+		a.needs["fatigue"] = 20_000
+		a.needs["satiety"] = 20_000
+	t.run_ticks(w, 450 + 1500 + 300 + 400)            # середина Высокой воды
+	t.check_eq(int(w.clock.phase), int(SimTypes.Phase.HIGH), "мы на Высокой воде")
+	var busy: int = 0
+	for a2: SimAgent in w.agents.agents:
+		if a2.state == SimTypes.AgentState.REST or a2.state == SimTypes.AgentState.EAT \
+				or a2.state == SimTypes.AgentState.GOTO:
+			busy += 1
+	t.check(busy >= 4, "при Отдыхе 3 на HIGH колония ест и отдыхает (%d из 6)" % busy)
+
+# --- Маяк -----------------------------------------------------------------
+
+## Маяк смещает выбор между равноценными целями. Радиус евклидов — игрок
+## видит круг и ждёт, что бонус внутри круга.
+static func test_beacon_shifts_choice(t: TestCtx) -> void:
+	var w: SimWorld = _world(41)
+	var a: SimAgent = w.agents.agents[0]
+	# Цели заведомо дальше радиуса маяка друг от друга (12 тайлов по прямой),
+	# иначе обе окажутся в круге и тест ничего не проверит.
+	var near_cell: Vector2i = Vector2i(24, Balance.mark_to_floor_cell_y(-3))
+	var far_cell: Vector2i = Vector2i(46, Balance.mark_to_floor_cell_y(-8))
+	var j_near: Dictionary = _fake_job(w, near_cell)
+	var j_far: Dictionary = _fake_job(w, far_cell)
+	var base_near: int = w.jobs.score(a, j_near, w)
+	var base_far: int = w.jobs.score(a, j_far, w)
+
+	w.jobs.beacon_cell = far_cell
+	t.check_eq(w.jobs.score(a, j_near, w), base_near, "цель вне круга бонуса не получила")
+	t.check(w.jobs.score(a, j_far, w) > base_far, "цель у маяка получила бонус")
+	t.check_approx(float(w.jobs.score(a, j_far, w)) / float(base_far),
+		Balance.BEACON_BONUS, 0.02, "бонус ровно ×1.3")
+
+static func _fake_job(w: SimWorld, cell: Vector2i) -> Dictionary:
+	return {
+		"id": 0, "class": SimTypes.JobClass.GATHER, "kind": "gather",
+		"cell": cell, "platform": w.terrain.platform_at(cell),
+		"base": float(Balance.JOB_BASE[SimTypes.JobClass.GATHER]),
+		"taken_by": -1, "item_id": "scrap", "n": 0, "target_id": -1,
+		"to_cell": cell, "to_id": -1,
+	}
+
+# --- Резервирование -------------------------------------------------------
+
+## Двусторонняя связь job.taken_by ⟺ agent.job_id обязана держаться всегда:
+## её разрыв — это либо шесть агентов на одной куче, либо зависший агент.
+static func test_reservation_invariant_holds(t: TestCtx) -> void:
+	var w: SimWorld = _world(51)
+	var bad: int = 0
+	for i: int in 6000:
+		t.run_ticks(w, 1)
+		if i % 100 != 0:
+			continue
+		for id: int in w.jobs.order:
+			var owner: int = int(w.jobs.jobs[id]["taken_by"])
+			if owner == -1:
+				continue
+			var a: SimAgent = w.agents.agent(owner)
+			if a == null or a.job_id != id:
+				bad += 1
+		for a2: SimAgent in w.agents.agents:
+			if a2.job_id == -1:
+				continue
+			var j: Dictionary = w.jobs.jobs.get(a2.job_id, {})
+			if j.is_empty() or int(j["taken_by"]) != a2.id:
+				bad += 1
+	t.check_eq(bad, 0, "резервация не рассинхронизировалась ни разу за 6000 тиков")
+
+static func test_dead_agent_frees_its_job(t: TestCtx) -> void:
+	var w: SimWorld = _world(61)
+	t.run_ticks(w, 600)
+	var victim: SimAgent = null
+	for a: SimAgent in w.agents.agents:
+		if a.job_id != -1:
+			victim = a
+			break
+	t.check(victim != null, "кто-то взял задачу")
+	if victim == null:
+		return
+	var job_id: int = victim.job_id
+	w.agents._kill(victim, "test", w)
+	t.check_eq(victim.job_id, -1, "у погибшего задачи нет")
+	var j: Dictionary = w.jobs.jobs.get(job_id, {})
+	t.check(j.is_empty() or int(j["taken_by"]) == -1, "задача освободилась")
+
+## Один агент — максимум одна задача.
+static func test_one_job_per_agent(t: TestCtx) -> void:
+	var w: SimWorld = _world(71)
+	for i: int in 2000:
+		t.run_ticks(w, 1)
+		var owners: Dictionary[int, int] = {}
+		for id: int in w.jobs.order:
+			var owner: int = int(w.jobs.jobs[id]["taken_by"])
+			if owner == -1:
+				continue
+			t.check(not owners.has(owner), "агент %d держит две задачи" % owner)
+			owners[owner] = id
+			if owners.size() > 20:
+				return
+	t.check(true, "двойных назначений нет")
+
+# --- Реликвия и снаряжение ------------------------------------------------
+
+## Реликвия выпадает только в глубоких руинах и только один раз с депозита.
+static func test_relic_only_once_per_deposit(t: TestCtx) -> void:
+	var w: SimWorld = _world(81)
+	var a: SimAgent = w.agents.agents[0]
+	var di: int = -1
+	for i: int in w.terrain.deposits.size():
+		var d: Dictionary = w.terrain.deposits[i]
+		if str(d["kind"]) == "ruins_deep" \
+				and Balance.cell_to_mark(d["cell"] as Vector2i) <= Balance.RELIC_MARK_MAX:
+			di = i
+			break
+	t.check(di >= 0, "глубокие руины на −7/−8 есть")
+	if di < 0:
+		return
+	var dep: Dictionary = w.terrain.deposits[di]
+	var mark: int = Balance.cell_to_mark(dep["cell"] as Vector2i)
+	var relics: int = 0
+	for i2: int in 200:
+		a.bag.clear()
+		w.agents._roll_relic(a, dep, mark, w)
+		relics += a.bag_count("relic")
+	t.check_eq(relics, 1, "с депозита сходит ровно одна реликвия за забег")
+	t.check(bool(dep["relic_taken"]), "флаг «реликвия взята» выставлен")
+
+static func test_relic_not_in_shallow_ruins(t: TestCtx) -> void:
+	var w: SimWorld = _world(82)
+	var a: SimAgent = w.agents.agents[0]
+	var dep: Dictionary = {"kind": "ruins_near", "relic_taken": false,
+		"cell": Vector2i(26, Balance.mark_to_floor_cell_y(-2)), "id": 0, "amount": 5}
+	for i: int in 200:
+		w.agents._roll_relic(a, dep, -2, w)
+	t.check_eq(a.bag_count("relic"), 0, "в ближних руинах реликвий не бывает")
+
+## Снаряжение выдаётся тому, кто больше всех работал на глубине.
+static func test_gear_goes_to_deepest_worker(t: TestCtx) -> void:
+	var w: SimWorld = _world(91)
+	w.storage.store(0, StackUtil.make("gear", 1, false))
+	w.agents.agents[0].deep_gathered = 2
+	w.agents.agents[3].deep_gathered = 9
+	w.agents.agents[4].deep_gathered = 9        # ничья → больший id
+	w.jobs.mark_dirty()
+	t.run_ticks(w, 2)
+	t.check(w.agents.agents[4].has_gear, "снаряжение у самого «глубокого» (при ничьей — старший id)")
+	t.check(not w.agents.agents[3].has_gear, "второму не досталось")
+	t.check_eq(w.storage.count_in(0, "gear"), 0, "со склада снаряжение забрали")
+
+## Приёмка промпта: агент со снаряжением переживает 10 секунд под водой.
+static func test_gear_survives_ten_seconds(t: TestCtx) -> void:
+	var w: SimWorld = _world(92)
+	var a: SimAgent = w.agents.agents[0]
+	a.trait_ids = []
+	a.has_gear = true
+	a.recompute_from_traits()
+	a.platform_id = w.terrain.platform_at(Vector2i(40, Balance.mark_to_floor_cell_y(-8)))
+	a.x = 40.0
+	a.target_x = 40.0
+	w.tide.level_override = 0.0
+	t.run_ticks(w, 100)
+	t.check(a.is_alive(), "со снаряжением 10 секунд под водой не смертельны")
+
+# --- Отчёт цикла ----------------------------------------------------------
+
+static func test_cycle_report_has_gathered(t: TestCtx) -> void:
+	var w: SimWorld = _world(101)
+	t.run_ticks(w, Balance.TICKS_PER_CYCLE - 1)
+	w.tick()
+	var report: Dictionary = {}
+	for e: SimEvent in w.events_out:
+		if e.type == "cycle_ended":
+			report = e.data
+	t.check(report.has("gathered"), "в итоге цикла есть колонка «добыто»")
+	var g: Dictionary = report["gathered"] as Dictionary
+	var total: int = 0
+	for k: Variant in g:
+		total += int(g[k])
+	t.check(total > 0, "и она не пустая (добыто %d единиц)" % total)
+
+# --- Политики -------------------------------------------------------------
+
+static func test_policy_defaults_and_command(t: TestCtx) -> void:
+	var w: SimWorld = _world(111)
+	t.check_eq(w.policies.get_value(SimTypes.Policy.GREED), 1, "Жадность 1 по умолчанию")
+	t.check_eq(w.policies.get_value(SimTypes.Policy.CAUTION), 2, "Осторожность 2")
+	t.check_eq(w.policies.get_value(SimTypes.Policy.SUPPLY), 2, "Заготовка 2")
+	w.apply_command({"kind": "set_policy", "policy": SimTypes.Policy.GREED, "value": 3})
+	w.tick()
+	t.check_eq(w.policies.get_value(SimTypes.Policy.GREED), 3, "команда меняет политику")
+	var found: bool = false
+	for e: SimEvent in w.events_out:
+		if e.type == "policy_changed":
+			found = true
+	t.check(found, "и эмитит policy_changed")
+	w.apply_command({"kind": "set_policy", "policy": SimTypes.Policy.GREED, "value": 99})
+	w.tick()
+	t.check_eq(w.policies.get_value(SimTypes.Policy.GREED), 3, "значение зажато в 0..3")
+
+static func test_beacon_command(t: TestCtx) -> void:
+	var w: SimWorld = _world(112)
+	var cell: Vector2i = Vector2i(30, Balance.mark_to_floor_cell_y(-4))
+	w.apply_command({"kind": "set_beacon", "cell": SimTypes.v2i_to_arr(cell)})
+	w.tick()
+	t.check_eq(w.jobs.beacon_cell, cell, "маяк переставлен")
+	var found: bool = false
+	for e: SimEvent in w.events_out:
+		if e.type == "beacon_moved":
+			found = true
+	t.check(found, "и эмитит beacon_moved")
+
+# --- Детерминизм ----------------------------------------------------------
+
+static func test_determinism_with_jobs(t: TestCtx) -> void:
+	var a: SimWorld = _world(31337)
+	var b: SimWorld = _world(31337)
+	for i: int in 20000:
+		t.run_ticks(a, 1)
+		t.run_ticks(b, 1)
+		if i % 2000 == 0 and TestCtx.state_hash(a) != TestCtx.state_hash(b):
+			t.check(false, "миры с работами разошлись на тике %d" % i)
+			return
+	t.check_eq(TestCtx.state_hash(a), TestCtx.state_hash(b),
+		"20 000 тиков с работами: состояния совпадают")
+
+static func test_jobs_survive_save(t: TestCtx) -> void:
+	var w: SimWorld = _world(2024)
+	t.run_ticks(w, 4000)
+	var text: String = JSON.stringify(w.to_dict(), "", true, true)
+	var restored: SimWorld = SimWorld.new()
+	restored.from_dict(JSON.parse_string(text) as Dictionary, _cliff())
+	t.check_eq(JSON.stringify(restored.to_dict(), "", true, true), text,
+		"пул задач и политики переживают JSON")
+	for i: int in 2000:
+		t.run_ticks(w, 1)
+		t.run_ticks(restored, 1)
+	t.check_eq(TestCtx.state_hash(w), TestCtx.state_hash(restored),
+		"после загрузки мир с работами продолжается идентично")

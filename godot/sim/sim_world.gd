@@ -15,6 +15,8 @@ var rng: SimRNG = SimRNG.new()
 var terrain: Terrain = Terrain.new()
 var storage: StorageSystem = StorageSystem.new()
 var agents: AgentSystem = AgentSystem.new()
+var jobs: JobSystem = JobSystem.new()
+var policies: PolicySet = PolicySet.new()
 
 ## Разбирается Game после tick(); Game обязан очистить массив.
 var events_out: Array[SimEvent] = []
@@ -57,6 +59,8 @@ func new_run(seed_value: int, cliff: CliffDef) -> void:
 	terrain = Terrain.new()
 	storage = StorageSystem.new()
 	agents = AgentSystem.new()
+	jobs = JobSystem.new()
+	policies = PolicySet.new()
 	_cliff = cliff
 	events_out.clear()
 	_commands.clear()
@@ -69,6 +73,7 @@ func new_run(seed_value: int, cliff: CliffDef) -> void:
 		terrain.build(cliff, rng)
 		storage.new_run(cliff)
 		agents.new_run(self)
+		jobs.new_run()
 	events_out.append(SimEvent.make("run_started", {"seed": seed_value}))
 	events_out.append(SimEvent.make("cycle_started", {"cycle": clock.cycle}))
 
@@ -89,8 +94,20 @@ func _consume_commands() -> void:
 				var hard: bool = bool(cmd.get("hard", false))
 				agents.recall(hard, self)
 				events_out.append(SimEvent.make("recall_issued", {"hard": hard}))
-			# Остальные команды появятся на этапах 06 (политики), 07 (стройка),
-			# 10 (карты). Ветка _: намеренно шумит.
+			"set_policy":
+				var pol: int = int(cmd.get("policy", -1))
+				var val: int = int(cmd.get("value", 0))
+				if policies.set_value(pol, val):
+					jobs.mark_dirty()
+					events_out.append(SimEvent.make("policy_changed",
+						{"policy": pol, "value": policies.get_value(pol)}))
+			"set_beacon":
+				var cell: Vector2i = SimTypes.arr_to_v2i(cmd.get("cell", [0, 0]) as Array)
+				jobs.beacon_cell = cell
+				jobs.mark_dirty()
+				events_out.append(SimEvent.make("beacon_moved", {"cell": cell}))
+			# Остальные команды появятся на этапах 07 (стройка) и 10 (карты).
+			# Ветка _: намеренно шумит.
 			_:
 				push_warning("SimWorld: неизвестная команда '%s'" % kind)
 	_commands.clear()
@@ -111,10 +128,12 @@ func tick() -> void:
 			# иначе итог цикла показал бы вчерашние числа.
 			e.data.merge(storage.on_cycle_ended(), true)
 			e.data.merge(agents.on_cycle_ended(self), true)
+			e.data.merge(jobs.on_cycle_ended(), true)
 		elif e.type == "cycle_started":
 			events_out.append_array(terrain.on_cycle_started(rng))
 			storage.spawn_driftwood(terrain, rng)
 			agents.on_cycle_started(self)
+			jobs.on_cycle_started()
 	events_out.append_array(tide.update(clock))
 	# Заглушки будущих систем — порядок задан здесь, чтобы этапы 05–11
 	# вставляли вызовы на готовые места, а не спорили об очерёдности.
@@ -125,6 +144,7 @@ func tick() -> void:
 	_tick_agents()
 	_tick_storage()
 	_tick_run_state()
+	events_out.append_array(jobs.drain_events())
 	events_out.append_array(agents.drain_events())
 	events_out.append_array(storage.drain_events())
 	events_out.append(SimEvent.make("sim_ticked", {"tick": clock.total_ticks()}))
@@ -139,7 +159,7 @@ func _tick_production() -> void:
 	pass    # этап 08
 
 func _tick_jobs() -> void:
-	pass    # этап 06
+	jobs.tick(self)
 
 func _tick_agents() -> void:
 	agents.tick(self)
@@ -158,6 +178,9 @@ func cliff_spawn_cell() -> Vector2i:
 ## TODO(этап 07): заменить на клетки построенных очагов. Пока это «костёр
 ## лагеря» на клетке спавна плюс список, который наполняет тест.
 var debug_heat_sources: Array[Vector2i] = []
+
+func beacon_cell() -> Vector2i:
+	return jobs.beacon_cell
 
 func heat_sources() -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
@@ -196,6 +219,8 @@ func to_dict() -> Dictionary:
 		"terrain": terrain.to_dict(),
 		"storage": storage.to_dict(),
 		"agents": agents.to_dict(),
+		"jobs": jobs.to_dict(),
+		"policies": policies.to_dict(),
 	}
 
 ## Требует, чтобы деф карты был известен: либо мир уже прошёл new_run,
@@ -217,5 +242,7 @@ func from_dict(d: Dictionary, cliff: CliffDef = null) -> void:
 	terrain.from_dict(d.get("terrain", {}) as Dictionary)
 	storage.from_dict(d.get("storage", {}) as Dictionary)
 	agents.from_dict(d.get("agents", {}) as Dictionary)
+	jobs.from_dict(d.get("jobs", {}) as Dictionary)
+	policies.from_dict(d.get("policies", {}) as Dictionary)
 	events_out.clear()
 	_commands.clear()

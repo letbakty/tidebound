@@ -16,6 +16,10 @@ enum RunEnd { SHIP, WIPE, EARLY }
 ## переходов не полагался на арифметику по значениям.
 const PHASE_ORDER: Array[int] = [Phase.EBB, Phase.LOW, Phase.SIGNAL, Phase.HIGH]
 
+## Порядок обхода политик — он же порядок в сейве и в панели.
+const POLICY_ORDER: Array[int] = [Policy.GREED, Policy.CAUTION, Policy.REPAIR,
+	Policy.BUILD, Policy.SUPPLY, Policy.REST]
+
 # --- Хелперы сериализации (research/11 §8) --------------------------------
 # JSON не знает Vector2i и не умеет NAN/INF: конвертируем руками, а не надеемся.
 

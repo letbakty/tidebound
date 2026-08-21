@@ -33,6 +33,11 @@ func phase_len(p: SimTypes.Phase) -> int:
 	var scale: float = float(phase_scale.get(int(p), 1.0))
 	return maxi(1, int(round(float(base) * scale)))
 
+## Сколько тиков осталось до конца фазы. Учитывает phase_scale, поэтому
+## шторм этапа 09 не потребует править авто-возврат Осторожности.
+func ticks_left_in_phase() -> int:
+	return maxi(0, phase_len(phase) - tick_in_phase)
+
 func phase_progress() -> float:
 	return float(tick_in_phase) / float(phase_len(phase))
 

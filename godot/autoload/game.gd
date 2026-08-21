@@ -64,6 +64,18 @@ func cmd_recall(hard: bool = false) -> void:
 		return
 	world.apply_command({"kind": "recall", "hard": hard})
 
+## Политики — единственный постоянный рычаг игрока (docs/00 §6.6).
+func cmd_set_policy(policy: int, value: int) -> void:
+	if world == null:
+		return
+	world.apply_command({"kind": "set_policy", "policy": policy, "value": value})
+
+## Маяк: центр притяжения работ на дне (docs/00 §6.7).
+func cmd_set_beacon(cell: Vector2i) -> void:
+	if world == null:
+		return
+	world.apply_command({"kind": "set_beacon", "cell": SimTypes.v2i_to_arr(cell)})
+
 func cmd_set_speed(mult: int) -> void:
 	var m: int = clampi(mult, 0, 3)
 	if m == speed:
@@ -180,6 +192,14 @@ func _flush_events() -> void:
 				Events.agent_drowning.emit(int(e.data["id"]))
 			"recall_issued":
 				Events.recall_issued.emit(bool(e.data["hard"]))
+			"policy_changed":
+				Events.policy_changed.emit(int(e.data["policy"]), int(e.data["value"]))
+			"beacon_moved":
+				Events.beacon_moved.emit(e.data["cell"] as Vector2i)
+			"relic_found":
+				# Отдельного сигнала под реликвию в контракте нет: она видна
+				# через agent_updated и отчёт цикла (docs/02 §3.2).
+				Events.agent_updated.emit(int(e.data["agent"]))
 			_:
 				_error_count += 1
 				push_error("SimEvent без маппинга: %s" % e.type)

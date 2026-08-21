@@ -119,6 +119,7 @@ const MOOD_RAW_FOOD_MILLI: int = 5_000
 const MOOD_STORAGE_FLOODED_MILLI: int = 10_000
 const MOOD_WARM_MEAL_MILLI: int = 5_000
 const MOOD_NEW_AGENT_MILLI: int = 5_000
+const MOOD_RELIC_MILLI: int = 10_000       # +10 всем за найденную реликвию
 const MOOD_COLD_PER_CYCLE_MILLI: int = 5_000   # −5 за цикл при тепле <30
 
 ## Утопление (docs/00 §6.3). Снаряжение даёт +15 с к базовым 5.
@@ -133,6 +134,57 @@ const HEAT_RADIUS: int = 4
 const NEWCOMER_CHANCE: float = 0.25
 const NEWCOMER_MOOD_MIN: float = 60.0
 const NEWCOMER_COOLDOWN_CYCLES: int = 2
+
+# --- Работы и политики (docs/00 §6.5, §6.6) -------------------------------
+## Дефолты политик старта: Жадность 1, Осторожность 2, Ремонт 1, Стройка 2,
+## Заготовка 2, Отдых 1.
+const POLICY_DEFAULTS: Dictionary = {
+	SimTypes.Policy.GREED: 1,
+	SimTypes.Policy.CAUTION: 2,
+	SimTypes.Policy.REPAIR: 1,
+	SimTypes.Policy.BUILD: 2,
+	SimTypes.Policy.SUPPLY: 2,
+	SimTypes.Policy.REST: 1,
+}
+## РЕШЕНИЕ: вес класса = само значение политики (0..3), как написано в
+## docs/00 §6.5. research/16 §4 предлагал шкалу [0, 0.5, 1, 2] — это его
+## оценка, а не спека; при расхождении приоритет у docs (CONVENTIONS).
+const POLICY_WEIGHT: Array[float] = [0.0, 1.0, 2.0, 3.0]
+
+## Жадность: предел расстояния цели от ближайшей лестницы, в тайлах.
+## −1 = без лимита (docs/00 §6.6).
+const GREED_LADDER_LIMIT: Array[int] = [4, 8, 16, -1]
+## Осторожность: за сколько секунд до конца Сигнала объявляется авто-возврат.
+const CAUTION_LEAD_SEC: Array[int] = [0, 20, 40, 60]
+## Паника (Дух<30) сдвигает личный авто-возврат ещё на 20 с раньше.
+const PANIC_RECALL_BONUS_SEC: int = 20
+
+## База «рекламы» задачи (docs/00 §6.5).
+const JOB_BASE: Dictionary = {
+	SimTypes.JobClass.GATHER: 10.0,
+	SimTypes.JobClass.HAUL: 10.0,
+	SimTypes.JobClass.BUILD: 12.0,
+	SimTypes.JobClass.REPAIR: 12.0,
+	SimTypes.JobClass.STATION: 10.0,
+	SimTypes.JobClass.REST: 6.0,
+	SimTypes.JobClass.EAT: 20.0,
+}
+const JOB_BASE_EAT_STARVING: float = 100.0     # при Сытости <30
+const URGENCY_PERISHABLE: float = 1.5          # переноска портящегося
+const URGENCY_CRITICAL_REPAIR: float = 2.0
+const URGENCY_BELOW_WATER_IN_SIGNAL: float = 3.0
+
+## Маяк: бонус скоринга и радиус в тайлах (docs/00 §6.7).
+const BEACON_BONUS: float = 1.3
+const BEACON_RADIUS: float = 12.0
+const NO_BEACON: Vector2i = Vector2i(-9999, -9999)
+
+## Добыча: 2 секунды на единицу (docs/00 §6.5 — темп работы).
+const GATHER_SEC_PER_UNIT: float = 2.0
+## Агент идёт есть, пока сытость ниже этого порога: тот же гистерезис, что
+## и у прерываний, иначе сытый агент будет доедать провизию «на всякий случай».
+const EAT_WANT_MILLI: int = 55_000
+const REST_WANT_MILLI: int = 55_000
 
 ## Затопление: клетка мокрая, если её отметка НИЖЕ уровня воды.
 ## Эпсилон обязателен — уровень считается по smoothstep и на плато даёт
