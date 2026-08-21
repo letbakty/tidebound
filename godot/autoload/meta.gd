@@ -158,12 +158,33 @@ func load_profile() -> bool:
 	var d: Dictionary = SaveIO.read_json(PROFILE_PATH)
 	if d.is_empty():
 		return false
-	if int(d.get("version", 0)) != PROFILE_VERSION:
-		push_warning("профиль версии %d, ожидалась %d — начинаем заново"
-			% [int(d.get("version", 0)), PROFILE_VERSION])
+	var v: int = int(d.get("version", 0))
+	if v != PROFILE_VERSION:
+		# ⚠️ Файл на диске обязан пережить отказ загрузки. Профиль остаётся
+		# дефолтным, а первый же mark_dirty (конец забега, покупка) перезапишет
+		# profile.json нулями — игрок теряет весь Журнал без предупреждения
+		# и без копии (REL-02). Для сейва забега это уже решено карантином
+		# в SaveIO.read_json; профиль должен вести себя так же.
+		push_warning("профиль версии %d, ожидалась %d — файл отложен в копию"
+			% [v, PROFILE_VERSION])
+		backup_profile(v)
 		return false
 	from_dict(d)
 	return true
+
+## Уводит несовместимый профиль в копию рядом. Не удаляет: он нужен и для
+## будущей миграции, и для баг-репорта.
+func backup_profile(version: int) -> String:
+	if not FileAccess.file_exists(PROFILE_PATH):
+		return ""
+	var dst: String = "%s.v%d.bak" % [PROFILE_PATH.get_basename(), version]
+	var err: Error = DirAccess.rename_absolute(
+		ProjectSettings.globalize_path(PROFILE_PATH),
+		ProjectSettings.globalize_path(dst))
+	if err != OK:
+		push_error("профиль: копия %s не создана (%d)" % [dst, err])
+		return ""
+	return dst
 
 ## Полный сброс профиля — только для дебага.
 func wipe() -> void:

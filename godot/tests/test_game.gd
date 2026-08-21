@@ -111,6 +111,61 @@ static func test_draft_survives_save_load(t: TestCtx) -> void:
 		Game.pop_pause()
 	_cleanup()
 
+# --- Профиль --------------------------------------------------------------
+
+## Профиль игрока — общий файл, а не тестовый. Снимаем и возвращаем как было.
+static func _profile_text() -> String:
+	if not FileAccess.file_exists(Meta.PROFILE_PATH):
+		return ""
+	return FileAccess.get_file_as_string(Meta.PROFILE_PATH)
+
+static func _write_profile(text: String) -> void:
+	if text.is_empty():
+		if FileAccess.file_exists(Meta.PROFILE_PATH):
+			DirAccess.remove_absolute(
+				ProjectSettings.globalize_path(Meta.PROFILE_PATH))
+		return
+	var f := FileAccess.open(Meta.PROFILE_PATH, FileAccess.WRITE)
+	f.store_string(text)
+	f.close()
+
+## REL-02 · профиль чужой версии не обнуляется молча.
+##
+## load_profile возвращал false, оставляя поля дефолтными, но файл на диске
+## не трогал — и первый же mark_dirty (конец забега, покупка) перезаписывал
+## его нулями. Игрок терял весь Журнал без предупреждения и без копии.
+static func test_incompatible_profile_is_backed_up(t: TestCtx) -> void:
+	var saved: String = _profile_text()
+	var bak: String = "%s.v999.bak" % Meta.PROFILE_PATH.get_basename()
+	_write_profile('{"version": 999, "points_total": 777}')
+
+	t.check(not Meta.load_profile(), "профиль чужой версии не загружается")
+	t.check(not FileAccess.file_exists(Meta.PROFILE_PATH),
+		"файл убран с дороги: следующий save_profile его уже не затрёт")
+	t.check(FileAccess.file_exists(bak), "и лежит копией рядом")
+	var kept: Dictionary = JSON.parse_string(
+		FileAccess.get_file_as_string(bak)) as Dictionary
+	t.check_eq(int(kept.get("points_total", 0)), 777,
+		"копия — тот самый файл, а не пустышка")
+
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(bak))
+	_write_profile(saved)
+	Meta.load_profile()
+
+## REL-03 · профиль пишется на выходе вместе с забегом.
+##
+## _notification сохранял только забег, а Meta полагалась на дебаунс в
+## _process — кадра для которого после quit() может уже не быть.
+static func test_quit_saves_profile(t: TestCtx) -> void:
+	var saved: String = _profile_text()
+	_write_profile("")
+	t.check(not FileAccess.file_exists(Meta.PROFILE_PATH), "профиля на диске нет")
+	SaveService._save_all()
+	t.check(FileAccess.file_exists(Meta.PROFILE_PATH),
+		"выход из игры записал профиль, а не только забег")
+	_write_profile(saved)
+	Meta.load_profile()
+
 ## Прогоняет мир до ближайшей границы цикла через сам Game.
 static func _run_to_cycle_boundary(t: TestCtx) -> void:
 	var guard: int = 0

@@ -16,14 +16,22 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_WM_CLOSE_REQUEST:
-			save_run()
+			_save_all()
 			get_tree().quit()
 		NOTIFICATION_WM_GO_BACK_REQUEST:
-			save_run()
+			_save_all()
 			get_tree().quit()
 		NOTIFICATION_APPLICATION_PAUSED:
 			# На iOS на всё про всё около пяти секунд: пишем синхронно.
-			save_run()
+			_save_all()
+
+## ⚠️ Профиль пишется вместе с забегом, а не полагается на дебаунс Meta._process:
+## между NOTIFICATION_WM_CLOSE_REQUEST и quit() кадра больше не будет, и
+## _process в нём может не выполниться. Окно потери — одна покупка
+## разблокировки или один итог забега (REL-03).
+func _save_all() -> void:
+	save_run()
+	Meta.save_profile()
 
 func has_save() -> bool:
 	return FileAccess.file_exists(RUN_PATH)
