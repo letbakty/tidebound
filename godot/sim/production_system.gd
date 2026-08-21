@@ -196,14 +196,26 @@ func _consume_and_output(b: Dictionary, r: RecipeDef, w: SimWorld) -> void:
 	for k: String in r.inputs:
 		BuildingSystem.buffer_take(b, k, int(r.inputs[k]), _dry_only(k, r))
 	for out_id: String in r.outputs:
-		_output(b, out_id, int(r.outputs[out_id]), w)
+		_produce(b, out_id, int(r.outputs[out_id]), w)
 	_pending.append(SimEvent.make("building_state_changed", {"id": int(b["id"])}))
 
-## Выход уходит на ближайший склад; если складов нет или всё занято —
-## на землю у станции, но НЕ молча.
-func _output(b: Dictionary, item_id: String, n: int, w: SimWorld) -> void:
+## Выход РЕЦЕПТА: станция делает НОВЫЙ предмет — сухой, с полным сроком
+## годности — и он идёт в отчёт цикла как произведённое.
+func _produce(b: Dictionary, item_id: String, n: int, w: SimWorld) -> void:
 	_produced_cycle[item_id] = int(_produced_cycle.get(item_id, 0)) + n
-	var stack: Dictionary = StackUtil.make(item_id, n, false)
+	_deposit(b, StackUtil.make(item_id, n, false), w)
+
+## Кладёт ГОТОВЫЙ стак на ближайший склад, не трогая его свойств; если складов
+## нет или всё занято — на землю у станции, но НЕ молча.
+##
+## ⚠️ Две функции вместо одной намеренно (ARCH-02). Пока перенос звал выход
+## рецепта, лебёдка пересоздавала стак через StackUtil.make: мокрый плавник
+## поднимался сухим, добыча со spoil_left = 1 — свежей, а перенесённое
+## попадало в отчёт как «произведено» (SIM-03). Раздельные сигнатуры не дают
+## это перепутать: _produce принимает id и количество, _deposit — готовый стак.
+func _deposit(b: Dictionary, stack: Dictionary, w: SimWorld) -> void:
+	var item_id: String = str(stack["item_id"])
+	var n: int = int(stack["count"])
 	var cell: Vector2i = BuildingSystem.storage_cell(b)
 	var best: int = -1
 	var best_d: float = INF
@@ -248,7 +260,9 @@ func _tick_winch(b: Dictionary, w: SimWorld) -> void:
 	var first: Dictionary = taken[0]
 	for i: int in range(1, taken.size()):
 		w.storage.drop(cell, taken[i])
-	_output(b, str(first["item_id"]), int(first["count"]), w)
+	# Лебёдка ПЕРЕНОСИТ груз, а не производит его: стак уходит на склад целиком,
+	# с тем же wet и тем же spoil_left, и в отчёт цикла не попадает.
+	_deposit(b, first, w)
 	winch_timers[id] = w.clock.total_ticks() \
 		+ int(Balance.WINCH_LIFT_SEC * float(Balance.TICKS_PER_SEC))
 
@@ -324,7 +338,7 @@ func storm_water_bonus(w: SimWorld) -> void:
 		return
 	for b: Dictionary in w.buildings.with_special("raincatcher"):
 		if w.buildings.is_working(b):
-			_output(b, "freshwater",
+			_produce(b, "freshwater",
 				Balance.RAINCATCHER_STORM_WATER - 1, w)
 
 # --- События и сериализация -----------------------------------------------

@@ -230,6 +230,51 @@ static func test_winch_lifts_from_basket(t: TestCtx) -> void:
 		"стак из корзины оказался на складе")
 	t.check(w.storage.ground_at(basket).is_empty(), "корзина опустела")
 
+## TEST-03 · лебёдка ПЕРЕНОСИТ, а не производит (SIM-03). Раньше подъём шёл
+## через выход рецепта, который пересоздавал стак: мокрый плавник всплывал
+## сухим, добыча с истекающим сроком — свежей, а перенесённое попадало в отчёт
+## цикла как «произведено». Прежний тест поднимал сухой scrap и сверял только
+## количество — ровно поэтому дефект и дожил до ревью.
+static func test_winch_keeps_stack_properties(t: TestCtx) -> void:
+	var w: SimWorld = _world(47)
+	w.unlocked.append("u_winch")
+	var winch: int = _station(w, "winch", 0, 4)
+	t.check(winch > 0, "лебёдка встала")
+	var basket: Vector2i = ProductionSystem.basket_cell(w.buildings.buildings[winch])
+
+	var wet_wood: Dictionary = StackUtil.make("driftwood", 1, true)
+	var stale: Dictionary = StackUtil.make("catch", 1, false)
+	stale["spoil_left"] = 1                       # добыча вот-вот испортится
+	w.storage.drop(basket, wet_wood)
+	w.storage.drop(basket, stale)
+
+	var lift: int = int(Balance.WINCH_LIFT_SEC * Balance.TICKS_PER_SEC) + 5
+	var produced: Dictionary = {}
+	for i: int in lift * 2:
+		w.tick()
+		for e: SimEvent in w.events_out:
+			if e.type == "cycle_ended":
+				produced.merge((e.data.get("produced", {}) as Dictionary), true)
+		w.events_out.clear()
+		if w.storage.ground_at(basket).is_empty():
+			break
+	t.check(w.storage.ground_at(basket).is_empty(), "оба стака подняты")
+
+	var found_wet: bool = false
+	var found_stale: bool = false
+	for s: Dictionary in w.storage.storages:
+		for v: Variant in s["stacks"] as Array:
+			var st: Dictionary = v as Dictionary
+			if str(st["item_id"]) == "driftwood" and bool(st["wet"]):
+				found_wet = true
+			if str(st["item_id"]) == "catch" and int(st["spoil_left"]) == 1:
+				found_stale = true
+	t.check(found_wet, "мокрый плавник остался мокрым — лебёдка не сушилка")
+	t.check(found_stale, "spoil_left сохранён — лебёдка не освежает добычу")
+	t.check_eq(int(produced.get("driftwood", 0)), 0,
+		"перенесённое не считается произведённым")
+	t.check_eq(int(produced.get("catch", 0)), 0, "и добыча тоже")
+
 ## Вода не вымывает груз из корзины — в этом смысл лебёдки.
 static func test_basket_is_protected_from_water(t: TestCtx) -> void:
 	var w: SimWorld = _world(43)
