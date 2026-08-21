@@ -41,12 +41,22 @@ var vsync: bool = true
 var integer_scaling: bool = false
 
 # --- Звук -----------------------------------------------------------------
+## Умолчания = стартовый баланс шин из tools/gen_bus_layout.gd (research/35
+## §6.3): музыка не перекрывает колокол, эмбиент остаётся фоном, клики не
+## громче мира. Оба места держат ОДНИ и те же числа: apply() перезаписывает
+## громкости шин, поэтому раскладка сама по себе баланс не удержит.
 var master_db: float = 0.0
 var music_db: float = -6.0
-var sfx_db: float = 0.0
-var ui_db: float = 0.0
-var ambient_db: float = -3.0
+var sfx_db: float = -3.0
+var ui_db: float = -6.0
+var ambient_db: float = -9.0
 var haptics: bool = true
+
+## Нижний конец ползунка (docs/03 §3.6) — это тишина, а не «очень тихо»:
+## −40 дБ ещё слышно на технике, поэтому на минимуме шина глушится.
+const MUTE_DB: float = -40.0
+## Верхний конец ползунка: запас вверх есть, но не бесконечный.
+const MAX_DB: float = 6.0
 
 # --- Доступность ----------------------------------------------------------
 ## Размер шрифта ОТДЕЛЬНО от масштаба UI (docs/03 §3.6).
@@ -132,11 +142,13 @@ static func screen_reader_active() -> bool:
 		return false
 	return bool(DisplayServer.call("accessibility_screen_reader_active"))
 
-## Шины появятся на этапе 17: до тех пор молча пропускаем.
+## Раскладку шин собирает tools/gen_bus_layout.gd; если её нет (старый
+## default_bus_layout.tres), молча пропускаем — звук просто не настроится.
 func _apply_bus(bus_name: String, db: float) -> void:
 	var idx: int = AudioServer.get_bus_index(bus_name)
 	if idx < 0:
 		return
+	AudioServer.set_bus_mute(idx, db <= MUTE_DB)
 	AudioServer.set_bus_volume_db(idx, db)
 
 ## Масштаб UI по плотности экрана: на телефоне 100% нечитаемы, на Deck — мелки.
@@ -252,11 +264,14 @@ func from_dict(d: Dictionary) -> void:
 	fullscreen = bool(d.get("fullscreen", false))
 	vsync = bool(d.get("vsync", true))
 	integer_scaling = bool(d.get("integer_scaling", false))
-	master_db = float(d.get("master_db", 0.0))
-	music_db = float(d.get("music_db", -6.0))
-	sfx_db = float(d.get("sfx_db", 0.0))
-	ui_db = float(d.get("ui_db", 0.0))
-	ambient_db = float(d.get("ambient_db", -3.0))
+	# Умолчание берём из самого поля, а не из литерала: from_dict зовут на
+	# свежем объекте, и второй список умолчаний рано или поздно разъедется
+	# с первым.
+	master_db = _db(d, "master_db", master_db)
+	music_db = _db(d, "music_db", music_db)
+	sfx_db = _db(d, "sfx_db", sfx_db)
+	ui_db = _db(d, "ui_db", ui_db)
+	ambient_db = _db(d, "ambient_db", ambient_db)
 	haptics = bool(d.get("haptics", true))
 	font_scale = clampf(float(d.get("font_scale", 1.0)), 0.75, 2.0)
 	colorblind = int(d.get("colorblind", 0)) as Colorblind
@@ -285,3 +300,8 @@ func load_settings() -> bool:
 
 func has_file() -> bool:
 	return FileAccess.file_exists(PATH)
+
+## Громкость из файла: зажата диапазоном ползунка настроек (docs/03 §3.6).
+## Мусор в user://settings.json не должен оглушать игрока.
+func _db(d: Dictionary, key: String, fallback: float) -> float:
+	return clampf(float(d.get(key, fallback)), MUTE_DB, MAX_DB)

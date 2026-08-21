@@ -72,12 +72,14 @@ func _build() -> void:
 	_cancel.name = "Cancel"
 	_cancel.setup("UI_CANCEL", PixelButton.Variant.NORMAL)
 	_cancel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_cancel.sound_id = "ui_cancel"
 	_cancel.pressed.connect(_on_cancel)
 	row.add_child(_cancel)
 	_ok = PixelButton.new()
 	_ok.name = "Ok"
 	_ok.setup("UI_OK", PixelButton.Variant.PRIMARY)
 	_ok.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ok.sound_id = "ui_confirm"
 	_ok.pressed.connect(_on_ok)
 	row.add_child(_ok)
 

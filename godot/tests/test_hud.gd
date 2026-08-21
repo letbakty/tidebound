@@ -8,7 +8,10 @@ extends RefCounted
 
 const EVENTS_PATH: String = "res://autoload/events.gd"
 ## Где ищем подписки на шину. debug/ тоже: там их больше всего.
-const SCAN_DIRS: Array[String] = ["res://ui/", "res://game/", "res://debug/"]
+## autoload/ тоже: с этапа 17 там живёт AudioService, и подписок у него больше,
+## чем у любого виджета.
+const SCAN_DIRS: Array[String] = ["res://ui/", "res://game/", "res://debug/",
+	"res://autoload/"]
 
 ## Приоритеты: банер важнее подсказки, подсказка важнее тоста. Без единой
 ## очереди три источника начинают накладываться друг на друга (research/25 §4).

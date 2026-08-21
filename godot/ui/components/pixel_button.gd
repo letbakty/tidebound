@@ -17,8 +17,13 @@ const VARIATION_NAMES: Dictionary[int, String] = {
 		variant = v
 		_apply_variant()
 
+## Звук нажатия (этап 17). Пустая строка — кнопка молчит: у подтверждения и
+## отмены свой звук, и два щелчка на одно нажатие слышны как дефект.
+var sound_id: String = "ui_tap"
+
 func _ready() -> void:
 	_apply_defaults()
+	pressed.connect(_play_press_sound)
 	# На таче наведения нет: подсказку показывает удержание (docs/01 §5).
 	var hold: TouchTooltip = TouchTooltip.new()
 	hold.name = "Hold"
@@ -47,6 +52,11 @@ func setup(text_key: String, v: Variant = Variant.NORMAL) -> void:
 	_apply_defaults()
 	text = text_key
 	variant = v
+
+func _play_press_sound() -> void:
+	if sound_id.is_empty():
+		return
+	AudioService.play_ui(sound_id)
 
 func _apply_variant() -> void:
 	theme_type_variation = StringName(VARIATION_NAMES.get(int(variant), ""))

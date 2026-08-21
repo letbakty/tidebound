@@ -1,0 +1,24 @@
+file,source,pack_or_url,license,author,downloaded,notes
+bell.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+bell_low.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+splash.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+phase_shift.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+build.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+build_done.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+break.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+station.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+work.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+creature.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+thunder.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+ui_tap.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+ui_confirm.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+ui_cancel.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+ui_draft.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+ui_error.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+amb_sea.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+amb_top.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+amb_bottom.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+amb_rain.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+water_rise.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER синтетика
+music_calm.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER в assets/music
+music_tense.wav,generated,tools/gen_placeholder_sfx.gd,project,tidebound,2026-08-21,PLACEHOLDER в assets/music

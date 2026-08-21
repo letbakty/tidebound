@@ -33,6 +33,11 @@ var _card_label: Label = null
 var _card_row: HBoxContainer = null
 var _card_shown: Array[String] = []
 var _meta_label: Label = null
+var _audio_label: Label = null
+var _audio_log: Label = null
+## Сколько последних звуковых вызовов показывать: приёмка этапа 17 — сверить
+## список docs/00 §15 с тем, что реально дёргается.
+const AUDIO_TAIL: int = 8
 
 const CRISIS_NAMES: Dictionary = {
 	SimTypes.CrisisType.SPRING_TIDE: "сизигия",
@@ -193,6 +198,10 @@ func _build_ui() -> void:
 	_head("КРИЗИСЫ")
 	_crisis_label = _label("—")
 
+	_head("ЗВУК")
+	_audio_label = _label("—")
+	_audio_log = _label("—")
+
 	_head("СОБЫТИЯ")
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0.0, 220.0)
@@ -294,6 +303,7 @@ func _process(_delta: float) -> void:
 	_refresh_crises()
 	_refresh_cards()
 	_refresh_meta()
+	_refresh_audio()
 	if _log_dirty:
 		_log_dirty = false
 		_log_label.text = "\n".join(_log)
@@ -301,6 +311,13 @@ func _process(_delta: float) -> void:
 	if _samples.size() > GRAPH_SAMPLES:
 		_samples.remove_at(0)
 	_graph.queue_redraw()
+
+## Что звучит сейчас и что звучало только что.
+func _refresh_audio() -> void:
+	_audio_label.text = AudioService.debug_state()
+	var log: Array[String] = AudioService.call_log
+	var from: int = maxi(0, log.size() - AUDIO_TAIL)
+	_audio_log.text = "\n".join(log.slice(from)) if not log.is_empty() else "—"
 
 func _refresh_time() -> void:
 	if Game.world == null:

@@ -165,3 +165,6 @@ func _commit() -> void:
 	_virtual_pos = _virtual_pos.clamp(_limit_min, _limit_max)
 	# Камера всегда на целом пикселе: дробная позиция + Nearest = «кипящие» края.
 	global_position = _virtual_pos.round()
+	# Вертикальный эмбиент-кроссфейд (этап 17): наверху чайки, внизу капель.
+	# Троттлинг живёт в AudioService — камера не обязана знать про 4 Гц.
+	AudioService.set_camera_mark(WorldGeo.world_y_to_mark(global_position.y))

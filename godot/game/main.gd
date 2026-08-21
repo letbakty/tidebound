@@ -364,11 +364,11 @@ func _on_world_tapped(screen_pos: Vector2) -> void:
 		set_beacon_mode(false)
 		return
 	if not world_view.ghost.def_id.is_empty():
-		# Тап мимо валидного места — отмена, а не молчание.
+		# Тап мимо валидного места — отмена, а не молчание: звук отказа
+		# и снятый призрак. Успех озвучивает AudioService по building_placed.
 		if not Game.cmd_place_building(world_view.ghost.def_id, cell):
-			world_view.ghost.set_def("")
-		else:
-			world_view.ghost.set_def("")
+			AudioService.play_ui("ui_error")
+		world_view.ghost.set_def("")
 		return
 	var hit: Dictionary = world_view.pick_at(world_pos)
 	match str(hit["kind"]):

@@ -168,25 +168,27 @@ func _build_screen_tab() -> Control:
 		Settings.apply()), "SET_INTEGER_HINT")
 	return box.get_parent() as Control
 
+## Диапазон ползунков — константы Settings: на минимуме шина глушится
+## по-настоящему, и знать этот край должен один файл, а не два.
 func _build_sound_tab() -> Control:
 	var box: VBoxContainer = _tab("Sound")
-	_row(box, "SET_VOL_MASTER", _slider(Settings.master_db, -40.0, 6.0, 1.0,
+	_row(box, "SET_VOL_MASTER", _slider(Settings.master_db, Settings.MUTE_DB, Settings.MAX_DB, 1.0,
 		func(v: float) -> void:
 			Settings.master_db = v
 			Settings.apply()), "SET_VOL_HINT")
-	_row(box, "SET_VOL_MUSIC", _slider(Settings.music_db, -40.0, 6.0, 1.0,
+	_row(box, "SET_VOL_MUSIC", _slider(Settings.music_db, Settings.MUTE_DB, Settings.MAX_DB, 1.0,
 		func(v: float) -> void:
 			Settings.music_db = v
 			Settings.apply()), "SET_VOL_HINT")
-	_row(box, "SET_VOL_SFX", _slider(Settings.sfx_db, -40.0, 6.0, 1.0,
+	_row(box, "SET_VOL_SFX", _slider(Settings.sfx_db, Settings.MUTE_DB, Settings.MAX_DB, 1.0,
 		func(v: float) -> void:
 			Settings.sfx_db = v
 			Settings.apply()), "SET_VOL_HINT")
-	_row(box, "SET_VOL_UI", _slider(Settings.ui_db, -40.0, 6.0, 1.0,
+	_row(box, "SET_VOL_UI", _slider(Settings.ui_db, Settings.MUTE_DB, Settings.MAX_DB, 1.0,
 		func(v: float) -> void:
 			Settings.ui_db = v
 			Settings.apply()), "SET_VOL_HINT")
-	_row(box, "SET_VOL_AMBIENT", _slider(Settings.ambient_db, -40.0, 6.0, 1.0,
+	_row(box, "SET_VOL_AMBIENT", _slider(Settings.ambient_db, Settings.MUTE_DB, Settings.MAX_DB, 1.0,
 		func(v: float) -> void:
 			Settings.ambient_db = v
 			Settings.apply()), "SET_VOL_HINT")
