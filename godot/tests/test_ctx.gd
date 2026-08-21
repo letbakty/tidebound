@@ -57,10 +57,15 @@ func check_hash(a: Object, b: Object, msg: String) -> void:
 
 # --- Утилиты --------------------------------------------------------------
 
-## sort_keys=true по умолчанию => порядок ключей нормализован;
-## full_precision=false => гасит незначимый float-шум (для СЕЙВА нужно true, см. research/18 §2).
+## sort_keys=true — порядок ключей нормализован; full_precision=true — та же
+## точность, что у СЕЙВА (research/18 §2).
+##
+## ⚠️ TEST-06: раньше здесь стояла усечённая точность, и тесты детерминизма
+## были слабее реального файла — расхождение в восьмом знаке проходило тест и
+## всплывало как рассинхрон после save → load. Проект защищён квантованием
+## (Balance.quant, шаг 1e-4), поэтому переход обошёлся без правок баланса.
 static func state_hash(world: Object) -> String:
-	return JSON.stringify(world.call("to_dict")).sha256_text()
+	return JSON.stringify(world.call("to_dict"), "", true, true).sha256_text()
 
 ## Тикает мир и ЧИСТИТ events_out: иначе за 20 000 тиков накопятся сотни тысяч SimEvent.
 func run_ticks(world: Object, n: int) -> void:

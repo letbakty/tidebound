@@ -1,0 +1,37 @@
+{
+	"every": 1500,
+	"points": [
+		{
+			"alive": 6,
+			"buildings": 3,
+			"cycle": 1,
+			"hash": "f9cfea67604440f7c3150e968b5b57a8679281e8432deff49b3822cfbad76494",
+			"level": -8.0,
+			"phase": "LOW",
+			"stock": "catch:8, driftwood:6, kelp:10, rations:8, scrap:16",
+			"tick": 1500
+		},
+		{
+			"alive": 6,
+			"buildings": 3,
+			"cycle": 2,
+			"hash": "1fa4f41e578b5d8943cda1f222bee79f30dac279620333fc3d62ef9f2aacc64e",
+			"level": 0.0,
+			"phase": "EBB",
+			"stock": "catch:8, driftwood:5, freshwater:1, kelp:10, rations:8, scrap:16",
+			"tick": 3000
+		},
+		{
+			"alive": 6,
+			"buildings": 3,
+			"cycle": 2,
+			"hash": "2a5eeb39a638d435db0f36d02dc43490b2dc499dfaf239c3da2293707060adaf",
+			"level": -10.0,
+			"phase": "LOW",
+			"stock": "catch:12, driftwood:10, freshwater:1, kelp:12, rations:8, scrap:16",
+			"tick": 4500
+		}
+	],
+	"seed": 777,
+	"ticks": 4500
+}

@@ -1,0 +1,247 @@
+{
+	"every": 1500,
+	"points": [
+		{
+			"alive": 6,
+			"buildings": 3,
+			"cycle": 1,
+			"hash": "7a303da8f102a7fc21b52dddffe02984c05ae00055bc1145e2c72703db843593",
+			"level": -8.0,
+			"phase": "LOW",
+			"stock": "catch:8, driftwood:6, kelp:10, rations:8, scrap:16",
+			"tick": 1500
+		},
+		{
+			"alive": 6,
+			"buildings": 3,
+			"cycle": 2,
+			"hash": "341d4b221721fec520186c9200c8bcb57cbeecb0ebaf62c05cc6397a61bc0b4e",
+			"level": 0.0,
+			"phase": "EBB",
+			"stock": "catch:8, driftwood:5, freshwater:1, kelp:10, rations:8, scrap:16",
+			"tick": 3000
+		},
+		{
+			"alive": 6,
+			"buildings": 3,
+			"cycle": 2,
+			"hash": "f5b716bdfca82eb24274a65081f953e1c800d39a469b37bc7cbf3b04bbdebc1b",
+			"level": -8.0,
+			"phase": "LOW",
+			"stock": "catch:12, driftwood:8, freshwater:1, kelp:12, rations:8, scrap:16",
+			"tick": 4500
+		},
+		{
+			"alive": 7,
+			"buildings": 3,
+			"cycle": 3,
+			"hash": "ba608a1578970a0b1582e7e2861f3c20c15278df6cd5acb554ccadebe2dba49a",
+			"level": 0.0,
+			"phase": "EBB",
+			"stock": "catch:12, driftwood:7, freshwater:2, kelp:12, rations:7, scrap:16",
+			"tick": 6000
+		},
+		{
+			"alive": 7,
+			"buildings": 3,
+			"cycle": 3,
+			"hash": "391cf62ea6e30dd18f087c6fee80a1182f624bca1d470311ebea3c0d20e20f5c",
+			"level": -8.0,
+			"phase": "LOW",
+			"stock": "catch:16, driftwood:12, freshwater:2, kelp:14, rations:7, scrap:16",
+			"tick": 7500
+		},
+		{
+			"alive": 7,
+			"buildings": 3,
+			"cycle": 4,
+			"hash": "482970a373a5409d85aa10bd64288646a948f78f7a806cb6053c5101882b70df",
+			"level": 0.0,
+			"phase": "EBB",
+			"stock": "catch:8, driftwood:11, freshwater:3, kelp:14, rations:2, scrap:16",
+			"tick": 9000
+		},
+		{
+			"alive": 7,
+			"buildings": 3,
+			"cycle": 4,
+			"hash": "57200c9d8cfcd73dfb0a1df3849798c7e71a6fc7fd10cb7bbb37b0fad5664ea9",
+			"level": -10.0,
+			"phase": "LOW",
+			"stock": "catch:12, driftwood:16, freshwater:3, kelp:16, rations:2, scrap:16",
+			"tick": 10500
+		},
+		{
+			"alive": 7,
+			"buildings": 3,
+			"cycle": 5,
+			"hash": "a29221c317413cba98aeb8b268a028eeb4007b5e2149b9398e666c9cef21afcd",
+			"level": -7.407,
+			"phase": "EBB",
+			"stock": "catch:8, driftwood:21, freshwater:4, kelp:16, rations:1, scrap:16",
+			"tick": 12000
+		},
+		{
+			"alive": 7,
+			"buildings": 3,
+			"cycle": 5,
+			"hash": "70bbe3f505db23daaf61bf91abb1166eb4e905e1fbf5cf94f1dee31b70bfb678",
+			"level": -8.0,
+			"phase": "LOW",
+			"stock": "catch:12, driftwood:21, freshwater:4, kelp:18, rations:1, scrap:16",
+			"tick": 13500
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 6,
+			"hash": "f92d22be03a652fd538ae5d8f1c77fbe2127692847bb16e55b4d0ed87a729e57",
+			"level": -7.259,
+			"phase": "EBB",
+			"stock": "catch:8, driftwood:20, freshwater:5, kelp:18, scrap:16",
+			"tick": 15000
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 6,
+			"hash": "a9325b4b34853b72a4f679668ee9fd32810fc66f6f66f4a80b344028632b52a7",
+			"level": -8.0,
+			"phase": "LOW",
+			"stock": "catch:8, driftwood:20, freshwater:5, kelp:18, scrap:16",
+			"tick": 16500
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 7,
+			"hash": "135d78ea570bf73d1c0300368bd488d9fd8ecef9678a55480c886a9e50bc6131",
+			"level": -7.407,
+			"phase": "EBB",
+			"stock": "catch:4, driftwood:23, freshwater:6, kelp:18, scrap:16",
+			"tick": 18000
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 7,
+			"hash": "2d521bc4e618480292d878996ca487a3a786c767d65e1af7bfbcfb7fd133830b",
+			"level": -8.0,
+			"phase": "LOW",
+			"stock": "catch:4, driftwood:24, freshwater:6, kelp:18, scrap:16",
+			"tick": 19500
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 8,
+			"hash": "b4ba42d662a858fbc1a8d13fc621b2927a068160036168b85d0865165052ab3b",
+			"level": -7.407,
+			"phase": "EBB",
+			"stock": "driftwood:26, freshwater:7, kelp:18, scrap:16",
+			"tick": 21000
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 8,
+			"hash": "42641b545a96a7c4c8c77bc129fc3f6e48cd25d49e7f25fc0a5fb990309cb869",
+			"level": -6.0,
+			"phase": "HIGH",
+			"stock": "driftwood:26, freshwater:7, kelp:18, scrap:16",
+			"tick": 22500
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 9,
+			"hash": "04f34faa78222bb158143ac03c90e99ada8ea473ac33474d5200d1bdbeaf66e4",
+			"level": -10.0,
+			"phase": "LOW",
+			"stock": "driftwood:30, freshwater:8, kelp:18, scrap:16",
+			"tick": 24000
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 9,
+			"hash": "b6942e864e3672a0d8b49632f771ea26ade32d01e6047b0b65ec11e18ab55d0b",
+			"level": 0.0,
+			"phase": "HIGH",
+			"stock": "driftwood:30, freshwater:8, kelp:18, scrap:16",
+			"tick": 25500
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 10,
+			"hash": "0b98864277a65cd60e7a67eb9e133d0e98281d14a9abbbd84acdab8a51b3993e",
+			"level": -10.0,
+			"phase": "LOW",
+			"stock": "driftwood:34, freshwater:9, kelp:18, scrap:16",
+			"tick": 27000
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 11,
+			"hash": "e14c4906ae02e9187906e6ad0d1dc8275edbcedb203d159ad32768dcdc6d3f3f",
+			"level": -6.76,
+			"phase": "EBB",
+			"stock": "driftwood:35, freshwater:12, kelp:18, scrap:16",
+			"tick": 28500
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 11,
+			"hash": "b4019bee301b92939748bfae62da7da6a751e392f0d58bd766e605cff446f2dd",
+			"level": -6.493,
+			"phase": "SIGNAL",
+			"stock": "driftwood:38, freshwater:12, kelp:18, scrap:16",
+			"tick": 30000
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 12,
+			"hash": "038c9ea5d3d8b6275c70978088af25e04af9e7a842b7509020c0935311f0eb73",
+			"level": -8.0,
+			"phase": "LOW",
+			"stock": "driftwood:37, freshwater:13, kelp:18, scrap:16",
+			"tick": 31500
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 12,
+			"hash": "fc694944677847917ab8793bdebff72a12255a0b471abd4ada45a8fb66f0fa01",
+			"level": -6.247,
+			"phase": "SIGNAL",
+			"stock": "driftwood:37, freshwater:13, kelp:18, scrap:16",
+			"tick": 33000
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 13,
+			"hash": "f3b70a80cd645cf7ce7db95509792619f81eba1b89dedb9596294f138d56a92a",
+			"level": -8.0,
+			"phase": "LOW",
+			"stock": "driftwood:42, freshwater:14, kelp:18, scrap:16",
+			"tick": 34500
+		},
+		{
+			"alive": 3,
+			"buildings": 3,
+			"cycle": 13,
+			"hash": "a564b97946ce9a078716d5a82168cb098f81c7f3e9185d0c3e097dde94159202",
+			"level": -6.247,
+			"phase": "SIGNAL",
+			"stock": "driftwood:42, freshwater:14, kelp:18, scrap:16",
+			"tick": 36000
+		}
+	],
+	"seed": 4242,
+	"ticks": 36000
+}

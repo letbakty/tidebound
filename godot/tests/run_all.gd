@@ -30,6 +30,7 @@ const SUITES: Array[String] = [
 	"res://tests/test_touch_targets.gd",
 	"res://tests/test_audio.gd",
 	"res://tests/test_visual.gd",
+	"res://tests/test_edge_cases.gd",
 ]
 
 ## Фильтр сьютов из командной строки: `-s res://tests/run_all.gd -- production`

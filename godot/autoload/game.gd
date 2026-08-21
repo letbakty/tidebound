@@ -252,10 +252,28 @@ func debug_fast_forward(ticks: int) -> void:
 	# View-ноды по этому флагу пропускают анимации: 3000 пачек сигналов подряд
 	# иначе захлебнут UI созданием Tween'ов (research/13 §8).
 	fast_forwarding = true
-	for i: int in ticks:
+	for i: int in mini(ticks, MAX_FAST_FORWARD_TICKS):
 		world.tick()
 		_flush_events()
 	fast_forwarding = false
+	# Пересборка картинки одним заходом: частые события во время промотки
+	# отброшены (см. NOISY_EVENTS), и без этого мир на экране остался бы
+	# в состоянии на начало промотки.
+	rebroadcast_state()
+
+## Потолок промотки за один вызов. Замер этапа 19: промотка целого забега
+## одним куском разгоняет процесс до 2 ГБ — тики идут внутри одного кадра,
+## и движку негде освободить то, что накопилось за них. Кнопки дебаг-панели
+## просят максимум цикл, поэтому потолок в два цикла ничего не ломает.
+const MAX_FAST_FORWARD_TICKS: int = Balance.TICKS_PER_CYCLE * 2
+
+## Частые события, которые во время промотки НЕ рассылаются: за 3000 тиков их
+## набегают десятки тысяч, и каждое дёргает весь интерфейс. Всё, что они
+## сообщают, восстанавливается rebroadcast_state() в конце промотки —
+## в отличие от отчётов цикла и забега, которые больше нигде не взять.
+const NOISY_EVENTS: Array[String] = ["sim_ticked", "water_level_changed",
+	"agent_updated", "storage_changed", "resources_changed", "deposit_changed",
+	"building_state_changed", "production_spilled", "relic_found"]
 
 ## Тиков до ближайшей границы фазы / цикла — для кнопок «+1 фаза» и «+1 цикл».
 func debug_ticks_to_next_phase() -> int:
@@ -594,6 +612,8 @@ func _flush_events() -> void:
 	if world == null:
 		return
 	for e: SimEvent in world.events_out:
+		if fast_forwarding and NOISY_EVENTS.has(e.type):
+			continue
 		match e.type:
 			"sim_ticked":
 				Events.sim_ticked.emit(int(e.data["tick"]))
