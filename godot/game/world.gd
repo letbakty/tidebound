@@ -29,12 +29,14 @@ const DEPOSIT_COLORS: Dictionary = {
 @onready var deposits_root: Node2D = $Deposits
 @onready var agents_root: Node2D = $Agents
 @onready var buildings_root: Node2D = $Buildings
+@onready var creatures_root: Node2D = $Creatures
 @onready var ghost: BuildGhost = $BuildGhost
 @onready var camera: CameraRig = $CameraRig
 
 var _deposit_nodes: Dictionary[int, Node2D] = {}
 var _agent_views: Dictionary[int, AgentView] = {}
 var _building_views: Dictionary[int, BuildingView] = {}
+var _creature_views: Dictionary[int, CreatureView] = {}
 var _drawn_graph_version: int = -1
 
 func _ready() -> void:
@@ -46,6 +48,8 @@ func _ready() -> void:
 	Events.building_placed.connect(_on_building_placed)
 	Events.building_state_changed.connect(_on_building_changed)
 	Events.building_removed.connect(_on_building_removed)
+	Events.creature_spawned.connect(_on_creature_spawned)
+	Events.creature_left.connect(_on_creature_left)
 	if _terrain() != null:
 		_rebuild_all()
 
@@ -73,6 +77,7 @@ func _rebuild_all() -> void:
 	_rebuild_deposits(t)
 	_rebuild_agents()
 	_rebuild_buildings()
+	_clear_creature_views()
 	camera.setup(Game.cliff_def())
 
 # --- Отрисовка рельефа ----------------------------------------------------
@@ -270,6 +275,28 @@ func _on_building_removed(id: int) -> void:
 	if v == null:
 		return
 	_building_views.erase(id)
+	v.queue_free()
+
+# --- Существа -------------------------------------------------------------
+
+func _clear_creature_views() -> void:
+	for v: CreatureView in _creature_views.values():
+		v.queue_free()
+	_creature_views.clear()
+
+func _on_creature_spawned(id: int) -> void:
+	if _creature_views.has(id):
+		return
+	var v: CreatureView = CreatureView.new()
+	v.setup(id)
+	creatures_root.add_child(v)
+	_creature_views[id] = v
+
+func _on_creature_left(id: int) -> void:
+	var v: CreatureView = _creature_views.get(id, null)
+	if v == null:
+		return
+	_creature_views.erase(id)
 	v.queue_free()
 
 # --- Координаты и хит-тест ------------------------------------------------

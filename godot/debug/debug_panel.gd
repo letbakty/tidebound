@@ -28,6 +28,13 @@ var _water_on: CheckBox = null
 var _seed_edit: LineEdit = null
 var _beacon_label: Label = null
 var _build_hint: Label = null
+var _crisis_label: Label = null
+
+const CRISIS_NAMES: Dictionary = {
+	SimTypes.CrisisType.SPRING_TIDE: "сизигия",
+	SimTypes.CrisisType.STORM: "шторм",
+	SimTypes.CrisisType.VISIT: "приход",
+}
 var _policy_sliders: Dictionary[int, HSlider] = {}
 var _policy_labels: Dictionary[int, Label] = {}
 
@@ -165,6 +172,9 @@ func _build_ui() -> void:
 	_button(run_row, "завершить цикл", func() -> void:
 		Game.debug_fast_forward(Game.debug_ticks_to_next_cycle()))
 
+	_head("КРИЗИСЫ")
+	_crisis_label = _label("—")
+
 	_head("СОБЫТИЯ")
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(0.0, 220.0)
@@ -263,6 +273,7 @@ func _process(_delta: float) -> void:
 	_refresh_time()
 	_refresh_policies()
 	_refresh_build_hint()
+	_refresh_crises()
 	if _log_dirty:
 		_log_dirty = false
 		_log_label.text = "\n".join(_log)
@@ -346,6 +357,20 @@ func _select_building(def_id: String) -> void:
 		return
 	ghost.call("set_def", def_id)
 	_build_hint.text = "—" if def_id.is_empty() else def_id
+
+func _refresh_crises() -> void:
+	if Game.world == null:
+		return
+	var now: PackedStringArray = PackedStringArray()
+	for type: int in Game.world.crisis.active:
+		now.append(str(CRISIS_NAMES.get(type, type)))
+	var soon: PackedStringArray = PackedStringArray()
+	for type2: int in Game.world.crisis.announced:
+		soon.append(str(CRISIS_NAMES.get(type2, type2)))
+	_crisis_label.text = "сейчас: %s · объявлено: %s · существ: %d" % [
+		"—" if now.is_empty() else ", ".join(now),
+		"—" if soon.is_empty() else ", ".join(soon),
+		Game.world.crisis.creatures.size()]
 
 func _refresh_build_hint() -> void:
 	var ghost: Node = get_tree().root.find_child("BuildGhost", true, false)

@@ -110,6 +110,68 @@ func _rebuild_graph() -> void:
 		if a >= 0 and b >= 0:
 			_astar.connect_points(a, b, true)
 	graph_version += 1
+	_wet_signature = ""              # мокрый граф тоже устарел
+
+## Второй граф — «мокрый»: узлы НИЖЕ уровня воды. Существа ходят по нему,
+## агенты — по сухому. Держать два графа дешевле, чем фильтровать путь после
+## поиска (research/16 §8). Пересобирается только при смене набора узлов
+## или блокировок, а не каждый тик.
+var _astar_wet: AStar2D = AStar2D.new()
+var _wet_signature: String = ""
+
+## blocked_platforms — узлы в радиусе фонаря; blocked_ladders — рёбра,
+## перекрытые шлюзом. Разные API не случайно: фонарь запрещает УЗЕЛ,
+## шлюз — РЕБРО. Перепутать значит либо запереть существ намертво,
+## либо пропустить их сквозь шлюз.
+func rebuild_wet_graph(water_level: float, blocked_platforms: Array[int],
+		blocked_ladders: Array[int]) -> void:
+	var wet_ids: Array[int] = []
+	for p: Dictionary in platforms:
+		if Balance.is_mark_flooded(int(p["mark"]), water_level):
+			wet_ids.append(int(p["id"]))
+	var sig: String = "%s|%s|%s" % [str(wet_ids), str(blocked_platforms),
+		str(blocked_ladders)]
+	if sig == _wet_signature:
+		return
+	_wet_signature = sig
+	_astar_wet.clear()
+	for id: int in wet_ids:
+		var p2: Dictionary = platforms[id]
+		_astar_wet.add_point(id, Vector2(
+			(float(int(p2["x0"]) + int(p2["x1"])) + 1.0) * 0.5,
+			float(Balance.mark_to_floor_cell_y(int(p2["mark"])))))
+	for l: Dictionary in ladders:
+		if blocked_ladders.has(int(l["id"])):
+			continue
+		var top: int = int(l["mark_top"])
+		var a: int = _mark_to_platform.get(top, -1)
+		var b: int = _mark_to_platform.get(top - 1, -1)
+		if a >= 0 and b >= 0 and _astar_wet.has_point(a) and _astar_wet.has_point(b):
+			_astar_wet.connect_points(a, b, true)
+	for pid: int in blocked_platforms:
+		if _astar_wet.has_point(pid):
+			_astar_wet.set_point_disabled(pid, true)
+
+func is_wet_node(platform_id: int) -> bool:
+	return _astar_wet.has_point(platform_id) \
+		and not _astar_wet.is_point_disabled(platform_id)
+
+## Путь существа. Пустой массив — цель отрезана: существо тогда бродит
+## у спавна, а не зависает.
+func find_wet_path(from_id: int, to_id: int) -> Array[int]:
+	var out: Array[int] = []
+	if not _astar_wet.has_point(from_id) or not _astar_wet.has_point(to_id):
+		return out
+	for v: int in _astar_wet.get_id_path(from_id, to_id):
+		out.append(int(v))
+	return out
+
+## Ладдер в колонке x между отметками mark и mark−1, или −1.
+func ladder_id_at(x: int, mark_top: int) -> int:
+	for l: Dictionary in ladders:
+		if int(l["x"]) == x and int(l["mark_top"]) == mark_top:
+			return int(l["id"])
+	return -1
 
 ## Путь по id площадок, включая обе конечные. Пустой массив = пути нет.
 func find_path(from_platform: int, to_platform: int) -> Array[int]:

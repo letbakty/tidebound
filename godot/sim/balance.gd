@@ -211,6 +211,26 @@ const RAINCATCHER_STORM_WATER: int = 3
 ## Лебёдка поднимает один стак за 6 секунд, без участия агента.
 const WINCH_LIFT_SEC: float = 6.0
 
+# --- Кризисы (docs/00 §9.2–9.4) -------------------------------------------
+## Существа плавают медленнее агента по суше, но им не нужны лестницы.
+const CREATURE_SPEED: float = 1.5
+## Одно повреждение постройки каждые 10 секунд, пока не сломает.
+const CREATURE_GNAW_SEC: float = 10.0
+## Агент в этом радиусе от существа теряет дух — один раз за цикл.
+const CREATURE_FEAR_TILES: float = 4.0
+const MOOD_CREATURE_MILLI: int = 10_000
+## Фонарь отпугивает существ; с разблокировкой радиус больше (docs/00 §8).
+const LANTERN_RADIUS: float = 3.0
+const LANTERN_RADIUS_BIG: float = 5.0
+const UNLOCK_LANTERN_BRIGHT: String = "u_lantern_bright"
+
+## Пик шторма (docs/00 §9.4): ниже +1 — гибель, на +1..+2 — мокрый и −15 духа.
+const STORM_DEATH_MARK: int = 1
+const STORM_WET_MARK_HI: int = 2
+const MOOD_STORM_MILLI: int = 15_000
+## Шторм пережит без потерь — +5 духа всем.
+const MOOD_STORM_SURVIVED_MILLI: int = 5_000
+
 ## Затопление: клетка мокрая, если её отметка НИЖЕ уровня воды.
 ## Эпсилон обязателен — уровень считается по smoothstep и на плато даёт
 ## −7.9999999, а не −8.0. Без него нижняя ступень мигала бы от float-шума,

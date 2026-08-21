@@ -190,6 +190,25 @@ func query_building(id: int) -> Dictionary:
 		"working": world.buildings.is_working(b),
 	}
 
+## Мировая позиция существа — для CreatureView каждый кадр.
+func query_creature_pos(id: int) -> Vector2:
+	if world == null:
+		return Vector2.ZERO
+	for c: Dictionary in world.crisis.creatures:
+		if int(c["id"]) != id:
+			continue
+		var from_m: float = float(int(
+			world.terrain.platforms[int(c["platform"])]["mark"]))
+		var mark: float = from_m
+		if int(c["climb_to"]) >= 0:
+			mark = lerpf(from_m, float(int(
+				world.terrain.platforms[int(c["climb_to"])]["mark"])), float(c["climb_t"]))
+		var y: float = WorldGeo.mark_to_world_y(mark) \
+			+ float((Balance.TILES_PER_MARK - 1) * WorldGeo.TILE)
+		return Vector2(float(c["x"]) * float(WorldGeo.TILE)
+			+ float(WorldGeo.TILE) * 0.5, y)
+	return Vector2.ZERO
+
 func tick_budget_ms() -> float:
 	return _tick_budget_ms
 
@@ -239,6 +258,20 @@ func _flush_events() -> void:
 				Events.building_state_changed.emit(int(e.data["id"]))
 			"building_removed":
 				Events.building_removed.emit(int(e.data["id"]))
+			"crisis_announced":
+				Events.crisis_announced.emit(int(e.data["type"]), int(e.data["cycle"]))
+			"crisis_started":
+				Events.crisis_started.emit(int(e.data["type"]))
+			"crisis_ended":
+				Events.crisis_ended.emit(int(e.data["type"]))
+			"creature_spawned":
+				Events.creature_spawned.emit(int(e.data["id"]))
+			"creature_left":
+				Events.creature_left.emit(int(e.data["id"]))
+			"production_spilled":
+				# Отдельного сигнала в контракте нет: выход на землю виден
+				# как обычное изменение постройки (docs/02 §3.2).
+				Events.building_state_changed.emit(int(e.data["id"]))
 			"policy_changed":
 				Events.policy_changed.emit(int(e.data["policy"]), int(e.data["value"]))
 			"beacon_moved":

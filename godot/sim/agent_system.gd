@@ -686,6 +686,10 @@ func clear_recall() -> void:
 		a.recalled = false
 		a.recall_hard = false
 
+## Публичная смерть — её вызывает шторм (этап 09).
+func kill(a: SimAgent, cause: String, w: SimWorld) -> void:
+	_kill(a, cause, w)
+
 func _kill(a: SimAgent, cause: String, w: SimWorld) -> void:
 	if not a.is_alive():
 		return
@@ -712,6 +716,7 @@ func on_cycle_started(w: SimWorld) -> void:
 	for a: SimAgent in agents:
 		a.idle_ticks_cycle = 0
 		a.deep_gathered = 0
+		a.scared_this_cycle = false
 		a.wet = false                    # к началу нового цикла успел обсохнуть
 		if a.state == SimTypes.AgentState.RETURN:
 			_set_state(a, SimTypes.AgentState.IDLE, w)

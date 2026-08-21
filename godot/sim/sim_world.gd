@@ -18,6 +18,7 @@ var agents: AgentSystem = AgentSystem.new()
 var jobs: JobSystem = JobSystem.new()
 var buildings: BuildingSystem = BuildingSystem.new()
 var production: ProductionSystem = ProductionSystem.new()
+var crisis: CrisisSystem = CrisisSystem.new()
 var policies: PolicySet = PolicySet.new()
 
 ## Разбирается Game после tick(); Game обязан очистить массив.
@@ -64,6 +65,7 @@ func new_run(seed_value: int, cliff: CliffDef) -> void:
 	jobs = JobSystem.new()
 	buildings = BuildingSystem.new()
 	production = ProductionSystem.new()
+	crisis = CrisisSystem.new()
 	policies = PolicySet.new()
 	_cliff = cliff
 	events_out.clear()
@@ -84,6 +86,7 @@ func new_run(seed_value: int, cliff: CliffDef) -> void:
 		# без единого источника тепла.
 		buildings.light_start_fires()
 		production.new_run()
+		crisis.new_run()
 		refresh_heat_sources()
 		agents.new_run(self)
 	events_out.append(SimEvent.make("run_started", {"seed": seed_value}))
@@ -148,12 +151,17 @@ func tick() -> void:
 			e.data.merge(agents.on_cycle_ended(self), true)
 			e.data.merge(jobs.on_cycle_ended(), true)
 			e.data.merge(production.on_cycle_ended(self), true)
+			e.data.merge(crisis.on_cycle_ended(self), true)
 		elif e.type == "phase_changed":
 			# prev нужен именно здесь: «конец LOW» и «начало SIGNAL» — разные
 			# события, и испаритель отдаёт соль по первому.
 			production.on_phase_ended(int(e.data["prev"]), self)
+			crisis.on_phase_ended(int(e.data["prev"]), self)
 			buildings.on_phase_started(int(e.data["phase"]))
+			crisis.on_phase_started(int(e.data["phase"]), self)
 		elif e.type == "cycle_started":
+			tide.reset_cycle_high()
+			crisis.on_cycle_started(self)
 			events_out.append_array(terrain.on_cycle_started(rng))
 			storage.spawn_driftwood(terrain, rng)
 			agents.on_cycle_started(self)
@@ -169,6 +177,7 @@ func tick() -> void:
 	_tick_agents()
 	_tick_storage()
 	_tick_run_state()
+	events_out.append_array(crisis.drain_events())
 	events_out.append_array(buildings.drain_events())
 	events_out.append_array(production.drain_events())
 	events_out.append_array(jobs.drain_events())
@@ -177,7 +186,7 @@ func tick() -> void:
 	events_out.append(SimEvent.make("sim_ticked", {"tick": clock.total_ticks()}))
 
 func _tick_crises() -> void:
-	pass    # этап 09
+	crisis.tick(self)
 
 func _tick_buildings() -> void:
 	buildings.tick(self)
@@ -269,6 +278,7 @@ func to_dict() -> Dictionary:
 		"jobs": jobs.to_dict(),
 		"buildings": buildings.to_dict(),
 		"production": production.to_dict(),
+		"crisis": crisis.to_dict(),
 		"policies": policies.to_dict(),
 	}
 
@@ -294,6 +304,8 @@ func from_dict(d: Dictionary, cliff: CliffDef = null) -> void:
 	jobs.from_dict(d.get("jobs", {}) as Dictionary)
 	buildings.from_dict(d.get("buildings", {}) as Dictionary)
 	production.from_dict(d.get("production", {}) as Dictionary)
+	crisis.from_dict(d.get("crisis", {}) as Dictionary)
+	is_storm = crisis.is_active(SimTypes.CrisisType.STORM)
 	refresh_heat_sources()
 	policies.from_dict(d.get("policies", {}) as Dictionary)
 	events_out.clear()

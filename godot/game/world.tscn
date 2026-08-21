@@ -23,6 +23,8 @@ collision_enabled = false
 
 [node name="Buildings" type="Node2D" parent="."]
 
+[node name="Creatures" type="Node2D" parent="."]
+
 [node name="Agents" type="Node2D" parent="."]
 y_sort_enabled = true
 

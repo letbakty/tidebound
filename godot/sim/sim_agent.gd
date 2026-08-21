@@ -62,6 +62,9 @@ var last_update_tick: int = -1000
 var update_pending: bool = false
 ## Для черты Трудяга: сколько тиков цикла агент простоял без дела.
 var idle_ticks_cycle: int = 0
+## Существо пугает агента ОДИН раз за цикл; без флага −10 духа прилетало бы
+## каждые десять тиков, пока существо рядом.
+var scared_this_cycle: bool = false
 
 ## Расходы за цикл, посчитанные ОДИН раз при спавне: множитель черты может
 ## быть дробью вроде 24/18, и умножать её каждый тик значило бы копить
@@ -212,6 +215,7 @@ func to_dict() -> Dictionary:
 		"last_update": last_update_tick, "update_pending": update_pending,
 		"idle_ticks": idle_ticks_cycle,
 		"job_id": job_id, "work_ticks": work_ticks, "deep_gathered": deep_gathered,
+		"scared": scared_this_cycle,
 	}
 
 func from_dict(d: Dictionary) -> void:
@@ -258,4 +262,5 @@ func from_dict(d: Dictionary) -> void:
 	job_id = int(d.get("job_id", -1))
 	work_ticks = int(d.get("work_ticks", 0))
 	deep_gathered = int(d.get("deep_gathered", 0))
+	scared_this_cycle = bool(d.get("scared", false))
 	recompute_from_traits()

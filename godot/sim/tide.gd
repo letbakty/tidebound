@@ -16,6 +16,10 @@ var high_plateau: float = Balance.HIGH_LEVEL
 const EMIT_EVERY: int = 3
 const EMIT_EPS: float = 0.01
 
+## Максимум уровня за текущий цикл. Нужен сизигии, а этап 18 сделает на нём
+## мокрые тайлы без единой правки sim (research/03 §1).
+var last_high_level: float = Balance.HIGH_LEVEL
+
 var _ticks_since_emit: int = 0
 var _last_emitted: float = Balance.HIGH_LEVEL
 
@@ -30,6 +34,7 @@ var level_override: float = NAN
 ## Пересчитывает уровень по фазе и её прогрессу; возвращает события наружу.
 func update(clock: SimClock) -> Array[SimEvent]:
 	level = Balance.quant(_level_for(clock))
+	last_high_level = maxf(last_high_level, level)
 	var out: Array[SimEvent] = []
 	_ticks_since_emit += 1
 	if _ticks_since_emit >= EMIT_EVERY and absf(level - _last_emitted) > EMIT_EPS:
@@ -64,14 +69,20 @@ func _level_for(clock: SimClock) -> float:
 	return level
 
 ## Сбрасывает уровень к началу забега/цикла без эмиссии события.
+## Вызывается на границе цикла: «докуда дошла вода» считается за цикл.
+func reset_cycle_high() -> void:
+	last_high_level = level
+
 func reset(clock: SimClock) -> void:
 	level = Balance.quant(_level_for(clock))
+	last_high_level = level
 	_last_emitted = level
 	_ticks_since_emit = 0
 
 func to_dict() -> Dictionary:
 	return {
 		"level": level,
+		"last_high": last_high_level,
 		"low_plateau": low_plateau,
 		"high_plateau": high_plateau,
 		"ticks_since_emit": _ticks_since_emit,
@@ -80,6 +91,7 @@ func to_dict() -> Dictionary:
 
 func from_dict(d: Dictionary) -> void:
 	level = float(d.get("level", Balance.HIGH_LEVEL))
+	last_high_level = float(d.get("last_high", level))
 	low_plateau = float(d.get("low_plateau", Balance.LOW_LEVEL))
 	high_plateau = float(d.get("high_plateau", Balance.HIGH_LEVEL))
 	_ticks_since_emit = int(d.get("ticks_since_emit", 0))

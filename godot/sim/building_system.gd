@@ -432,6 +432,21 @@ func on_storm(w: SimWorld) -> void:
 		_on_became_broken(b, w)
 		_pending.append(SimEvent.make("building_state_changed", {"id": id}))
 
+## Одно повреждение (существо грызёт постройку). Возвращает true, если сломал.
+func apply_damage(id: int, w: SimWorld) -> bool:
+	var b: Dictionary = buildings.get(id, {})
+	if b.is_empty() or bool(b["damaged"]):
+		return false
+	b["hp"] = int(b["hp"]) - 1
+	if int(b["hp"]) > 0:
+		_pending.append(SimEvent.make("building_state_changed", {"id": id}))
+		return false
+	b["damaged"] = true
+	b["progress_ticks"] = 0
+	_on_became_broken(b, w)
+	_pending.append(SimEvent.make("building_state_changed", {"id": id}))
+	return true
+
 # --- Снос -----------------------------------------------------------------
 
 func demolish(id: int, w: SimWorld) -> bool:
