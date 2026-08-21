@@ -150,3 +150,45 @@ UNL_CARD_FIND,Карта «Находка»,Card: The find
 UNL_CARD_FIND_D,Замешивается в драфт планов вылазки,Shuffled into the expedition draft
 UNL_DRAFT_PLUS,Драфт из четырёх,Draft of four
 UNL_DRAFT_PLUS_D,На Спаде показывают четыре карты вместо трёх,Four cards on the ebb instead of three
+UI_OK,Хорошо,OK
+UI_CANCEL,Отмена,Cancel
+UI_CLOSE,Закрыть,Close
+UI_CLOSE_X,x,x
+UI_DELETE,Удалить,Delete
+UI_CONFIRM_TITLE,Подтвердите,Please confirm
+UI_TYPE_WORD,"Введите слово «{word}», чтобы подтвердить","Type the word “{word}” to confirm"
+UI_CARD_RARE,Редкая,Rare
+POLICY_GREED,Жадность,Greed
+POLICY_CAUTION,Осторожность,Caution
+POLICY_REPAIR,Ремонт,Repair
+POLICY_BUILD,Стройка,Building
+POLICY_SUPPLY,Заготовка,Stockpiling
+POLICY_REST,Отдых,Rest
+CRISIS_SPRING_TIDE,Сизигия,Spring tide
+CRISIS_SPRING_TIDE_D,Высокая вода поднимется на два яруса выше обычного,High water will rise two tiers above normal
+CRISIS_STORM,Шторм,Storm
+CRISIS_STORM_D,Волна бьёт по всему, что ниже отметки +3,The surge hits everything below mark +3
+CRISIS_VISIT,Приход,The visit
+CRISIS_VISIT_D,Существа поднимаются со дна и грызут постройки,Creatures climb from the deep and gnaw at the buildings
+GALLERY_TITLE,Витрина компонентов,Component gallery
+GALLERY_LOCALE,Язык,Language
+GALLERY_BACKDROP,Подложка,Backdrop
+GALLERY_UI_SCALE,Масштаб интерфейса,UI scale
+GALLERY_BUTTONS,Кнопки,Buttons
+GALLERY_BTN_NORMAL,Обычная,Normal
+GALLERY_BTN_DISABLED,Недоступна,Disabled
+GALLERY_BTN_FOCUS,Фокус,Focus
+GALLERY_CHIPS,Чипы,Chips
+GALLERY_POLICIES,Политики,Policies
+GALLERY_VALUE,Значение,Value
+GALLERY_CARDS,Карты,Cards
+GALLERY_PANELS,Панели,Panels
+GALLERY_PANEL_TITLE,Панель с заголовком,Panel with a title
+GALLERY_PANEL_BODY,"Свайп вниз по шапке, Esc или крестик закрывают панель","Swipe down on the header, Esc or the cross closes the panel"
+GALLERY_TOOLTIP,Подсказка на тёмной подложке,A tooltip on a dark backdrop
+GALLERY_OPEN_RADIAL,Открыть радиал,Open the radial
+GALLERY_OPEN_CONFIRM,Открыть подтверждение,Open the confirmation
+GALLERY_CONFIRM_BODY,Это действие нельзя отменить,This action cannot be undone
+GALLERY_SLOT,Слот,Slot
+GALLERY_TOASTS,Тосты,Toasts
+GALLERY_TOAST,Событие,Event

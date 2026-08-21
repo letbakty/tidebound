@@ -6,7 +6,9 @@ extends Control
 ## чтобы прогон «запустил и посмотрел» был воспроизводимым.
 const DEV_SEED: int = 20260821
 const WORLD_SCENE: String = "res://game/world.tscn"
+const UI_THEME: String = "res://ui/theme/main_theme.tres"
 
+@onready var input_service: InputService = $InputService
 @onready var world_container: SubViewportContainer = $WorldContainer
 @onready var world_viewport: SubViewport = $WorldContainer/WorldViewport
 @onready var hud_layer: CanvasLayer = $HUDLayer
@@ -59,6 +61,12 @@ func _on_draft_ready(card_ids: Array[String]) -> void:
 
 func _on_cycle_ended(report: Dictionary) -> void:
 	print("[sim] итог цикла: ", report)
+
+## Тема слоям назначается ЯВНО: CanvasLayer — не Control, и каскад темы на нём
+## рвётся (research/19 §3). Через этот хелпер этапы 13–15 кладут свои корни.
+func attach_ui(layer: CanvasLayer, node: Control) -> void:
+	node.theme = load(UI_THEME) as Theme
+	layer.add_child(node)
 
 ## Зум мира ступенями 2..4.
 ## РЕШЕНИЕ (research/10 §1): stretch_shrink держим константой 2, зум делает камера.
