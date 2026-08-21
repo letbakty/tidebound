@@ -105,3 +105,12 @@ ERR_MARK,Не та отметка,Wrong mark
 ERR_OCCUPIED,Место занято,Space occupied
 ERR_NO_SUPPORT,Не на что опереть,Nothing to stand on
 ERR_NO_LADDER_SPOT,Здесь лестница не встанет,A ladder cannot go here
+RCP_FORGE_INGOT,Слиток,Ingot
+RCP_WORKBENCH_PART,Деталь,Part
+RCP_SALTERY_RATIONS,Провизия,Rations
+RCP_ROPERY_ROPE,Трос,Rope
+RCP_ROPERY_GEAR,Снаряжение,Gear
+RCP_EVAPORATOR_SALT,Выпаривание соли,Salt evaporation
+RCP_DRYER_FIBER,Волокно,Fiber
+RCP_RAINCATCHER_WATER,Дождевая вода,Rainwater
+RCP_CONDENSER_WATER,Конденсат,Condensate

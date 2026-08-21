@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="RecipeDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/recipe_def.gd" id="1_llvcl"]
+
+[resource]
+script = ExtResource("1_llvcl")
+id = "condenser_water"
+display_key = "RCP_CONDENSER_WATER"
+station_special = "condenser"
+outputs = Dictionary[String, int]({
+"freshwater": 2
+})
+passive_per = "cycle"
+needs_agent = false

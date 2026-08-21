@@ -34,6 +34,20 @@ static func set_wet(stack: Dictionary, wet: bool) -> void:
 	stack["wet"] = wet
 	stack["dry_left"] = Balance.DRY_CYCLES if wet else 0
 
+## Ключ буфера постройки. Мокрое хранится отдельно: горн сухой плавник
+## принимает, а мокрый — нет, и словарь {item: count} без этого различия
+## теряет разницу (research/17 §7.3).
+const WET_SUFFIX: String = "#wet"
+
+static func buffer_key(item_id: String, wet: bool) -> String:
+	return item_id + WET_SUFFIX if wet else item_id
+
+static func key_item(key: String) -> String:
+	return key.trim_suffix(WET_SUFFIX)
+
+static func key_is_wet(key: String) -> bool:
+	return key.ends_with(WET_SUFFIX)
+
 ## Нормализует стак, пришедший из JSON: все числа там float.
 static func from_json(d: Dictionary) -> Dictionary:
 	return {

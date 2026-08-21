@@ -37,7 +37,14 @@ static func prune(pending_jobs: Array[int], w: SimWorld) -> Array[int]:
 
 ## Склад, где лежит нужный предмет. Тай-брейк по меньшему id.
 static func source_for(item_id: String, w: SimWorld) -> Dictionary:
+	return source_for_dry(item_id, w, false)
+
+## dry_only нужен горну: мокрый плавник он не примет, и возить его туда
+## значит заклинить станцию навсегда.
+static func source_for_dry(item_id: String, w: SimWorld, dry_only: bool) -> Dictionary:
 	for s: Dictionary in w.storage.storages:
-		if w.storage.count_in(int(s["id"]), item_id) > 0:
+		var have: int = w.storage.count_dry(int(s["id"]), item_id) if dry_only \
+			else w.storage.count_in(int(s["id"]), item_id)
+		if have > 0:
 			return {"kind": "storage", "id": int(s["id"]), "cell": s["cell"]}
 	return {}

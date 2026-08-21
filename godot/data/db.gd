@@ -10,6 +10,7 @@ extends RefCounted
 static var _items: Dictionary[String, ItemDef] = {}
 static var _traits: Dictionary[String, TraitDef] = {}
 static var _buildings: Dictionary[String, BuildingDef] = {}
+static var _recipes: Dictionary[String, RecipeDef] = {}
 static var _loaded: bool = false
 
 # Задел под этапы 07/08/05/10/11 — папки уже существуют, загрузчик один и тот же.
@@ -29,12 +30,14 @@ static func ensure_loaded() -> void:
 	_load_dir(str(DIRS["items"]), _items)
 	_load_dir(str(DIRS["traits"]), _traits)
 	_load_dir(str(DIRS["buildings"]), _buildings)
+	_load_dir(str(DIRS["recipes"]), _recipes)
 
 ## Сбрасывает кэш. Нужен только тестам, которые проверяют сам загрузчик.
 static func reload() -> void:
 	_items.clear()
 	_traits.clear()
 	_buildings.clear()
+	_recipes.clear()
 	_loaded = false
 	ensure_loaded()
 
@@ -107,6 +110,24 @@ static func building_ids() -> Array[String]:
 	ensure_loaded()
 	var ids: Array[String] = []
 	ids.assign(_buildings.keys())
+	ids.sort()
+	return ids
+
+static func recipe(id: String) -> RecipeDef:
+	ensure_loaded()
+	var r: RecipeDef = _recipes.get(id, null)
+	if r == null:
+		push_error("DB: нет рецепта '%s'" % id)
+	return r
+
+static func has_recipe(id: String) -> bool:
+	ensure_loaded()
+	return _recipes.has(id)
+
+static func recipe_ids() -> Array[String]:
+	ensure_loaded()
+	var ids: Array[String] = []
+	ids.assign(_recipes.keys())
 	ids.sort()
 	return ids
 

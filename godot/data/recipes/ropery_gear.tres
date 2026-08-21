@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="RecipeDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/recipe_def.gd" id="1_vkrtk"]
+
+[resource]
+script = ExtResource("1_vkrtk")
+id = "ropery_gear"
+display_key = "RCP_ROPERY_GEAR"
+station_special = "ropery"
+inputs = Dictionary[String, int]({
+"fiber": 1,
+"rope": 1
+})
+outputs = Dictionary[String, int]({
+"gear": 1
+})
+work_seconds = 15.0
+unlock_id = "u_gear"

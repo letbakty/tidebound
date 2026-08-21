@@ -440,6 +440,12 @@ func _pick_up(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
 
 ## Вторая нога: сдать груз на склад или в буфер постройки.
 func _put_down(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
+	if not j.is_empty() and str(j["to_kind"]) == "basket":
+		# В корзину груз просто кладётся на землю: поднимет лебёдка.
+		for st_b: Dictionary in a.bag:
+			w.storage.drop(j["to_cell"] as Vector2i, st_b)
+		a.bag.clear()
+		return true
 	if not j.is_empty() and str(j["to_kind"]) == "building":
 		var bid: int = int(j["to_id"])
 		if not w.buildings.buildings.has(bid):
@@ -474,6 +480,12 @@ func _do_work(a: SimAgent, w: SimWorld) -> void:
 		return
 	if not _at_goal(a):
 		_advance_path(a, w)
+		return
+	if str(j["kind"]) == "station":
+		# Скорость станции — модификаторы черт внутри ProductionSystem:
+		# Кузнец быстрее у Горна, Солевар — в Солильне.
+		if w.production.advance_work(int(j["target_id"]), 1, a, w):
+			_finish_job(a, w)
 		return
 	# work_mult черты Трудяга ускоряет и стройку: вкладываем больше тика за тик.
 	var step: int = maxi(1, int(round(a.modifier("work_mult"))))

@@ -152,6 +152,18 @@ func count_in(storage_id: int, item_id: String) -> int:
 			n += int(cur["count"])
 	return n
 
+## Сколько СУХОГО предмета на складе.
+func count_dry(storage_id: int, item_id: String) -> int:
+	var i: int = storage_index(storage_id)
+	if i < 0:
+		return 0
+	var n: int = 0
+	for s: Variant in storages[i]["stacks"] as Array:
+		var cur: Dictionary = s as Dictionary
+		if str(cur["item_id"]) == item_id and not bool(cur["wet"]):
+			n += int(cur["count"])
+	return n
+
 ## Агрегат по ВСЕМ складам (предметы на земле не считаются — они ещё не ресурс
 ## колонии). Ключи отсортированы: словарь уходит в сигнал и в сейв.
 func totals() -> Dictionary[String, int]:
@@ -241,7 +253,7 @@ func remove_storage(id: int, w: SimWorld) -> bool:
 
 ## Затопление: срабатывает на ПЕРЕСЕЧЕНИИ уровнем отметки объекта, ровно один
 ## раз, а не каждый тик под водой.
-func on_tick(level: float) -> void:
+func on_tick(level: float, protected: Array[Vector2i] = []) -> void:
 	if is_equal_approx(level, _last_level):
 		return
 	for s: Dictionary in storages:
@@ -251,8 +263,9 @@ func on_tick(level: float) -> void:
 	var washed: int = 0
 	var kept: Array[Dictionary] = []
 	for g: Dictionary in ground:
-		var m: int = Balance.cell_to_mark(g["cell"] as Vector2i)
-		if _crossed_down(m, level):
+		var cell: Vector2i = g["cell"] as Vector2i
+		var m: int = Balance.cell_to_mark(cell)
+		if _crossed_down(m, level) and not protected.has(cell):
 			washed += int((g["stack"] as Dictionary)["count"])
 		else:
 			kept.append(g)

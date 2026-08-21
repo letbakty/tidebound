@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="RecipeDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/recipe_def.gd" id="1_bc6s3"]
+
+[resource]
+script = ExtResource("1_bc6s3")
+id = "saltery_rations"
+display_key = "RCP_SALTERY_RATIONS"
+station_special = "saltery"
+inputs = Dictionary[String, int]({
+"catch": 2,
+"freshwater": 1,
+"salt": 1
+})
+outputs = Dictionary[String, int]({
+"rations": 2
+})
+work_seconds = 10.0

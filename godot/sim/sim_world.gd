@@ -17,6 +17,7 @@ var storage: StorageSystem = StorageSystem.new()
 var agents: AgentSystem = AgentSystem.new()
 var jobs: JobSystem = JobSystem.new()
 var buildings: BuildingSystem = BuildingSystem.new()
+var production: ProductionSystem = ProductionSystem.new()
 var policies: PolicySet = PolicySet.new()
 
 ## Разбирается Game после tick(); Game обязан очистить массив.
@@ -62,6 +63,7 @@ func new_run(seed_value: int, cliff: CliffDef) -> void:
 	agents = AgentSystem.new()
 	jobs = JobSystem.new()
 	buildings = BuildingSystem.new()
+	production = ProductionSystem.new()
 	policies = PolicySet.new()
 	_cliff = cliff
 	events_out.clear()
@@ -81,6 +83,7 @@ func new_run(seed_value: int, cliff: CliffDef) -> void:
 		# Очаг горит с первого тика: иначе колония весь первый цикл живёт
 		# без единого источника тепла.
 		buildings.light_start_fires()
+		production.new_run()
 		refresh_heat_sources()
 		agents.new_run(self)
 	events_out.append(SimEvent.make("run_started", {"seed": seed_value}))
@@ -144,7 +147,11 @@ func tick() -> void:
 			e.data.merge(storage.on_cycle_ended(), true)
 			e.data.merge(agents.on_cycle_ended(self), true)
 			e.data.merge(jobs.on_cycle_ended(), true)
+			e.data.merge(production.on_cycle_ended(self), true)
 		elif e.type == "phase_changed":
+			# prev нужен именно здесь: «конец LOW» и «начало SIGNAL» — разные
+			# события, и испаритель отдаёт соль по первому.
+			production.on_phase_ended(int(e.data["prev"]), self)
 			buildings.on_phase_started(int(e.data["phase"]))
 		elif e.type == "cycle_started":
 			events_out.append_array(terrain.on_cycle_started(rng))
@@ -163,6 +170,7 @@ func tick() -> void:
 	_tick_storage()
 	_tick_run_state()
 	events_out.append_array(buildings.drain_events())
+	events_out.append_array(production.drain_events())
 	events_out.append_array(jobs.drain_events())
 	events_out.append_array(agents.drain_events())
 	events_out.append_array(storage.drain_events())
@@ -176,7 +184,7 @@ func _tick_buildings() -> void:
 	refresh_heat_sources()
 
 func _tick_production() -> void:
-	pass    # этап 08
+	production.tick(self)
 
 func _tick_jobs() -> void:
 	jobs.tick(self)
@@ -185,7 +193,8 @@ func _tick_agents() -> void:
 	agents.tick(self)
 
 func _tick_storage() -> void:
-	storage.on_tick(tide.level)
+	# Корзины лебёдки вода не вымывает — в этом их смысл.
+	storage.on_tick(tide.level, production.basket_cells(self))
 
 func _tick_run_state() -> void:
 	pass    # этап 11
@@ -193,6 +202,10 @@ func _tick_run_state() -> void:
 ## Клетка старта колонии. Систему агентов деф карты напрямую не касается.
 func cliff_spawn_cell() -> Vector2i:
 	return _cliff.spawn_cell if _cliff != null else Vector2i.ZERO
+
+## Идёт ли шторм. Наполняет этап 09; испаритель и дождесборник читают его
+## уже сейчас.
+var is_storm: bool = false
 
 ## Разблокировки Журнала. Наполняет этап 11; до тех пор — пустой список,
 ## и 🔒-постройки просто недоступны.
@@ -255,6 +268,7 @@ func to_dict() -> Dictionary:
 		"agents": agents.to_dict(),
 		"jobs": jobs.to_dict(),
 		"buildings": buildings.to_dict(),
+		"production": production.to_dict(),
 		"policies": policies.to_dict(),
 	}
 
@@ -279,6 +293,7 @@ func from_dict(d: Dictionary, cliff: CliffDef = null) -> void:
 	agents.from_dict(d.get("agents", {}) as Dictionary)
 	jobs.from_dict(d.get("jobs", {}) as Dictionary)
 	buildings.from_dict(d.get("buildings", {}) as Dictionary)
+	production.from_dict(d.get("production", {}) as Dictionary)
 	refresh_heat_sources()
 	policies.from_dict(d.get("policies", {}) as Dictionary)
 	events_out.clear()

@@ -200,8 +200,11 @@ func on_phase_started(_phase: int) -> void:
 func _request_materials(b: Dictionary, w: SimWorld) -> void:
 	b["pending_jobs"] = MaterialRequester.prune(b["pending_jobs"] as Array[int], w)
 	var d: BuildingDef = DB.building(str(b["def_id"]))
+	var have: Dictionary[String, int] = {}
+	for k2: String in d.cost:
+		have[k2] = buffer_count(b, k2, false)
 	var need: Dictionary[String, int] = MaterialRequester.missing(
-		d.cost, b["buffer"] as Dictionary, b["pending_jobs"] as Array[int], w)
+		d.cost, have, b["pending_jobs"] as Array[int], w)
 	for k: String in need:
 		if int(need[k]) <= 0:
 			continue
@@ -220,17 +223,46 @@ func deliver(building_id: int, stack: Dictionary, w: SimWorld) -> int:
 	if b.is_empty():
 		return int(stack["count"])
 	var buf: Dictionary = b["buffer"] as Dictionary
-	var item: String = str(stack["item_id"])
-	buf[item] = int(buf.get(item, 0)) + int(stack["count"])
+	var key: String = StackUtil.buffer_key(str(stack["item_id"]), bool(stack["wet"]))
+	buf[key] = int(buf.get(key, 0)) + int(stack["count"])
 	w.jobs.mark_dirty()
 	_pending.append(SimEvent.make("building_state_changed", {"id": building_id}))
 	return 0
 
+## Сколько нужного лежит в буфере. dry_only отсекает мокрое: горн его
+## не принимает, а Сушила — наоборот, только его и ждут.
+static func buffer_count(b: Dictionary, item_id: String, dry_only: bool) -> int:
+	var buf: Dictionary = b["buffer"] as Dictionary
+	var n: int = int(buf.get(item_id, 0))
+	if not dry_only:
+		n += int(buf.get(StackUtil.buffer_key(item_id, true), 0))
+	return n
+
+## Списывает из буфера, тратя сначала мокрое (если оно вообще годится):
+## сухое ценнее, оно горит.
+static func buffer_take(b: Dictionary, item_id: String, n: int, dry_only: bool) -> int:
+	var buf: Dictionary = b["buffer"] as Dictionary
+	var left: int = n
+	var order: Array[String] = [item_id] if dry_only \
+		else [StackUtil.buffer_key(item_id, true), item_id]
+	for key: String in order:
+		if left <= 0:
+			break
+		var have: int = int(buf.get(key, 0))
+		var take_n: int = mini(have, left)
+		if take_n <= 0:
+			continue
+		buf[key] = have - take_n
+		if int(buf[key]) <= 0:
+			buf.erase(key)
+		left -= take_n
+	return n - left
+
 func _try_start_construction(b: Dictionary, w: SimWorld) -> void:
 	var d: BuildingDef = DB.building(str(b["def_id"]))
-	var buf: Dictionary = b["buffer"] as Dictionary
 	for k: String in d.cost:
-		if int(buf.get(k, 0)) < int(d.cost[k]):
+		# Стройке всё равно, мокрое дерево или сухое: сушить его будет очаг.
+		if buffer_count(b, k, false) < int(d.cost[k]):
 			return
 	_set_state(b, SimTypes.BuildState.UNDER_CONSTRUCTION, w)
 	w.jobs.mark_dirty()
@@ -257,7 +289,9 @@ func advance_construction(building_id: int, ticks: int, w: SimWorld) -> bool:
 	if int(b["progress_ticks"]) < _build_ticks(d):
 		return false
 	b["progress_ticks"] = 0
-	(b["buffer"] as Dictionary).clear()
+	# Тратим ровно стоимость: излишки остаются станции как вход рецепта.
+	for k: String in d.cost:
+		buffer_take(b, k, int(d.cost[k]), false)
 	_set_state(b, SimTypes.BuildState.ACTIVE, w)
 	return true
 
@@ -425,9 +459,10 @@ func _destroy(b: Dictionary, w: SimWorld, refund_fraction: int) -> void:
 	bk.assign(buf.keys())
 	bk.sort()
 	for k2: String in bk:
-		if int(buf[k2]) > 0 and DB.has_item(k2):
+		var item: String = StackUtil.key_item(k2)
+		if int(buf[k2]) > 0 and DB.has_item(item):
 			w.storage.drop(_free_cell_near(b["cell"] as Vector2i, w),
-				StackUtil.make(k2, int(buf[k2]), false))
+				StackUtil.make(item, int(buf[k2]), StackUtil.key_is_wet(k2)))
 	_on_became_broken(b, w)
 	if d.special == "storage":
 		w.storage.remove_storage(w.storage.storage_at(storage_cell(b)), w)

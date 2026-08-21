@@ -59,6 +59,7 @@ func _rebuild(w: SimWorld) -> void:
 	_generate_gather(w)
 	_generate_haul(w)
 	_generate_build(w)
+	_generate_station(w)
 	_generate_needs(w)
 	_reorder()
 	_assign_gear(w)
@@ -125,13 +126,26 @@ func _generate_haul(w: SimWorld) -> void:
 		if w.terrain.platform_at(cell) < 0:
 			continue
 		var dest: int = _nearest_storage_with_room(w, cell)
+		var dest_cell: Vector2i = Vector2i.ZERO
+		if dest >= 0:
+			dest_cell = w.storage.storages[w.storage.storage_index(dest)]["cell"] as Vector2i
+		# Корзина лебёдки ближе склада — несём в неё: лебёдка поднимет сама.
+		var basket: Vector2i = _nearest_basket(w, cell)
+		if basket != Balance.NO_BEACON \
+				and (dest < 0 or _cell_dist(basket, cell) < _cell_dist(dest_cell, cell)):
+			var jb: Dictionary = _make_job(SimTypes.JobClass.HAUL, "haul_ground", cell, w)
+			jb["target_id"] = key
+			jb["item_id"] = str((g["stack"] as Dictionary)["item_id"])
+			jb["to_kind"] = "basket"
+			jb["to_cell"] = basket
+			continue
 		if dest < 0:
 			continue
 		var j: Dictionary = _make_job(SimTypes.JobClass.HAUL, "haul_ground", cell, w)
 		j["target_id"] = key
 		j["item_id"] = str((g["stack"] as Dictionary)["item_id"])
 		j["to_id"] = dest
-		j["to_cell"] = w.storage.storages[w.storage.storage_index(dest)]["cell"]
+		j["to_cell"] = dest_cell
 
 ## Стройка и ремонт «рекламируются» самой постройкой.
 func _generate_build(w: SimWorld) -> void:
@@ -157,6 +171,20 @@ static func _work_cell(b: Dictionary, _w: SimWorld) -> Vector2i:
 	var cell: Vector2i = b["cell"] as Vector2i
 	return Vector2i(cell.x, cell.y + d.size.y - 1)
 
+## Станция с полным буфером «рекламирует» работу.
+func _generate_station(w: SimWorld) -> void:
+	for id: int in w.buildings.order:
+		var b: Dictionary = w.buildings.buildings[id]
+		if not w.buildings.is_working(b):
+			continue
+		if w.production.pick_recipe(b, w).is_empty():
+			continue
+		if _has_job_for("station", id):
+			continue
+		var j: Dictionary = _make_job(SimTypes.JobClass.STATION, "station",
+			BuildingSystem.storage_cell(b), w)
+		j["target_id"] = id
+
 ## Потребности тоже «рекламируются»: еда — складом с провизией, отдых —
 ## жилой площадкой. Кому это нужно, решает скоринг (urgency у каждого свой).
 func _generate_needs(w: SimWorld) -> void:
@@ -179,6 +207,23 @@ func _generate_needs(w: SimWorld) -> void:
 		var j2: Dictionary = _make_job(SimTypes.JobClass.REST, "rest", h, w)
 		j2["target_id"] = key
 		j2["shared"] = true
+
+static func _cell_dist(a: Vector2i, b: Vector2i) -> float:
+	return absf(float(a.x - b.x)) + absf(float(a.y - b.y))
+
+## Ближайшая корзина работающей лебёдки, или NO_BEACON.
+func _nearest_basket(w: SimWorld, from_cell: Vector2i) -> Vector2i:
+	var best: Vector2i = Balance.NO_BEACON
+	var best_d: float = INF
+	for b: Dictionary in w.buildings.with_special("winch"):
+		if not w.buildings.is_working(b):
+			continue
+		var c: Vector2i = ProductionSystem.basket_cell(b)
+		var d: float = _cell_dist(c, from_cell)
+		if d < best_d:
+			best_d = d
+			best = c
+	return best
 
 static func _cell_key(cell: Vector2i) -> int:
 	return cell.x * 10000 + cell.y
@@ -223,6 +268,10 @@ func _still_valid(j: Dictionary, w: SimWorld) -> bool:
 		"repair":
 			var b2: Dictionary = w.buildings.buildings.get(int(j["target_id"]), {})
 			return not b2.is_empty() and bool(b2["damaged"])
+		"station":
+			var b3: Dictionary = w.buildings.buildings.get(int(j["target_id"]), {})
+			return not b3.is_empty() and w.buildings.is_working(b3) \
+				and not w.production.pick_recipe(b3, w).is_empty()
 		"haul_request":
 			# Носильщик с грузом доносит его до конца.
 			if _carrier_holds(j, w):

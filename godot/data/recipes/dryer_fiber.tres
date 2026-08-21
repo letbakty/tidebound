@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="RecipeDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/recipe_def.gd" id="1_4gd6c"]
+
+[resource]
+script = ExtResource("1_4gd6c")
+id = "dryer_fiber"
+display_key = "RCP_DRYER_FIBER"
+station_special = "dryer"
+inputs = Dictionary[String, int]({
+"kelp": 3
+})
+outputs = Dictionary[String, int]({
+"fiber": 1
+})
+passive_per = "cycle"
+needs_agent = false

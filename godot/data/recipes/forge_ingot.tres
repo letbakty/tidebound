@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="RecipeDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/recipe_def.gd" id="1_5tke0"]
+
+[resource]
+script = ExtResource("1_5tke0")
+id = "forge_ingot"
+display_key = "RCP_FORGE_INGOT"
+station_special = "forge"
+inputs = Dictionary[String, int]({
+"driftwood": 1,
+"scrap": 2
+})
+outputs = Dictionary[String, int]({
+"ingot": 1
+})
+work_seconds = 20.0

@@ -66,6 +66,9 @@ static func test_i18n_keys_exist(t: TestCtx) -> void:
 		var bd: BuildingDef = DB.building(bid)
 		t.check(known.has(bd.display_key),
 			"нет ключа '%s' (постройка %s)" % [bd.display_key, bid])
+	for rid: String in DB.recipe_ids():
+		t.check(known.has(DB.recipe(rid).display_key),
+			"нет ключа '%s' (рецепт %s)" % [DB.recipe(rid).display_key, rid])
 	for err: String in ["ERR_LOCKED", "ERR_MARK", "ERR_OCCUPIED", "ERR_NO_SUPPORT",
 			"ERR_NO_LADDER_SPOT"]:
 		t.check(known.has(err), "нет ключа причины отказа '%s'" % err)
@@ -159,6 +162,10 @@ static func _snapshot() -> String:
 		var bd: BuildingDef = DB.building(bid)
 		all.append([bd.id, bd.display_key, str(bd.size), bd.cost, bd.min_mark,
 			bd.max_mark, int(bd.flood_rule), bd.storm_breaks, bd.hp, bd.special])
+	for rid2: String in DB.recipe_ids():
+		var rd: RecipeDef = DB.recipe(rid2)
+		all.append([rd.id, rd.station_special, rd.inputs, rd.outputs,
+			rd.work_seconds, rd.passive_per, rd.needs_agent])
 	return JSON.stringify(all)
 
 ## Загрузчик обязан пережить перезагрузку кэша: ensure_loaded() зовётся из
