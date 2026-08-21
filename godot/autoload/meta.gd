@@ -19,6 +19,11 @@ var agents_lost: int = 0
 var best_score: int = 0
 ## История забегов: {n, score, end, cycles, deaths: [{name, cause, bio}]}.
 var history: Array[Dictionary] = []
+## Разблокировки, которые игрок ещё не видел в Журнале: подсвечиваются рамкой
+## до первого просмотра (docs/03 §3.5).
+var seen_unlocks: Array[String] = []
+## Показанные межзабежные подсказки: внутризабежные живут в ui-секции сейва.
+var hints_shown: Array[String] = []
 
 var _dirty: bool = false
 
@@ -75,6 +80,29 @@ func record_run(report: Dictionary) -> void:
 	})
 	mark_dirty()
 
+## Новое = купленное, но ещё не просмотренное в Журнале.
+func is_unlock_new(id: String) -> bool:
+	return unlocked.has(id) and not seen_unlocks.has(id)
+
+## Журнал закрыли — всё увиденное перестаёт светиться.
+func mark_unlocks_seen() -> void:
+	for id: String in unlocked:
+		if not seen_unlocks.has(id):
+			seen_unlocks.append(id)
+	seen_unlocks.sort()
+	mark_dirty()
+
+## Подсказка показывалась хоть раз за всё время. Помечаем в момент постановки
+## в очередь, а не показа: иначе выход из игры повторит её при следующем
+## запуске (research/22 §6).
+func note_hint(id: String) -> bool:
+	if hints_shown.has(id):
+		return false
+	hints_shown.append(id)
+	hints_shown.sort()
+	mark_dirty()
+	return true
+
 func stats() -> Dictionary:
 	return {
 		"runs_played": runs_played, "runs_won": runs_won,
@@ -92,6 +120,8 @@ func to_dict() -> Dictionary:
 		"runs_played": runs_played, "runs_won": runs_won,
 		"cycles_total": cycles_total, "agents_lost": agents_lost,
 		"best_score": best_score, "history": history.duplicate(true),
+		"seen_unlocks": seen_unlocks.duplicate(),
+		"hints_shown": hints_shown.duplicate(),
 	}
 
 func from_dict(d: Dictionary) -> void:
@@ -106,6 +136,12 @@ func from_dict(d: Dictionary) -> void:
 	unlocked.clear()
 	for v: Variant in d.get("unlocked", []) as Array:
 		unlocked.append(str(v))
+	seen_unlocks.clear()
+	for sv: Variant in d.get("seen_unlocks", []) as Array:
+		seen_unlocks.append(str(sv))
+	hints_shown.clear()
+	for hv: Variant in d.get("hints_shown", []) as Array:
+		hints_shown.append(str(hv))
 	history.clear()
 	for h: Variant in d.get("history", []) as Array:
 		var e: Dictionary = h as Dictionary
@@ -140,4 +176,6 @@ func wipe() -> void:
 	best_score = 0
 	unlocked.clear()
 	history.clear()
+	seen_unlocks.clear()
+	hints_shown.clear()
 	save_profile()

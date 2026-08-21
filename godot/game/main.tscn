@@ -41,5 +41,8 @@ layer = 20
 [node name="BannerLayer" type="CanvasLayer" parent="."]
 layer = 30
 
+[node name="ScreenLayer" type="CanvasLayer" parent="."]
+layer = 40
+
 [node name="DebugLayer" type="CanvasLayer" parent="."]
 layer = 100

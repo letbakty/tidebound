@@ -179,12 +179,12 @@ func _on_run_started(_seed_value: int) -> void:
 
 func _on_crisis_announced(type: int, cycle: int) -> void:
 	notices.push(NoticeQueue.Kind.BANNER, {
-		"title": _crisis_key(type), "text": "%s_D" % _crisis_key(type),
+		"title": crisis_key(type), "text": "%s_D" % crisis_key(type),
 		"tone": _crisis_tone(type), "type": type, "cycle": cycle})
 
 func _on_crisis_started(type: int) -> void:
 	notices.push(NoticeQueue.Kind.BANNER, {
-		"title": _crisis_key(type), "text": "%s_D" % _crisis_key(type),
+		"title": crisis_key(type), "text": "%s_D" % crisis_key(type),
 		"tone": _crisis_tone(type), "type": type, "cycle": 0})
 
 ## Автопауза — только на ПЕРВОМ появлении типа за забег: дальше игрок уже
@@ -292,7 +292,8 @@ func _dead_name(id: int) -> String:
 	var a: Dictionary = Game.query_agent(id)
 	return str(a.get("name", "?"))
 
-static func _crisis_key(type: int) -> String:
+## Ключ названия кризиса: им пользуются и экраны итогов.
+static func crisis_key(type: int) -> String:
 	match type:
 		int(SimTypes.CrisisType.SPRING_TIDE): return "CRISIS_SPRING_TIDE"
 		int(SimTypes.CrisisType.STORM): return "CRISIS_STORM"

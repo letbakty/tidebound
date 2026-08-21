@@ -2,9 +2,6 @@ extends Control
 ## Корень игры: гибридный вьюпорт (мир в SubViewport 640x360) + слои UI.
 ## Дерево и обоснование — docs/01 §1.1, research/10 §4.
 
-## Сид автостарта до появления главного меню (этап 15). Фиксированный —
-## чтобы прогон «запустил и посмотрел» был воспроизводимым.
-const DEV_SEED: int = 20260821
 const WORLD_SCENE: String = "res://game/world.tscn"
 const UI_THEME: String = "res://ui/theme/main_theme.tres"
 const HUD_SCENE: String = "res://ui/hud/hud.tscn"
@@ -27,6 +24,7 @@ const STATION_SPECIALS: Array[String] = ["forge", "workbench", "evaporator",
 @onready var hud_layer: CanvasLayer = $HUDLayer
 @onready var panel_layer: CanvasLayer = $PanelLayer
 @onready var banner_layer: CanvasLayer = $BannerLayer
+@onready var screen_layer: CanvasLayer = $ScreenLayer
 @onready var debug_layer: CanvasLayer = $DebugLayer
 
 var world_view: WorldView = null
@@ -34,16 +32,17 @@ var hud: Hud = null
 var panels: PanelHost = null
 var build_radial: BuildRadial = null
 var deposit_tip: DepositTooltip = null
+var router: ScreenRouter = null
+var hints: HintCard = null
 ## Режим установки маяка: следующий тап по миру ставит маяк.
 var _beacon_mode: bool = false
 ## Корни UI на слоях: их размер держим синхронным с окном вручную.
 var _layer_roots: Array[Control] = []
 
 func _ready() -> void:
-	# TODO(этап 15): забег начинает MainMenu, автостарт убрать.
-	Events.phase_changed.connect(_on_phase_changed)
 	Events.cycle_ended.connect(_on_cycle_ended)
 	Events.draft_ready.connect(_on_draft_ready)
+	Events.run_ended.connect(_on_run_ended)
 	# Сначала собирается ВСЯ сцена, и только потом стартует забег: стартовые
 	# события (ресурсы, постройки, агенты) уходят один раз, и подписчик,
 	# созданный позже, их уже не увидит. World рисует рельеф по run_started.
@@ -51,13 +50,14 @@ func _ready() -> void:
 	world_viewport.add_child(world_view)
 	_spawn_hud()
 	_spawn_panels()
+	_spawn_screens()
 	_wire_gestures()
 	_spawn_debug_panel()
 	# Один обработчик на все корни: connect с .bind() для каждого узла движок
 	# считает одним и тем же callable и ругается на повторное соединение.
 	get_viewport().size_changed.connect(_restretch_layer_roots)
-	Game.cmd_new_run(DEV_SEED)
-	Game.cmd_set_speed(1)
+	# Забег начинает игрок из меню: автостарта больше нет (docs/03 §2).
+	router.goto(ScreenRouter.Screen.BOOT)
 
 ## HUD кладётся на свой слой через attach_ui: каскад темы на CanvasLayer
 ## рвётся, и корню слоя тема нужна явно (research/19 §3).
@@ -117,6 +117,158 @@ func _spawn_panels() -> void:
 	hud.agent_card_requested.connect(func(id: int) -> void:
 		panels.open(PANEL_AGENT, {"id": id}))
 
+## Экраны живут на своём слое и переключаются видимостью (research/22 §1).
+func _spawn_screens() -> void:
+	router = ScreenRouter.new()
+	router.name = "ScreenRouter"
+	attach_ui(screen_layer, router)
+	router.setup_layers(world_container, hud_layer, panel_layer)
+
+	var boot: BootScreen = BootScreen.new()
+	boot.name = "BootScreen"
+	router.register(ScreenRouter.Screen.BOOT, boot)
+	boot.finished.connect(_on_boot_finished)
+
+	var first: FirstLaunch = FirstLaunch.new()
+	first.name = "FirstLaunch"
+	router.register(ScreenRouter.Screen.FIRST_LAUNCH, first)
+	first.done.connect(func(open_access: bool) -> void:
+		Settings.apply()
+		if open_access:
+			router.open_settings_from(ScreenRouter.Screen.MAIN_MENU)
+		else:
+			router.goto(ScreenRouter.Screen.MAIN_MENU))
+
+	var menu: MainMenu = MainMenu.new()
+	menu.name = "MainMenu"
+	router.register(ScreenRouter.Screen.MAIN_MENU, menu)
+	menu.continue_requested.connect(_continue_run)
+	menu.new_run_requested.connect(_start_run)
+	menu.journal_requested.connect(func() -> void:
+		router.goto(ScreenRouter.Screen.JOURNAL))
+	menu.settings_requested.connect(func() -> void:
+		router.open_settings_from(ScreenRouter.Screen.MAIN_MENU))
+	menu.credits_requested.connect(func() -> void:
+		router.goto(ScreenRouter.Screen.CREDITS))
+	menu.quit_requested.connect(func() -> void: get_tree().quit())
+
+	var journal: JournalScreen = JournalScreen.new()
+	journal.name = "JournalScreen"
+	router.register(ScreenRouter.Screen.JOURNAL, journal)
+	journal.back_requested.connect(func() -> void:
+		router.goto(ScreenRouter.Screen.MAIN_MENU))
+
+	var settings: SettingsScreen = SettingsScreen.new()
+	settings.name = "SettingsScreen"
+	router.register(ScreenRouter.Screen.SETTINGS, settings)
+	settings.back_requested.connect(func() -> void:
+		var back: ScreenRouter.Screen = router.settings_return()
+		router.goto(back)
+		# Настройки открывали из паузы — возвращаемся именно в неё.
+		if back == ScreenRouter.Screen.GAME:
+			router.open_modal(ScreenRouter.Modal.PAUSE, {}, true))
+	settings.profile_reset.connect(func() -> void:
+		router.goto(ScreenRouter.Screen.MAIN_MENU))
+
+	var credits: CreditsScreen = CreditsScreen.new()
+	credits.name = "CreditsScreen"
+	router.register(ScreenRouter.Screen.CREDITS, credits)
+	credits.back_requested.connect(func() -> void:
+		router.goto(ScreenRouter.Screen.MAIN_MENU))
+
+	# Экран игры — пустышка: мир и HUD живут на своих слоях, роутер только
+	# включает их видимость.
+	var game_screen: ScreenBase = ScreenBase.new()
+	game_screen.name = "GameScreen"
+	router.register(ScreenRouter.Screen.GAME, game_screen)
+	game_screen.modulate = Color(1.0, 1.0, 1.0, 0.0)
+	game_screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	_spawn_modals()
+
+	hints = HintCard.new()
+	hints.name = "HintCard"
+	attach_ui(hud_layer, hints)
+	var save_mark: SaveIndicator = SaveIndicator.new()
+	save_mark.name = "SaveIndicator"
+	attach_ui(hud_layer, save_mark)
+
+func _spawn_modals() -> void:
+	var draft: DraftPanel = DraftPanel.new()
+	draft.name = "DraftPanel"
+	router.register_modal(ScreenRouter.Modal.DRAFT, draft)
+	draft.card_confirmed.connect(func(card_id: String) -> void:
+		router.close_modal()
+		Game.cmd_pick_card(card_id))
+
+	var cycle: CycleSummary = CycleSummary.new()
+	cycle.name = "CycleSummary"
+	router.register_modal(ScreenRouter.Modal.CYCLE_SUMMARY, cycle)
+	cycle.closed.connect(func() -> void:
+		router.close_modal()
+		# Паузу ставил Game на границе цикла — снимаем её тем же счётчиком.
+		Game.pop_pause())
+
+	var run: RunSummary = RunSummary.new()
+	run.name = "RunSummary"
+	router.register_modal(ScreenRouter.Modal.RUN_SUMMARY, run)
+	run.journal_requested.connect(func() -> void:
+		router.close_modal()
+		router.goto(ScreenRouter.Screen.JOURNAL))
+
+	var pause: PausePanel = PausePanel.new()
+	pause.name = "PausePanel"
+	router.register_modal(ScreenRouter.Modal.PAUSE, pause)
+	pause.resume_requested.connect(func() -> void: router.close_modal())
+	pause.settings_requested.connect(func() -> void:
+		router.close_modal()
+		router.open_settings_from(ScreenRouter.Screen.GAME))
+	pause.menu_requested.connect(func() -> void:
+		Game.cmd_save()
+		router.close_modal()
+		router.goto(ScreenRouter.Screen.MAIN_MENU))
+	pause.leave_requested.connect(func(early: bool) -> void:
+		router.close_modal()
+		if early:
+			Game.cmd_leave_early()
+		else:
+			Game.cmd_surrender())
+
+	var error: ErrorDialog = ErrorDialog.new()
+	error.name = "ErrorDialog"
+	router.register_modal(ScreenRouter.Modal.ERROR, error)
+	error.closed.connect(func() -> void:
+		router.close_modal()
+		router.goto(ScreenRouter.Screen.MAIN_MENU))
+
+func _on_boot_finished(profile_ok: bool) -> void:
+	if not profile_ok:
+		router.open_modal(ScreenRouter.Modal.ERROR, {
+			"what": "ERROR_PROFILE_BROKEN", "did": "ERROR_PROFILE_BROKEN_DID",
+			"details": Meta.PROFILE_PATH}, false)
+		return
+	# Профиля нет вовсе — это первый запуск: спрашиваем язык (docs/03 §3.2).
+	router.goto(ScreenRouter.Screen.FIRST_LAUNCH if not Settings.has_file()
+		else ScreenRouter.Screen.MAIN_MENU)
+
+func _start_run(seed_value: int) -> void:
+	Game.cmd_new_run(seed_value)
+	world_view.camera.set_zoom_step(Settings.world_zoom)
+	router.goto(ScreenRouter.Screen.GAME)
+	Game.cmd_set_speed(Settings.default_speed)
+
+## Продолжение забега из сейва. Битый файл — ErrorDialog, профиль не трогаем
+## (docs/03 §8).
+func _continue_run() -> void:
+	if not Game.cmd_load():
+		router.open_modal(ScreenRouter.Modal.ERROR, {
+			"what": "ERROR_SAVE_BROKEN", "did": "ERROR_SAVE_BROKEN_DID",
+			"details": SaveService.RUN_PATH}, false)
+		return
+	world_view.camera.set_zoom_step(Settings.world_zoom)
+	router.goto(ScreenRouter.Screen.GAME)
+	Game.cmd_set_speed(0)
+
 ## InputService эмитит свои сигналы и никого не зовёт сам — связывает их Main.
 func _wire_gestures() -> void:
 	var camera: CameraRig = world_view.camera
@@ -138,6 +290,15 @@ func _wire_gestures() -> void:
 
 ## Клавиши панелей: политики (P), радиал стройки (B), маяк (M).
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("pause_menu") and router.current == ScreenRouter.Screen.GAME:
+		# Панель закрывает PanelHost сам; сюда событие дойдёт только если
+		# открытых панелей нет — тогда это запрос окна паузы (docs/03 §2).
+		if not router.is_modal_open():
+			router.open_modal(ScreenRouter.Modal.PAUSE, {}, true)
+			get_viewport().set_input_as_handled()
+		return
+	if router.current != ScreenRouter.Screen.GAME or router.is_modal_open():
+		return
 	if event.is_action_pressed("policies"):
 		panels.open(PANEL_POLICIES)
 		get_viewport().set_input_as_handled()
@@ -249,22 +410,23 @@ func _spawn_debug_panel() -> void:
 	debug_layer.add_child(panel)
 	panel.call("setup", world_view)
 
-func _on_phase_changed(phase: int, cycle: int) -> void:
-	print("[sim] цикл %d, фаза %s, вода %.2f" % [
-		cycle, SimTypes.phase_name(phase), Game.world.tide.level])
-
-## Драфт ставит игру на автопаузу и ждёт выбора. Панели выбора ещё нет
-## (этап 15), а без выбора мир стоит намертво — поэтому здесь временный
-## дублёр: берём первую карту. Кнопки выбора есть в дебаг-панели.
-## TODO(этап 15): убрать вместе с автостартом — выбирать будет DraftPanel.
+## Драфт, итог цикла и итог забега — модальные окна поверх живой игры.
 func _on_draft_ready(card_ids: Array[String]) -> void:
-	if card_ids.is_empty():
+	if card_ids.is_empty() or router.current != ScreenRouter.Screen.GAME:
 		return
-	print("[sim] драфт: ", card_ids, " → берём ", card_ids[0])
-	Game.cmd_pick_card(card_ids[0])
+	# Паузу уже поставил Game (если игрок её не выключил) — второй раз не ставим.
+	router.open_modal(ScreenRouter.Modal.DRAFT, {"cards": card_ids}, false)
 
 func _on_cycle_ended(report: Dictionary) -> void:
-	print("[sim] итог цикла: ", report)
+	if router.current != ScreenRouter.Screen.GAME:
+		return
+	router.open_modal(ScreenRouter.Modal.CYCLE_SUMMARY, {"report": report}, false)
+
+## Забег кончился, пока была открыта панель — панель закрывается, итог поверх
+## (docs/03 §8).
+func _on_run_ended(report: Dictionary) -> void:
+	panels.close()
+	router.open_modal(ScreenRouter.Modal.RUN_SUMMARY, {"report": report}, false)
 
 ## Тема слоям назначается ЯВНО: CanvasLayer — не Control, и каскад темы на нём
 ## рвётся (research/19 §3). Через этот хелпер этапы 13–15 кладут свои корни.

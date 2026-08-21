@@ -58,6 +58,21 @@ func load_run() -> bool:
 	Game.restore_world(d.get("world", {}) as Dictionary)
 	return true
 
+## Короткая справка о сейве для меню: на каком цикле остановились и какой сид.
+## Читает файл, а не мир: в меню мира ещё нет.
+func saved_info() -> Dictionary:
+	var d: Dictionary = SaveIO.read_json(RUN_PATH)
+	if d.is_empty() or int(d.get("save_version", 0)) != SAVE_VERSION:
+		return {}
+	var world: Dictionary = d.get("world", {}) as Dictionary
+	var clock: Dictionary = world.get("clock", {}) as Dictionary
+	return {"cycle": int(clock.get("cycle", 1)), "seed": int(d.get("seed", 0))}
+
+## Сейв есть и он читается: «Продолжить» на битом файле показывать нельзя
+## (docs/03 §8).
+func has_valid_save() -> bool:
+	return not saved_info().is_empty()
+
 func saved_ui() -> Dictionary:
 	var d: Dictionary = SaveIO.read_json(RUN_PATH)
 	return d.get("ui", {}) as Dictionary

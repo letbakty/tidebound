@@ -149,7 +149,11 @@ func push_pause() -> void:
 	cmd_set_speed(0)
 
 func pop_pause() -> void:
-	_pause_depth = maxi(_pause_depth - 1, 0)
+	# Ноль — значит паузу никто не ставил (настройка автопаузы выключена):
+	# «снимать» её было бы вмешательством в текущую скорость игрока.
+	if _pause_depth == 0:
+		return
+	_pause_depth -= 1
 	if _pause_depth == 0:
 		cmd_set_speed(_paused_speed)
 
@@ -264,6 +268,17 @@ func query_dry_totals() -> Dictionary:
 	if world == null:
 		return {}
 	return world.storage.totals_dry()
+
+## Лёгкий срез для КАДРА: три поля без единой копии. Полный query_agent
+## вызывает только карточка агента и раз в секунду — глубокая копия котомки
+## шестьдесят раз в секунду на каждого агента не нужна никому (review/04 PERF-01).
+func query_agent_look(id: int) -> Dictionary:
+	if world == null:
+		return {}
+	var a: SimAgent = world.agents.agent(id)
+	if a == null:
+		return {}
+	return {"state": int(a.state), "wet": a.wet, "facing": a.facing}
 
 ## Мировая позиция агента в пикселях — для AgentView каждый кадр.
 func query_agent_pos(id: int) -> Vector2:
@@ -424,6 +439,16 @@ func query_policies() -> Dictionary:
 		out[pol] = world.policies.get_value(pol)
 	return out
 
+## Живые агенты для экрана итога: имена нужны рядом с эпитафиями погибших.
+func query_survivors() -> Array:
+	var out: Array = []
+	if world == null:
+		return out
+	for a: SimAgent in world.agents.agents:
+		if a.is_alive():
+			out.append({"name": a.agent_name, "bio": a.bio_key})
+	return out
+
 ## Списки для панелей и радиала: что вообще можно построить в этом забеге.
 func query_unlocked_buildings() -> Array[String]:
 	var out: Array[String] = []
@@ -526,7 +551,9 @@ func _flush_events() -> void:
 				Events.cycle_started.emit(int(e.data["cycle"]))
 			"cycle_ended":
 				# Автопауза Итога цикла и автосейв на границе (docs/00 §4, §14).
-				push_pause()
+				# Какие события паузят — решает игрок (docs/03 §3.6).
+				if Settings.pause_on_cycle:
+					push_pause()
 				SaveService.save_run(ui_state)
 				Events.cycle_ended.emit(e.data as Dictionary)
 			"run_started":
@@ -573,7 +600,8 @@ func _flush_events() -> void:
 					ids.append(str(v))
 				# Автопауза драфта: скорость запоминаем, чтобы вернуть её
 				# после выбора (docs/00 §4).
-				push_pause()
+				if Settings.pause_on_draft:
+					push_pause()
 				Events.draft_ready.emit(ids)
 			"card_picked":
 				Events.card_picked.emit(str(e.data["card"]))

@@ -13,6 +13,8 @@ config_version=5
 config/name="Tidebound"
 config/description="Колония на приливной отмели"
 run/main_scene="res://game/main.tscn"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="Tidebound"
 config/features=PackedStringArray("4.7", "Mobile")
 config/icon="res://icon.svg"
 

@@ -217,6 +217,34 @@ static func test_ui_keys_exist(t: TestCtx) -> void:
 			t.check(known.has(key), "%s: ключа %s нет в strings.csv" % [path.get_file(), key])
 	t.check(checked > 10, "ключи локализации в ui/ не нашлись — проверь регулярку")
 
+## ⚠️ Незакавыченная запятая в русской строке рвёт CSV: значение обрезается
+## по запятой, а хвост уезжает в английскую колонку. На экране это выглядит
+## как оборванная фраза — так пропала половина биографий агентов.
+static func test_csv_is_well_formed(t: TestCtx) -> void:
+	var f: FileAccess = FileAccess.open("res://assets/i18n/strings.csv", FileAccess.READ)
+	if f == null:
+		t.check(false, "не открылся strings.csv")
+		return
+	var seen: Dictionary[String, bool] = {}
+	var line_no: int = 0
+	while not f.eof_reached():
+		var row: PackedStringArray = f.get_csv_line()
+		line_no += 1
+		if row.size() == 1 and row[0].is_empty():
+			continue                       # хвостовая пустая строка
+		t.check_eq(row.size(), 3, "строка %d: колонок должно быть три (%s)"
+			% [line_no, row[0]])
+		if row.size() < 3:
+			continue
+		if line_no == 1:
+			continue                       # заголовок keys,ru,en
+		t.check(not seen.has(row[0]), "ключ %s повторяется" % row[0])
+		seen[row[0]] = true
+		t.check(not row[1].strip_edges().is_empty(), "%s: пустой русский текст" % row[0])
+		t.check(not row[2].strip_edges().is_empty(), "%s: пустой английский текст" % row[0])
+	f.close()
+	t.check(seen.size() > 300, "ключей подозрительно мало: %d" % seen.size())
+
 # --- Утилиты --------------------------------------------------------------
 
 static func _gd_files(dir_path: String) -> Array[String]:

@@ -14,30 +14,30 @@ ITEM_ROPE,Трос,Rope
 ITEM_GEAR,Снаряжение,Gear
 ITEM_RELIC,Реликвия,Relic
 BIO_01,Выросла на маяке и с детства знает голос колокола,Grew up on a lighthouse; knows the bell by heart
-BIO_02,Пришёл с материка за долгами, остался за отливом,Came ashore over debts, stayed for the ebb
-BIO_03,Считает, что вода помнит имена утонувших,Believes the water remembers drowned names
-BIO_04,Собирал руины до того, как это стало работой,Picked the ruins before it was a job
+BIO_02,"Пришёл с материка за долгами, остался за отливом","Came ashore over debts, stayed for the ebb"
+BIO_03,"Считает, что вода помнит имена утонувших",Believes the water remembers drowned names
+BIO_04,"Собирал руины до того, как это стало работой",Picked the ruins before it was a job
 BIO_05,Не спит в высокую воду — привычка с прошлой колонии,Never sleeps at high water — a habit from the last colony
 BIO_06,Единственный выживший из артели у дальних руин,Sole survivor of a crew lost at the deep ruins
 BIO_07,Умеет читать погоду по цвету пены,Reads the weather in the colour of the foam
-BIO_08,Ушла из города, чтобы не видеть больше стен,Left the city to stop seeing walls
+BIO_08,"Ушла из города, чтобы не видеть больше стен",Left the city to stop seeing walls
 BIO_09,Держит счёт каждому найденному слитку,Keeps a tally of every ingot ever found
-BIO_10,Верит, что колокол зовёт не только людей,Thinks the bell calls more than people
+BIO_10,"Верит, что колокол зовёт не только людей",Thinks the bell calls more than people
 BIO_11,Знал прежнего смотрителя утёса лично,Knew the previous keeper of the cliff
-BIO_12,Ходит по лестницам быстрее, чем по площадке,Climbs ladders faster than they walk
+BIO_12,"Ходит по лестницам быстрее, чем по площадке",Climbs ladders faster than they walk
 BIO_13,Прячет реликвии и никому не показывает,Hides relics and shows them to no one
 BIO_14,Родился в год Великого отлива,Born in the year of the Great Ebb
-BIO_15,Не спускается ниже, чем нужно, и гордится этим,Never goes deeper than needed, and is proud of it
+BIO_15,"Не спускается ниже, чем нужно, и гордится этим","Never goes deeper than needed, and is proud of it"
 BIO_16,Носит верёвку даже во сне,Carries rope even while asleep
 BIO_17,Считала дни до судна ещё до высадки,Counted days to the ship before ever landing
-BIO_18,Пришёл сам, по берегу, без объяснений,Walked in along the shore, explaining nothing
+BIO_18,"Пришёл сам, по берегу, без объяснений","Walked in along the shore, explaining nothing"
 BIO_19,Помнит вкус солёного хлеба с прошлой зимы,Remembers the taste of salt bread from last winter
 BIO_20,Ведёт список погибших и добавляет туда себя карандашом,Keeps a list of the dead and pencils themself in
-BIO_21,Уверен, что руины кто-то строил не для людей,Certain the ruins were not built for people
+BIO_21,"Уверен, что руины кто-то строил не для людей",Certain the ruins were not built for people
 BIO_22,Спорит с приливом вслух,Argues with the tide out loud
 BIO_23,Собирает водоросли аккуратнее всех,Gathers kelp more carefully than anyone
-BIO_24,Была кузнецом, пока не кончился уголь,Was a smith until the coal ran out
-BIO_25,Не боится глубины, боится тишины,Not afraid of the deep, afraid of the silence
+BIO_24,"Была кузнецом, пока не кончился уголь",Was a smith until the coal ran out
+BIO_25,"Не боится глубины, боится тишины","Not afraid of the deep, afraid of the silence"
 BIO_26,Носит в котомке чужой медальон,Carries someone else's locket in their bag
 BIO_27,Первым слышит шум прихода,First to hear the visit coming
 BIO_28,Считает утёс живым,Considers the cliff a living thing
@@ -72,7 +72,7 @@ TRAIT_SHARP_EYE_D,Чаще находит реликвии,Finds relics more oft
 TRAIT_SKITTISH,Пугливый,Skittish
 TRAIT_SKITTISH_D,Пугается существ издалека,Panics at creatures from afar
 TRAIT_GRINDER,Трудяга,Grinder
-TRAIT_GRINDER_D,Работает быстрее, но тоскует без дела,Works faster, but pines without work
+TRAIT_GRINDER_D,"Работает быстрее, но тоскует без дела","Works faster, but pines without work"
 TRAIT_SLEEPY,Соня,Sleepy
 TRAIT_SLEEPY_D,Устаёт быстрее обычного,Tires faster than most
 TRAIT_VETERAN,Ветеран отливов,Ebb veteran
@@ -115,11 +115,11 @@ RCP_DRYER_FIBER,Волокно,Fiber
 RCP_RAINCATCHER_WATER,Дождевая вода,Rainwater
 RCP_CONDENSER_WATER,Конденсат,Condensate
 CARD_DEEP_DIVE,Глубокий заход,Deep dive
-CARD_DEEP_DIVE_D,Отлив уходит до −10, но времени на дне меньше,The ebb drops to −10, but there is less time down there
+CARD_DEEP_DIVE_D,"Отлив уходит до −10, но времени на дне меньше","The ebb drops to −10, but there is less time down there"
 CARD_FAST_HAUL,Быстрый сбор,Fast haul
-CARD_FAST_HAUL_D,Переносить быстрее, но котомка меньше,Carry faster, but the bag is smaller
+CARD_FAST_HAUL_D,"Переносить быстрее, но котомка меньше","Carry faster, but the bag is smaller"
 CARD_CAREFUL,Осторожно,Careful
-CARD_CAREFUL_D,Возвращаются раньше и дольше держатся под водой, но добывают медленнее,They return earlier and hold their breath longer, but gather slower
+CARD_CAREFUL_D,"Возвращаются раньше и дольше держатся под водой, но добывают медленнее","They return earlier and hold their breath longer, but gather slower"
 CARD_GREAT_EBB,Великий отлив,Great ebb
 CARD_GREAT_EBB_D,Дно открыто до −12 и надолго; следующая сизигия выше,The floor opens to −12 and for longer; the next spring tide runs higher
 CARD_CALM_WATER,Тихая вода,Calm water
@@ -129,7 +129,7 @@ CARD_THE_FIND_D,На дне помечена гарантированная ре
 UNL_STEEL_LADDER,Стальная лестница,Steel ladder
 UNL_STEEL_LADDER_D,Не ломается штормом,Storms do not break it
 UNL_CONDENSER,Конденсатор,Condenser
-UNL_CONDENSER_D,Две пресной воды за цикл без чьего-либо участия,Two fresh water a cycle, unattended
+UNL_CONDENSER_D,Две пресной воды за цикл без чьего-либо участия,"Two fresh water a cycle, unattended"
 UNL_WINCH,Лебёдка,Winch
 UNL_WINCH_D,Поднимает груз со дна сама,Lifts cargo from the floor by itself
 UNL_GEAR,Крафт Снаряжения,Gear crafting
@@ -167,7 +167,7 @@ POLICY_REST,Отдых,Rest
 CRISIS_SPRING_TIDE,Сизигия,Spring tide
 CRISIS_SPRING_TIDE_D,Высокая вода поднимется на два яруса выше обычного,High water will rise two tiers above normal
 CRISIS_STORM,Шторм,Storm
-CRISIS_STORM_D,Волна бьёт по всему, что ниже отметки +3,The surge hits everything below mark +3
+CRISIS_STORM_D,"Волна бьёт по всему, что ниже отметки +3",The surge hits everything below mark +3
 CRISIS_VISIT,Приход,The visit
 CRISIS_VISIT_D,Существа поднимаются со дна и грызут постройки,Creatures climb from the deep and gnaw at the buildings
 GALLERY_TITLE,Витрина компонентов,Component gallery
@@ -243,7 +243,7 @@ POLICY_3_1,Стройка 1: строят между делом,Building 1: they
 POLICY_3_2,Стройка 2: стройка наравне с добычей,Building 2: building matches gathering
 POLICY_3_3,Стройка 3: стройка важнее всего,Building 3: building comes first
 POLICY_4_0,Заготовка 0: станции стоят,Stockpiling 0: the stations stand idle
-POLICY_4_1,Заготовка 1: работают, когда есть лишние руки,"Stockpiling 1: they work when hands are free"
+POLICY_4_1,"Заготовка 1: работают, когда есть лишние руки",Stockpiling 1: they work when hands are free
 POLICY_4_2,Заготовка 2: держат запас на два цикла,Stockpiling 2: they keep two cycles of stock
 POLICY_4_3,Заготовка 3: станции работают всегда,Stockpiling 3: the stations always run
 POLICY_5_0,Отдых 0: спят только падая с ног,Rest 0: they sleep only when they drop
@@ -274,7 +274,7 @@ STATION_BUILDING,Ещё строится,Still under construction
 STATION_DAMAGED,"Повреждена: нужен ремонт","Damaged: needs repair"
 STATION_FLOODED,"Затоплена: под водой не работает","Flooded: it does not work under water"
 STATION_NO_RECIPE,Нечего делать: рецепт недоступен,Nothing to do: no recipe available
-STATION_NO_MATERIALS,Нет материалов: некому или нечего принести,No materials: nothing to bring, or nobody to bring it
+STATION_NO_MATERIALS,Нет материалов: некому или нечего принести,"No materials: nothing to bring, or nobody to bring it"
 STATION_NO_FUEL,Нет сухого топлива,No dry fuel
 STATION_NO_WORKER,"Никто не идёт: Заготовка на нуле","Nobody comes: Stockpiling is at zero"
 STATION_NO_SPACE,Некуда класть готовое: склады полны,Nowhere to put the output: storages are full
@@ -302,3 +302,168 @@ DEPOSIT_RELIC_CHANCE,Шанс реликвии {p}%,Relic chance {p}%
 DEPOSIT_RELIC_MARKED,Здесь помечена реликвия,A relic is marked here
 HUD_BEACON,Маяк,Beacon
 HUD_BEACON_TIP,"Поставить маяк: работы рядом с ним важнее прочих","Place the beacon: work near it outweighs the rest"
+UI_BACK,Назад,Back
+MENU_SUBTITLE,"Двенадцать приливов. Судно приходит один раз","Twelve tides. The ship comes once"
+MENU_CONTINUE,Продолжить,Continue
+MENU_CONTINUE_NOTE,Цикл {n} из {total},Cycle {n} of {total}
+MENU_NEW_RUN,Новый забег,New run
+MENU_OVERWRITE,"Текущий забег будет потерян","The current run will be lost"
+MENU_SEED,Сид,Seed
+MENU_SEED_RANDOM,случайный,random
+MENU_JOURNAL,Журнал,Journal
+MENU_SETTINGS,Настройки,Settings
+MENU_CREDITS,Титры,Credits
+MENU_QUIT,Выход,Quit
+MENU_QUIT_CONFIRM,Выйти из игры?,Quit the game?
+MENU_VERSION_TIP,Тап копирует версию сборки,Tap to copy the build version
+FIRST_LANG_TITLE,Язык,Language
+FIRST_ACCESS_TITLE,Доступность,Accessibility
+FIRST_ACCESS_TEXT,"Можно сразу настроить размер шрифта, режим для дальтоников и снижение анимаций. Ни одна из этих настроек не отключает достижения","You can set font size, colourblind mode and reduced motion right away. None of these settings disables achievements"
+FIRST_ACCESS_SETUP,Настроить,Set up
+FIRST_ACCESS_SKIP,Пропустить,Skip
+ERROR_TITLE,Что-то пошло не так,Something went wrong
+ERROR_COPY,Скопировать детали,Copy details
+ERROR_TO_MENU,В главное меню,To the main menu
+ERROR_SAVE_BROKEN,Сейв повреждён и не загружен,The save file is broken and was not loaded
+ERROR_SAVE_BROKEN_DID,Прогресс Журнала цел. Можно начать новый забег,Journal progress is intact. You can start a new run
+ERROR_PROFILE_BROKEN,Профиль повреждён,The profile is damaged
+ERROR_PROFILE_BROKEN_DID,"Журнал начнётся заново, забеги при этом не пострадают","The Journal starts over; runs themselves are unaffected"
+DRAFT_TITLE,План вылазки,Expedition plan
+DRAFT_PICK,Выбрать,Choose
+DRAFT_NOTE,Цикл {n} из {total},Cycle {n} of {total}
+SUMMARY_TITLE,Итог цикла {n},Cycle {n} summary
+SUMMARY_GATHERED,Добыто,Gathered
+SUMMARY_PRODUCED,Произведено,Produced
+SUMMARY_LOST,Потеряно,Lost
+SUMMARY_NOTHING,ничего,nothing
+SUMMARY_NEXT,Дальше,Next
+SUMMARY_DAMAGE,Повреждено построек: {n},Buildings damaged: {n}
+SUMMARY_STORM_DEATHS,Шторм унёс людей: {n},The storm took {n} people
+SUMMARY_NEWCOMER,К колонии прибился новый человек,A newcomer joined the colony
+SUMMARY_CARD,План цикла: {name},Cycle plan: {name}
+SUMMARY_FORECAST,Впереди: {what},Ahead: {what}
+SUMMARY_FORECAST_CALM,Впереди спокойный цикл,A calm cycle ahead
+SUMMARY_SEED,Сид {seed},Seed {seed}
+SUMMARY_SEED_TIP,Тап копирует сид,Tap to copy the seed
+RUN_END_SHIP,Судно пришло,The ship has come
+RUN_END_WIPE,Колония погибла,The colony is gone
+RUN_END_EARLY,Ушли досрочно,Left early
+RUN_CYCLES,Прожито циклов: {n} из {total},Cycles lived: {n} of {total}
+RUN_TOTAL,Итого {n},Total {n}
+RUN_GAIN,"В Журнал ушло {n} очков. Всего накоплено {points}; по карману разблокировок: {next}","{n} points went to the Journal. {points} saved in total; unlocks you can afford: {next}"
+RUN_SURVIVORS,Выжившие,Survivors
+RUN_FALLEN,Павшие,The fallen
+RUN_NOBODY,Никого,No one
+RUN_NO_DEATHS,Все живы,Everyone is alive
+RUN_EPITAPH,"{name} — {cause}. {bio}","{name} — {cause}. {bio}"
+RUN_TO_JOURNAL,В Журнал,To the Journal
+SCORE_CARGO,Груз на сухих складах,Cargo in dry storages
+SCORE_SURVIVORS,Выжившие,Survivors
+SCORE_RELICS,Реликвии,Relics
+SCORE_PENALTY,Штраф за досрочный уход,Early departure penalty
+PAUSE_TITLE,Пауза,Paused
+PAUSE_RESUME,Продолжить,Resume
+PAUSE_LEAVE_EARLY,Уйти досрочно (−25% очков),Leave early (−25% score)
+PAUSE_LEAVE_EARLY_CONFIRM,"Судно придёт на следующий цикл, очки уменьшатся на четверть","The ship comes next cycle; the score drops by a quarter"
+PAUSE_SURRENDER,Сдаться (забег засчитан как погибший),Give up (the run counts as lost)
+PAUSE_SURRENDER_CONFIRM,"Забег закончится сейчас и будет засчитан как погибший","The run ends now and counts as a wipe"
+PAUSE_TO_MENU,В главное меню,To the main menu
+PAUSE_TO_MENU_TIP,Забег сохранится автоматически,The run is saved automatically
+SAVE_DONE,Сохранено,Saved
+JOURNAL_TITLE,Журнал,Journal
+JOURNAL_POINTS,Очки: {n},Points: {n}
+JOURNAL_TAB_UNLOCKS,Разблокировки,Unlocks
+JOURNAL_TAB_HISTORY,История,History
+JOURNAL_TAB_FALLEN,Павшие,The fallen
+JOURNAL_BUY,Купить за {n},Buy for {n}
+JOURNAL_BUY_TITLE,Купить разблокировку?,Buy this unlock?
+JOURNAL_BOUGHT,Куплено,Bought
+JOURNAL_STATS,"Забегов: {runs} · побед судном: {wins} · циклов: {cycles} · погибло: {lost} · лучший счёт: {best} · реликвий: {relics}","Runs: {runs} · ship wins: {wins} · cycles: {cycles} · lost: {lost} · best score: {best} · relics: {relics}"
+JOURNAL_RUN_ROW,"Забег {n}: {end}, циклов {cycles}, очков {score}","Run {n}: {end}, {cycles} cycles, {score} points"
+JOURNAL_EMPTY_HISTORY,Здесь появятся ваши забеги,Your runs will show up here
+JOURNAL_EMPTY_FALLEN,Пока никто не погиб,No one has died yet
+CREDITS_TITLE,Титры,Credits
+CREDITS_DEV,Разработка: Tidebound,Development: Tidebound
+CREDITS_FONTS,"Шрифты: Handjet, JetBrains Mono","Fonts: Handjet, JetBrains Mono"
+CREDITS_FONTS_LIC,"Оба шрифта под SIL Open Font License 1.1","Both fonts are under the SIL Open Font License 1.1"
+CREDITS_ENGINE,Движок: Godot Engine (MIT),Engine: Godot Engine (MIT)
+CREDITS_SOUND,Звук: TODO,Sound: TODO
+CREDITS_TESTERS,Спасибо плейтестерам,Thanks to the playtesters
+SET_TAB_GAME,Игра,Game
+SET_TAB_SCREEN,Экран,Screen
+SET_TAB_SOUND,Звук,Sound
+SET_TAB_INPUT,Управление,Controls
+SET_TAB_ACCESS,Доступность,Accessibility
+SET_LANGUAGE,Язык,Language
+SET_LANGUAGE_HINT,Меняется сразу и не требует перезапуска,Changes right away; no restart needed
+LANG_RU,Русский,Russian
+LANG_EN,Английский,English
+SET_HINTS,Подсказки-уроки,Lesson cards
+SET_HINTS_HINT,Короткие карточки при первом столкновении с механикой,Short cards the first time you meet a mechanic
+SET_PAUSE_DRAFT,Пауза на выборе плана,Pause on the plan draft
+SET_PAUSE_DRAFT_HINT,Игра встаёт при показе карт вылазки,The game stops while the cards are shown
+SET_PAUSE_CYCLE,Пауза на итоге цикла,Pause on the cycle summary
+SET_PAUSE_CYCLE_HINT,Игра встаёт на границе цикла,The game stops at the cycle boundary
+SET_PAUSE_CRISIS,Пауза на первом кризисе,Pause on the first crisis
+SET_PAUSE_CRISIS_HINT,Только при первом появлении каждого типа за забег,Only the first time each type appears in a run
+SET_SPEED,Скорость по умолчанию,Default speed
+SET_SPEED_HINT,С какой скорости начинается забег,The speed a run starts at
+SET_DATA,Данные,Data
+SET_OPEN_FOLDER,Открыть папку сейвов,Open the save folder
+SET_RESET_PROFILE,Сбросить профиль,Reset the profile
+SET_RESET_BODY,"Журнал, разблокировки и история забегов будут стёрты навсегда","The Journal, unlocks and run history will be erased for good"
+SET_RESET_WORD,СБРОС,RESET
+SET_UI_SCALE,Масштаб интерфейса,Interface scale
+SET_UI_SCALE_HINT,От 75% до 150% ступенями по четверти,From 75% to 150% in quarter steps
+SET_WORLD_ZOOM,Зум мира по умолчанию,Default world zoom
+SET_WORLD_ZOOM_HINT,Во сколько раз мир крупнее пикселя окна,How much bigger the world is than a window pixel
+ZOOM_2,x2,x2
+ZOOM_3,x3,x3
+ZOOM_4,x4,x4
+SET_FULLSCREEN,Полноэкранный режим,Fullscreen
+SET_FULLSCREEN_HINT,Игра занимает весь экран,The game takes the whole screen
+SET_VSYNC,Вертикальная синхронизация,Vertical sync
+SET_VSYNC_HINT,Убирает разрывы кадра ценой задержки,Removes tearing at the cost of latency
+SET_INTEGER,Целочисленное масштабирование,Integer scaling
+SET_INTEGER_HINT,"Чётче пиксели, но чёрные поля по краям","Crisper pixels, but black bars at the edges"
+SET_VOL_MASTER,Общая громкость,Master volume
+SET_VOL_MUSIC,Музыка,Music
+SET_VOL_SFX,Эффекты,Effects
+SET_VOL_UI,Интерфейс,Interface
+SET_VOL_AMBIENT,Окружение,Ambience
+SET_VOL_HINT,Громкость в децибелах,Volume in decibels
+SET_HAPTICS,Вибрация,Haptics
+SET_HAPTICS_HINT,Отклик на важные события,Feedback on important events
+SET_INPUT_NOTE,"Схема управления и ремап клавиш появятся здесь; пока — текущие назначения","Control schemes and remapping land here; for now, the current bindings"
+ACT_PAN,Панорама,Pan
+ACT_RECALL,Отзыв,Recall
+ACT_POLICIES,Политики,Policies
+ACT_BUILD,Радиал стройки,Build radial
+ACT_BEACON,Маяк,Beacon
+ACT_PAUSE,Пауза,Pause
+SET_ACCESS_NOTE,Ни одна настройка доступности не отключает достижения,No accessibility setting disables achievements
+SET_FONT_SCALE,Размер шрифта,Font size
+SET_FONT_SCALE_HINT,Отдельно от масштаба интерфейса,Separate from the interface scale
+SET_COLORBLIND,Режим для дальтоников,Colourblind mode
+SET_COLORBLIND_HINT,Три пресета поверх палитры игры,Three presets over the game palette
+CB_NONE,Выключен,Off
+CB_PROTAN,Протанопия,Protanopia
+CB_DEUTER,Дейтеранопия,Deuteranopia
+CB_TRITAN,Тританопия,Tritanopia
+SET_REDUCE_MOTION,Снижение анимаций,Reduced motion
+SET_REDUCE_MOTION_HINT,Меньше движения в интерфейсе,Less movement in the interface
+SET_CONTRAST,Повышенный контраст панелей,Higher panel contrast
+SET_CONTRAST_HINT,Плотнее подложки и заметнее кромки,Denser backdrops and clearer edges
+SET_TOAST_TIME,Время показа тостов,Toast lifetime
+SET_TOAST_TIME_HINT,Ноль — не закрывать сами,Zero means they never close on their own
+SET_SCREEN_READER,Озвучка меню,Menu narration
+SET_SCREEN_READER_HINT,Читает названия элементов экранным диктором,Reads element names with the screen reader
+HINT_TITLE,Урок,Lesson
+HINT_OK,Понятно,Got it
+HINT_STORM,"Шторм бьёт по всему, что ниже отметки +3. Успейте увести людей и починить постройки после","The storm hits everything below mark +3. Get people up in time and repair afterwards"
+HINT_VISIT,"Существа поднимаются со дна и грызут постройки. Фонарь отпугивает их","Creatures climb from the deep and gnaw at buildings. A lantern wards them off"
+HINT_SPRING,"В сизигию высокая вода поднимется на два яруса выше обычного — склады внизу зальёт","At a spring tide the high water rises two tiers above normal — the lower storages flood"
+HINT_SPOIL,"Сырая добыча и провизия портятся. Солильня превращает добычу в провизию, которая живёт дольше","Raw catch and rations spoil. The saltery turns catch into rations that last longer"
+HINT_WASHED,"Оставленное внизу смывает водой. Отзыв возвращает людей наверх до прихода воды","What is left below gets washed away. Recall brings people up before the water"
+HINT_WET_WOOD,"Мокрый плавник не горит. Сушила высушивают два полена за цикл","Wet driftwood does not burn. The dryer dries two logs a cycle"
+HINT_FINAL_SPRING,"Последняя сизигия: в момент прихода судна вода встанет на два яруса выше обычного. Всё ценное надо заранее поднять на отметку +3 и выше — что окажется под водой, не засчитают","The last spring tide: when the ship arrives the water stands two tiers higher than usual. Move everything valuable to mark +3 or above beforehand — whatever ends up under water will not count"

@@ -70,7 +70,9 @@ func _snap_to_sim() -> void:
 	_t = 1.0
 
 func _refresh_look() -> void:
-	var info: Dictionary = Game.query_agent(agent_id)
+	# Лёгкий срез: полный query_agent с копией котомки каждый кадр — впустую
+	# (review/04 PERF-01).
+	var info: Dictionary = Game.query_agent_look(agent_id)
 	if info.is_empty():
 		return
 	var st: int = int(info.get("state", 0))
