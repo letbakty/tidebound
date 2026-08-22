@@ -28,13 +28,14 @@ func _draw() -> void:
 	if _cell == Balance.NO_BEACON:
 		return
 	var p: Vector2 = WorldGeo.cell_center_world(_cell)
+	var accent: Color = UIPalette.accent()
 	if _show_radius:
 		draw_circle(p, Balance.BEACON_RADIUS * float(WorldGeo.TILE),
-			Color(UITokens.ACCENT.r, UITokens.ACCENT.g, UITokens.ACCENT.b, 0.10))
+			Color(accent.r, accent.g, accent.b, 0.10))
 		draw_arc(p, Balance.BEACON_RADIUS * float(WorldGeo.TILE), 0.0, TAU, 48,
-			UITokens.ACCENT, 1.0)
-	draw_line(p, p - Vector2(0.0, FLAG_H), UITokens.ACCENT, 2.0)
+			accent, 1.0)
+	draw_line(p, p - Vector2(0.0, FLAG_H), accent, 2.0)
 	draw_colored_polygon(PackedVector2Array([
 		p - Vector2(0.0, FLAG_H),
 		p - Vector2(-10.0, FLAG_H - 5.0),
-		p - Vector2(0.0, FLAG_H - 10.0)]), UITokens.ACCENT)
+		p - Vector2(0.0, FLAG_H - 10.0)]), accent)

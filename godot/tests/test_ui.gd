@@ -294,3 +294,74 @@ static func _csv_keys() -> Dictionary[String, bool]:
 			out[line[0]] = true
 	f.close()
 	return out
+
+# --- Блоки 3–5 аудита -----------------------------------------------------
+
+## Семантические цвета берутся ТОЛЬКО из UIPalette: прямой UITokens.DANGER
+## мимо неё — это ровно то место, где пресет для дальтоника перестаёт работать
+## (аудит B4). Проверка по исходникам: она ловит и новый файл, написанный
+## завтра, чего ни один рантайм-тест не умеет.
+static func test_semantic_colors_go_through_palette(t: TestCtx) -> void:
+	var direct: Array[String] = ["UITokens.DANGER", "UITokens.SUCCESS",
+		"UITokens.WARM", "UITokens.ACCENT,", "UITokens.ACCENT)", "UITokens.WATER_COLD"]
+	var files: Array[String] = _gd_files("res://ui/")
+	files.append_array(_gd_files("res://game/"))
+	var checked: int = 0
+	for path: String in files:
+		# tokens.gd — источник значений, ui_palette.gd — сама подмена,
+		# _gallery.gd — витрина компонентов, в релиз не уезжает.
+		if path.ends_with("tokens.gd") or path.ends_with("ui_palette.gd") \
+				or path.ends_with("_gallery.gd"):
+			continue
+		var src: String = FileAccess.get_file_as_string(path)
+		checked += 1
+		for needle: String in direct:
+			t.check(not src.contains(needle),
+				"%s: %s мимо UIPalette — пресет дальтоника его не подменит"
+				% [path.get_file(), needle.trim_suffix(",").trim_suffix(")")])
+	t.check(checked > 20, "файлы ui/ и game/ не нашлись — проверь обход")
+
+## Штормовая виньетка обязана быть НИЖЕ панелей: на слое 25 она затемняла
+## ровно тот текст, который в шторм и читают (аудит B5).
+static func test_weather_layer_below_panels(t: TestCtx) -> void:
+	var scene: PackedScene = load("res://game/main.tscn") as PackedScene
+	var root: Node = scene.instantiate()
+	var weather: CanvasLayer = root.get_node_or_null(^"WeatherLayer") as CanvasLayer
+	var panels: CanvasLayer = root.get_node_or_null(^"PanelLayer") as CanvasLayer
+	var hud: CanvasLayer = root.get_node_or_null(^"HUDLayer") as CanvasLayer
+	t.check(weather != null and panels != null and hud != null, "слои на месте")
+	if weather == null or panels == null or hud == null:
+		root.free()
+		return
+	t.check(weather.layer < panels.layer,
+		"виньетка (%d) ниже панелей (%d)" % [weather.layer, panels.layer])
+	t.check(weather.layer > hud.layer or weather.layer > 0,
+		"виньетка выше мира")
+	root.free()
+
+## «Сколько живёт тост» — настройка доступности, а не константа: ползунок
+## обязан менять реальную жизнь тоста, включая 0 = «не закрывать сами».
+static func test_toast_life_follows_setting(t: TestCtx) -> void:
+	var toast: Toast = Toast.new()
+	toast.setup("тест", Toast.Tone.INFO, Vector2i.ZERO, 7.0)
+	t.check_approx(float(toast.get("_life_sec")), 7.0, 0.001,
+		"явная жизнь тоста уважается")
+	var persistent: Toast = Toast.new()
+	persistent.setup("тест", Toast.Tone.DANGER, Vector2i.ZERO, 0.0)
+	t.check_approx(float(persistent.get("_life_sec")), 0.0, 0.001,
+		"0 = «не закрывать сам» (тост тонущего)")
+	toast.free()
+	persistent.free()
+	# Сама подстановка настройки живёт в HUD: компоненту про Settings нельзя.
+	var src: String = FileAccess.get_file_as_string("res://ui/hud/hud.gd")
+	t.check(src.contains("Settings.toast_seconds"),
+		"HUD не подставляет длительность тоста из настроек")
+
+## reduce_motion обещан docs/03 §3.6 и до ремонта не читался нигде.
+static func test_reduce_motion_is_read(t: TestCtx) -> void:
+	var users: Array[String] = []
+	for path: String in _gd_files("res://ui/") + _gd_files("res://game/"):
+		if FileAccess.get_file_as_string(path).contains("Settings.reduce_motion"):
+			users.append(path.get_file())
+	t.check(users.size() >= 3,
+		"«меньше движения» читают всего %d места: %s" % [users.size(), str(users)])

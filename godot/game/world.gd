@@ -47,6 +47,12 @@ const DEPOSIT_COLORS: Dictionary = {
 const CLOUD_DRIFT: float = -6.0
 const MIST_DRIFT: float = -2.0
 
+## Как часто пересчитывать мокрые тайлы, в СИМ-тиках. Раньше это делалось
+## каждый кадр — включая паузу, — и каждый раз строился словарь query_clock()
+## с копиями внутри (аудит B3). Три тика — та же частота, что у
+## water_level_changed: чаще глазу и не надо.
+const WET_EVERY_TICKS: int = 3
+
 ## Игровые оверлеи (этап 13): отметки ярусов, зона затопления, занятия.
 var overlay: GameOverlay = null
 ## Маркер маяка (этап 14).
@@ -70,6 +76,7 @@ var _agent_views: Dictionary[int, AgentView] = {}
 var _building_views: Dictionary[int, BuildingView] = {}
 var _creature_views: Dictionary[int, CreatureView] = {}
 var _drawn_graph_version: int = -1
+var _wet_tick: int = 0
 var _light_nodes: Dictionary[int, PointLight2D] = {}
 
 func _ready() -> void:
@@ -80,6 +87,9 @@ func _ready() -> void:
 	beacon.name = "BeaconView"
 	add_child(beacon)
 	Events.run_started.connect(_on_run_started)
+	# Мокрые тайлы — по тику симуляции: на паузе пересчёта нет вовсе.
+	Events.sim_ticked.connect(_on_sim_ticked)
+	Events.phase_changed.connect(_update_wet_tiles.unbind(2))
 	Events.deposit_changed.connect(_on_deposit_changed)
 	Events.agent_spawned.connect(_on_agent_spawned)
 	Events.agent_died.connect(_on_agent_died)
@@ -98,7 +108,6 @@ func _process(_delta: float) -> void:
 	var t: Terrain = _terrain()
 	if t != null and t.graph_version != _drawn_graph_version:
 		_draw_ladders(t)
-	_update_wet_tiles()
 	# Облака и гряда идут по сим-времени: замирают на паузе, ускоряются на ×3.
 	var sim_t: float = Game.sim_seconds()
 	clouds.scroll_offset.x = floorf(sim_t * CLOUD_DRIFT)
@@ -112,6 +121,12 @@ func _process(_delta: float) -> void:
 ##
 ## Сила блеска гаснет к концу цикла: «мокро» — это состояние, а не метка,
 ## и оно обязано быть видно как проходящее.
+func _on_sim_ticked(tick: int) -> void:
+	if tick - _wet_tick < WET_EVERY_TICKS:
+		return
+	_wet_tick = tick
+	_update_wet_tiles()
+
 func _update_wet_tiles() -> void:
 	var mat: ShaderMaterial = ground.material as ShaderMaterial
 	if mat == null or Game.world == null:
@@ -143,7 +158,9 @@ func _terrain() -> Terrain:
 	return Game.world.terrain
 
 func _on_run_started(_seed_value: int) -> void:
+	_wet_tick = 0
 	_rebuild_all()
+	_update_wet_tiles()
 
 func _rebuild_all() -> void:
 	var t: Terrain = _terrain()

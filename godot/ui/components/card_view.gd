@@ -68,9 +68,9 @@ func is_selected() -> bool:
 func _apply_style() -> void:
 	var border: Color = UITokens.BORDER
 	if rare:
-		border = UITokens.WARM
+		border = UIPalette.warm()
 	if _selected:
-		border = UITokens.ACCENT
+		border = UIPalette.accent()
 	_accent = UIThemeFactory.flat(UITokens.RAISE, border,
 		UITokens.BORDER_FOCUS if _selected else UITokens.BORDER_W, UITokens.SPACE_4)
 	add_theme_stylebox_override("panel", _accent)

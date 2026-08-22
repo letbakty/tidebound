@@ -67,8 +67,8 @@ func open_with(args: Dictionary) -> void:
 	_add_column("SUMMARY_GATHERED", report.get("gathered", {}) as Dictionary,
 		UITokens.INK)
 	_add_column("SUMMARY_PRODUCED", report.get("produced", {}) as Dictionary,
-		UITokens.SUCCESS)
-	_add_column("SUMMARY_LOST", _losses(report), UITokens.DANGER)
+		UIPalette.success())
+	_add_column("SUMMARY_LOST", _losses(report), UIPalette.danger())
 	_fill_events(report)
 	_fill_forecast()
 

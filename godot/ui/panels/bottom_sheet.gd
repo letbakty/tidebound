@@ -53,7 +53,7 @@ func _snap_to_nearest() -> void:
 
 func _apply_height(animated: bool) -> void:
 	var target: float = get_viewport_rect().size.y * _height_ratio
-	if not animated:
+	if not animated or Settings.reduce_motion:
 		custom_minimum_size = Vector2(0.0, target)
 		return
 	var tw: Tween = create_tween()

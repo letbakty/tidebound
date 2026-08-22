@@ -93,7 +93,9 @@ func _build_menu() -> void:
 	_version = Label.new()
 	_version.theme_type_variation = &"LabelSmall"
 	_version.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	_version.tooltip_text = "MENU_VERSION_TIP"
+	# ⚠️ tr() вручную: перевод тултипа делает та же auto_translate_mode, что и
+	# перевод текста, а она здесь выключена ради номера версии (аудит B2.9).
+	_version.tooltip_text = tr("MENU_VERSION_TIP")
 	_version.mouse_filter = Control.MOUSE_FILTER_STOP
 	_version.text = BootScreen.build_version()
 	_version.gui_input.connect(_on_version_input)
@@ -158,6 +160,8 @@ func _on_version_input(event: InputEvent) -> void:
 
 func _refresh_texts() -> void:
 	super()
+	if _version != null:
+		_version.tooltip_text = tr("MENU_VERSION_TIP")
 	if _seed_edit != null:
 		_seed_edit.placeholder_text = tr("MENU_SEED_RANDOM")
 	if _continue != null:

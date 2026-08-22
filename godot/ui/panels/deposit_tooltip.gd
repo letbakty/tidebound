@@ -38,9 +38,23 @@ func show_for(deposit_id: int, at: Vector2) -> void:
 		lines.append(tr("DEPOSIT_RELIC_CHANCE").format(
 			{"p": int(Balance.RELIC_CHANCE * 100.0)}))
 	_tip.setup("\n".join(lines))
-	_tip.position = at + Vector2(float(UITokens.SPACE_3), float(UITokens.SPACE_3))
+	_tip.position = _place(at, _tip.get_combined_minimum_size())
 	_tip.visible = true
 	_timer.start(LIFE_SEC)
+
+## Правая нижняя четверть — мёртвая зона кнопки «Отзыв», её не перекрывает
+## ничто (docs/03 §1). Подсказка, наехавшая на единственную командную кнопку
+## игры, — это пропущенное нажатие в Сигнале (аудит B4).
+func _place(at: Vector2, tip: Vector2) -> Vector2:
+	var view: Vector2 = get_viewport_rect().size
+	var gap: float = float(UITokens.SPACE_3)
+	var pos: Vector2 = at + Vector2(gap, gap)
+	var dead: Rect2 = Rect2(view - Vector2.ONE * float(UITokens.DEADZONE_PX),
+		Vector2.ONE * float(UITokens.DEADZONE_PX))
+	if Rect2(pos, tip).intersects(dead):
+		# Уводим влево-вверх от точки касания: там места всегда больше.
+		pos = at - Vector2(tip.x + gap, tip.y + gap)
+	return pos.clamp(Vector2.ZERO, (view - tip).max(Vector2.ZERO))
 
 func hide_tip() -> void:
 	_tip.visible = false

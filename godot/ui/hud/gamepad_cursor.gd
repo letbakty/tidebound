@@ -59,6 +59,6 @@ func _draw() -> void:
 	draw_line(_pos - Vector2(0.0, SIZE_PX), _pos + Vector2(0.0, SIZE_PX),
 		UITokens.PAPER, 4.0)
 	draw_line(_pos - Vector2(SIZE_PX, 0.0), _pos + Vector2(SIZE_PX, 0.0),
-		UITokens.ACCENT, 2.0)
+		UIPalette.accent(), 2.0)
 	draw_line(_pos - Vector2(0.0, SIZE_PX), _pos + Vector2(0.0, SIZE_PX),
-		UITokens.ACCENT, 2.0)
+		UIPalette.accent(), 2.0)

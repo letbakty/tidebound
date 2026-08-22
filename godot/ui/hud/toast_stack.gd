@@ -63,8 +63,22 @@ func push(type: String, text: String, tone: Toast.Tone, cell: Vector2i,
 	toast.tapped.connect(func() -> void: focus_requested.emit(toast.cell))
 	toast.dismissed.connect(func() -> void: _dismiss(type, toast))
 	_active[type] = {"node": toast, "count": 1, "t_last": now}
+	# ⚠️ remove_child ДО queue_free: очередь удаления разбирается в конце кадра,
+	# и до неё get_child_count не меняется — цикл по одному queue_free вешал
+	# игру намертво на пятом тосте (аудит B1.1).
 	while _box.get_child_count() > MAX_VISIBLE:
-		_box.get_child(0).queue_free()
+		var oldest: Node = _box.get_child(0)
+		_forget(oldest)
+		_box.remove_child(oldest)
+		oldest.queue_free()
+
+## Вытесненный тост нельзя оставлять в группировке: следующий тост того же
+## типа «догруппировался» бы к ноде, которой на экране уже нет.
+func _forget(node: Node) -> void:
+	for type: String in _active.keys():
+		if (_active[type] as Dictionary)["node"] == node:
+			_active.erase(type)
+			return
 
 func _dismiss(type: String, toast: Toast) -> void:
 	var group: Dictionary = _active.get(type, {})

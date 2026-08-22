@@ -185,9 +185,16 @@ func _refresh_texts() -> void:
 
 # --- Ввод -----------------------------------------------------------------
 
+## «Тап по шкале — тултип-легенда» (docs/01 §2). Мышь ловим наравне с пальцем:
+## на ПК тапа не бывает, и легенда была недостижима вовсе (аудит B2.10).
 func _gui_input(event: InputEvent) -> void:
 	var touch: InputEventScreenTouch = event as InputEventScreenTouch
 	if touch != null and not touch.pressed:
+		legend_requested.emit()
+		accept_event()
+		return
+	var click: InputEventMouseButton = event as InputEventMouseButton
+	if click != null and not click.pressed and click.button_index == MOUSE_BUTTON_LEFT:
 		legend_requested.emit()
 		accept_event()
 
@@ -217,14 +224,15 @@ func _draw() -> void:
 func _draw_water(w: float) -> void:
 	var y: float = _mark_to_y(_level)
 	var bottom: float = _mark_to_y(float(MARK_BOTTOM))
+	var water: Color = UIPalette.water()
 	draw_rect(Rect2(Vector2(0.0, y), Vector2(w, bottom - y)),
-		Color(UITokens.WATER_COLD.r, UITokens.WATER_COLD.g, UITokens.WATER_COLD.b, 0.55), true)
+		Color(water.r, water.g, water.b, 0.55), true)
 	# Глубина ниже −6 холоднее: та же температурная ось, что и в мире.
 	var deep_y: float = _mark_to_y(-6.0)
 	if deep_y < bottom:
 		draw_rect(Rect2(Vector2(0.0, maxf(deep_y, y)), Vector2(w, bottom - maxf(deep_y, y))),
 			Color(UITokens.COLD_DEEP.r, UITokens.COLD_DEEP.g, UITokens.COLD_DEEP.b, 0.35), true)
-	draw_line(Vector2(0.0, y), Vector2(w, y), UITokens.WATER_COLD, W_MARK)
+	draw_line(Vector2(0.0, y), Vector2(w, y), UIPalette.water(), W_MARK)
 
 func _draw_plateau(w: float) -> void:
 	var y: float = _mark_to_y(_low_plateau)
@@ -241,7 +249,7 @@ func _draw_ticks(w: float) -> void:
 		var dead: bool = m < MARK_FLOOR
 		var c: Color = UITokens.DIVIDER if dead else UITokens.BORDER
 		if m == 0:
-			c = UITokens.WARM          # ярус 0 — граница тепла и холода
+			c = UIPalette.warm()          # ярус 0 — граница тепла и холода
 		draw_line(Vector2(0.0, y), Vector2(w * (0.35 if not labeled else 0.55), y),
 			c, W_MARK if labeled else W_TICK)
 		if not labeled or _font == null:
@@ -256,11 +264,11 @@ func _draw_buildings(w: float) -> void:
 	for id: int in _buildings:
 		var b: Dictionary = _buildings[id]
 		var y: float = _mark_to_y(float(int(b["mark"])))
-		var c: Color = UITokens.SUCCESS
+		var c: Color = UIPalette.success()
 		if bool(b["flooded"]):
-			c = UITokens.WATER_COLD
+			c = UIPalette.water()
 		if bool(b["damaged"]):
-			c = UITokens.DANGER
+			c = UIPalette.danger()
 		draw_rect(Rect2(Vector2(w - 12.0, y - 2.0), Vector2(4.0, 4.0)), c, true)
 
 ## Поплавок уровня: треугольник у левого края + число отметки.
@@ -268,8 +276,8 @@ func _draw_float(w: float) -> void:
 	var y: float = _mark_to_y(_level)
 	var pts: PackedVector2Array = PackedVector2Array([
 		Vector2(0.0, y - 6.0), Vector2(10.0, y), Vector2(0.0, y + 6.0)])
-	draw_colored_polygon(pts, UITokens.ACCENT)
-	draw_line(Vector2(0.0, y), Vector2(w, y), UITokens.ACCENT, W_ARROW)
+	draw_colored_polygon(pts, UIPalette.accent())
+	draw_line(Vector2(0.0, y), Vector2(w, y), UIPalette.accent(), W_ARROW)
 	if _font == null:
 		return
 	var text: String = "%.1f" % _level
@@ -279,7 +287,7 @@ func _draw_float(w: float) -> void:
 	draw_rect(Rect2(Vector2(11.0, y - float(_font_size)),
 		Vector2(tw + 4.0, float(_font_size) + 2.0)), UITokens.PAPER, true)
 	draw_string(_font, Vector2(13.0, y - 4.0), text,
-		HORIZONTAL_ALIGNMENT_LEFT, -1.0, _font_size, UITokens.ACCENT)
+		HORIZONTAL_ALIGNMENT_LEFT, -1.0, _font_size, UIPalette.accent())
 
 ## Прогноз: три ближайших цикла. Тип показываем только для объявленных
 ## кризисов — календарь заранее игроку не открыт (docs/00 §9).
@@ -294,13 +302,13 @@ func _draw_forecast(w: float) -> void:
 		var letter: String = "-"
 		match type:
 			int(SimTypes.CrisisType.SPRING_TIDE):
-				c = UITokens.WATER_COLD
+				c = UIPalette.water()
 				letter = "^"
 			int(SimTypes.CrisisType.STORM):
-				c = UITokens.DANGER
+				c = UIPalette.danger()
 				letter = "!"
 			int(SimTypes.CrisisType.VISIT):
-				c = UITokens.WARM
+				c = UIPalette.warm()
 				letter = "*"
 		draw_rect(rect, Color(c.r, c.g, c.b, 0.25), true)
 		draw_rect(rect, c, false, W_TICK)

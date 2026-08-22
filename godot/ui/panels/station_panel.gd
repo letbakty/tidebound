@@ -30,6 +30,10 @@ var _repair: PixelButton = null
 var _demolish: PixelButton = null
 var _timer: Timer = null
 
+## Сигнатуры отрисованного: рецепт и буфер пересобираются только по изменению.
+var _recipe_sig: String = ""
+var _buffer_sig: String = ""
+
 func _ready() -> void:
 	super()
 	set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
@@ -112,12 +116,22 @@ func _refresh() -> void:
 	_fill_reason(str(s["reason"]))
 	_repair.disabled = not bool(s["damaged"])
 
+## Панель обновляется дважды в секунду, а рецепт станции не меняется никогда:
+## сравниваем сигнатуру и пересобираем только при реальной смене (аудит B3).
+static func _sig(value: Variant) -> String:
+	return JSON.stringify(value)
+
 ## Рецепт наглядно: входы → выход.
 func _fill_recipe(s: Dictionary) -> void:
-	for c: Node in _recipe.get_children():
-		c.queue_free()
 	var inputs: Dictionary = s["inputs"] as Dictionary
 	var outputs: Dictionary = s["outputs"] as Dictionary
+	var sig: String = "%s>%s" % [_sig(inputs), _sig(outputs)]
+	if sig == _recipe_sig:
+		return
+	_recipe_sig = sig
+	for c: Node in _recipe.get_children():
+		_recipe.remove_child(c)
+		c.queue_free()
 	if inputs.is_empty() and outputs.is_empty():
 		return
 	for k: Variant in inputs:
@@ -136,10 +150,15 @@ func _add_item_chip(parent: Control, item_id: String, count: int) -> void:
 
 ## Буфер: что принесено и чего не хватает — по строке на вход.
 func _fill_buffer(s: Dictionary) -> void:
-	for c: Node in _buffer.get_children():
-		c.queue_free()
 	var inputs: Dictionary = s["inputs"] as Dictionary
 	var have: Dictionary = s["have"] as Dictionary
+	var sig: String = "%s|%s" % [_sig(inputs), _sig(have)]
+	if sig == _buffer_sig:
+		return
+	_buffer_sig = sig
+	for c: Node in _buffer.get_children():
+		_buffer.remove_child(c)
+		c.queue_free()
 	for k: Variant in inputs:
 		var item_id: String = str(k)
 		var need: int = int(inputs[k])
@@ -149,7 +168,7 @@ func _fill_buffer(s: Dictionary) -> void:
 		row.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 		row.text = "%s  %d/%d" % [tr(item_key(item_id)), got, need]
 		row.add_theme_color_override("font_color",
-			UITokens.SUCCESS if got >= need else UITokens.DANGER)
+			UIPalette.success() if got >= need else UIPalette.danger())
 		_buffer.add_child(row)
 
 ## Ключ названия предмета: нужен и складу.
@@ -160,7 +179,7 @@ static func item_key(item_id: String) -> String:
 func _fill_reason(reason: String) -> void:
 	if reason.is_empty():
 		_reason.text = tr("STATION_WORKING")
-		_reason.add_theme_color_override("font_color", UITokens.SUCCESS)
+		_reason.add_theme_color_override("font_color", UIPalette.success())
 		return
 	_reason.text = tr(REASON_KEYS.get(reason, "STATION_NO_RECIPE"))
-	_reason.add_theme_color_override("font_color", UITokens.DANGER)
+	_reason.add_theme_color_override("font_color", UIPalette.danger())

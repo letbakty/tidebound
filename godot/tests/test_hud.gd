@@ -173,3 +173,17 @@ static func _gd_files(dir_path: String) -> Array[String]:
 	dir.list_dir_end()
 	out.sort()
 	return out
+
+## Банер кризиса уносит свою автопаузу с собой. run_started приходит не только
+## на новый забег: его же шлёт rebroadcast_state (загрузка сейва, промотка
+## времени), а там счётчик автопауз никто не обнуляет. Сброшенный флаг без
+## pop_pause оставлял паузу висеть навсегда — банера на экране уже нет, и снять
+## её нечем. Ловится только запуском: игра просто переставала идти.
+static func test_banner_pause_survives_rebroadcast(t: TestCtx) -> void:
+	var src: String = FileAccess.get_file_as_string("res://ui/hud/hud.gd")
+	var at: int = src.find("func _on_run_started")
+	var body: String = src.substr(at, src.find("\nfunc ", at + 1) - at)
+	t.check(body.contains("pop_pause"),
+		"_on_run_started сбрасывает флаг банера, не сняв автопаузу")
+	t.check(body.find("_banner_paused = false") > body.find("if _banner_paused"),
+		"флаг гасится ПОД условием, а не до него")

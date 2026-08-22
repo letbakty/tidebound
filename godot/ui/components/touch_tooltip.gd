@@ -15,20 +15,29 @@ var _provider: Callable = Callable()
 var _press_pos: Vector2 = Vector2.INF
 var _held: float = 0.0
 var _tip: TooltipView = null
+## Таймер жизни показанной подсказки: без ссылки старый таймер продолжал
+## тикать и гасил ТОЛЬКО ЧТО показанную новую (аудит B3).
+var _life: SceneTreeTimer = null
 
 func setup(target: Control, text_provider: Callable = Callable()) -> void:
 	_target = target
 	_provider = text_provider
 	if not _target.gui_input.is_connected(_on_gui_input):
 		_target.gui_input.connect(_on_gui_input)
+	# ⚠️ Считаем удержание только пока палец на кнопке: такой узел висит у
+	# КАЖДОЙ кнопки проекта, и включённый _process у всех сразу — это десятки
+	# вызовов на кадр ради ничего (аудит B3).
+	set_process(false)
 
 func _process(delta: float) -> void:
 	if _press_pos == Vector2.INF or _target == null:
+		set_process(false)
 		return
 	_held += delta
 	if _held < HOLD_SEC:
 		return
 	_press_pos = Vector2.INF
+	set_process(false)
 	_show()
 
 func _on_gui_input(event: InputEvent) -> void:
@@ -37,13 +46,16 @@ func _on_gui_input(event: InputEvent) -> void:
 		if touch.pressed:
 			_press_pos = touch.position
 			_held = 0.0
+			set_process(true)
 		else:
 			_press_pos = Vector2.INF
+			set_process(false)
 		return
 	var drag: InputEventScreenDrag = event as InputEventScreenDrag
 	if drag != null and _press_pos != Vector2.INF \
 			and _press_pos.distance_to(drag.position) > MOVE_TOLERANCE_PX:
 		_press_pos = Vector2.INF        # это драг, а не удержание
+		set_process(false)
 
 func _text() -> String:
 	if _provider.is_valid():
@@ -60,10 +72,17 @@ func _show() -> void:
 	_tip = TooltipView.make(text)
 	_target.get_viewport().add_child(_tip)
 	_tip.global_position = _target.global_position + Vector2(0.0, _target.size.y)
-	var timer: SceneTreeTimer = _target.get_tree().create_timer(LIFE_SEC)
-	timer.timeout.connect(_hide)
+	_life = _target.get_tree().create_timer(LIFE_SEC)
+	_life.timeout.connect(_on_life_timeout.bind(_life))
+
+## Гасим только по СВОЕМУ таймеру: таймер прошлой подсказки иначе закрывал бы
+## новую через остаток своего срока.
+func _on_life_timeout(timer: SceneTreeTimer) -> void:
+	if timer == _life:
+		_hide()
 
 func _hide() -> void:
 	if _tip != null and is_instance_valid(_tip):
 		_tip.queue_free()
 	_tip = null
+	_life = null

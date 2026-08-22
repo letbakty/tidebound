@@ -23,6 +23,9 @@ var _center: Vector2 = Vector2.ZERO
 var _press_pos: Vector2 = Vector2.INF
 var _hover: int = -1
 var _pad_focus: int = -1
+## Кому вернуть фокус после отмены: без этого геймпад теряет курсор и
+## навигация по HUD обрывается (research/20 §6, аудит B4).
+var _focus_before: Control = null
 var _font: Font = null
 var _font_size: int = UITokens.FONT_S
 
@@ -61,6 +64,7 @@ func open_at(center: Vector2, slots: Array[Dictionary], gesture_active: bool = f
 	_pad_focus = -1
 	visible = true
 	if is_inside_tree():
+		_focus_before = get_viewport().gui_get_focus_owner()
 		grab_focus()
 	queue_redraw()
 
@@ -70,6 +74,10 @@ func close() -> void:
 	_press_pos = Vector2.INF
 	_hover = -1
 	_pad_focus = -1
+	if _focus_before != null and is_instance_valid(_focus_before) \
+			and _focus_before.is_visible_in_tree():
+		_focus_before.grab_focus()
+	_focus_before = null
 
 func is_open() -> bool:
 	return visible
@@ -121,6 +129,29 @@ func _gui_input(event: InputEvent) -> void:
 	if drag != null:
 		_hover = _sector_at(drag.position)
 		queue_redraw()
+		accept_event()
+		return
+	# Мышь ведём тем же путём, что и палец: без этого на ПК радиал не
+	# подсвечивал слот под курсором вовсе (аудит B4).
+	var click: InputEventMouseButton = event as InputEventMouseButton
+	if click != null and click.button_index == MOUSE_BUTTON_LEFT:
+		if click.pressed:
+			_press_pos = click.position
+			_hover = _slot_at(click.position)
+		else:
+			_release(click.position)
+		queue_redraw()
+		accept_event()
+		return
+	var move: InputEventMouseMotion = event as InputEventMouseMotion
+	if move != null:
+		# До нажатия подсвечиваем слот под курсором, при зажатой кнопке —
+		# сектор: это те же два режима, что у пальца.
+		var index: int = _sector_at(move.position) if _press_pos != Vector2.INF \
+			else _slot_at(move.position)
+		if index != _hover:
+			_hover = index
+			queue_redraw()
 		accept_event()
 
 ## Один обработчик отпускания на оба случая — тап по слоту и увод в сектор
@@ -188,7 +219,7 @@ func _draw_slot(index: int) -> void:
 	var enabled: bool = bool(slot.get("enabled", true))
 	var active: bool = index == _hover or index == _pad_focus
 	var fill: Color = UITokens.panel_color()
-	var border: Color = UITokens.ACCENT if active else UITokens.BORDER
+	var border: Color = UIPalette.accent() if active else UITokens.BORDER
 	if not enabled:
 		border = UITokens.DIVIDER
 	var rect: Rect2 = Rect2(c - Vector2(SLOT_R, SLOT_R), Vector2(SLOT_R, SLOT_R) * 2.0)

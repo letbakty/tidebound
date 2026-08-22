@@ -15,6 +15,16 @@ signal beacon_mode_requested()
 ## Фолбэк обязателен: на десктопе и в headless get_display_safe_area вернёт
 ## весь экран, разность окажется нулём и отступов не будет вовсе (research/20 §7).
 const SAFE_FALLBACK: int = 12
+## Сколько живёт легенда шкалы, если её не закрыли повторным тапом.
+const LEGEND_LIFE_SEC: float = 12.0
+## Легенда — десять строк текста, а не подпись к кнопке: узкий тултип превратил
+## бы её в лапшу из одного слова в строке.
+const LEGEND_WIDTH_PX: float = 320.0
+## Строки легенды по порядку сверху вниз.
+const LEGEND_KEYS: Array[String] = ["HUD_LEGEND_TITLE", "HUD_LEGEND_LEVEL",
+	"HUD_LEGEND_MARKS", "HUD_LEGEND_PLATEAU", "HUD_LEGEND_DOTS",
+	"HUD_LEGEND_FORECAST", "HUD_LEGEND_SPRING", "HUD_LEGEND_STORM",
+	"HUD_LEGEND_VISIT", "HUD_LEGEND_QUIET"]
 
 var tide_gauge: TideGauge = null
 var top_bar: TopBar = null
@@ -26,6 +36,10 @@ var press: PressIndicator = null
 var hints: ButtonHints = null
 var cursor: GamepadCursor = null
 
+## Легенда шкалы прилива: тап по шкале (docs/01 §2). Тултип, а не панель —
+## ничего не закрывает и уходит сам.
+var _legend: TooltipView = null
+var _legend_timer: Timer = null
 var _margin: MarginContainer = null
 ## id -> {flooded, damaged}: тост показываем на ПЕРЕХОДЕ, а не на каждом
 ## событии, иначе одна затопленная постройка даст сотню тостов за цикл.
@@ -70,7 +84,7 @@ func _build() -> void:
 	tide_gauge = TideGauge.new()
 	tide_gauge.name = "TideGauge"
 	middle.add_child(tide_gauge)
-	tide_gauge.legend_requested.connect(func() -> void: legend_requested.emit())
+	tide_gauge.legend_requested.connect(_on_legend_requested)
 	tide_gauge.beacon_mode_requested.connect(func() -> void:
 		beacon_mode_requested.emit())
 
@@ -131,6 +145,51 @@ func _build() -> void:
 	cursor.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(cursor)
 
+	_legend = TooltipView.new()
+	_legend.name = "TideLegend"
+	_legend.visible = false
+	add_child(_legend)
+	_legend_timer = Timer.new()
+	_legend_timer.name = "LegendLife"
+	_legend_timer.one_shot = true
+	_legend_timer.timeout.connect(hide_legend)
+	add_child(_legend_timer)
+
+## Тап по шкале — тумблер легенды (docs/01 §2).
+func _on_legend_requested() -> void:
+	legend_requested.emit()
+	if _legend == null:
+		return
+	if _legend.visible:
+		hide_legend()
+	else:
+		_show_legend()
+
+## Легенда шкалы: что означают риски, точки и значки прогноза. Значки названы
+## СЛОВАМИ — для дальтоника прогноз шкалы это главный инструмент планирования
+## (docs/01 §6), и один цвет тут не канал.
+func _show_legend() -> void:
+	var lines: Array[String] = []
+	for key: String in LEGEND_KEYS:
+		lines.append(tr(key))
+	_legend.setup("\n".join(lines), LEGEND_WIDTH_PX)
+	_legend.position = Vector2(
+		tide_gauge.global_position.x + tide_gauge.size.x + float(UITokens.SPACE_3),
+		tide_gauge.global_position.y + float(UITokens.SPACE_3)) - global_position
+	_legend.visible = true
+	_legend_timer.start(LEGEND_LIFE_SEC)
+
+func hide_legend() -> void:
+	if _legend != null:
+		_legend.visible = false
+
+## Легенда собирается одной строкой заранее и авто-перевода не получает: при
+## смене языка на открытой легенде её надо пересобрать руками.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED and _legend != null \
+			and _legend.visible:
+		_show_legend()
+
 func _place_banner() -> void:
 	if banner == null or top_bar == null:
 		return
@@ -180,6 +239,8 @@ func _apply_safe_area() -> void:
 
 ## Оверлеи мира: F2/F3/F4. Тумблеры, одновременно активен один.
 func _unhandled_input(event: InputEvent) -> void:
+	if not is_visible_in_tree():
+		return                          # HUD скрыт экраном — F2/F3/F4 не наши
 	for pair: Array in [["overlay_marks", GameOverlay.MODE_MARKS],
 			["overlay_flood", GameOverlay.MODE_FLOOD],
 			["overlay_jobs", GameOverlay.MODE_JOBS]]:
@@ -190,9 +251,16 @@ func _unhandled_input(event: InputEvent) -> void:
 
 # --- События -> уведомления -----------------------------------------------
 
+## ⚠️ Банер уносит свою автопаузу С СОБОЙ. run_started приходит не только на
+## новый забег: его же шлёт rebroadcast_state (загрузка сейва, промотка времени
+## дебаг-панелью), а там счётчик автопауз никто не обнуляет. Сброшенный флаг без
+## pop_pause оставлял паузу висеть навсегда — при том, что банера на экране уже
+## нет и снять её нечем.
 func _on_run_started(_seed_value: int) -> void:
 	_building_state.clear()
-	_banner_paused = false
+	if _banner_paused:
+		_banner_paused = false
+		Game.pop_pause()
 	notices.clear()
 	banner.hide_banner()
 
@@ -228,10 +296,18 @@ func _on_show_toast(payload: Dictionary) -> void:
 		payload["tone"] as Toast.Tone, payload.get("cell", Vector2i.ZERO) as Vector2i,
 		float(payload.get("life", -1.0)))
 
+## life = −1 — «по умолчанию»: длительность берёт настройка доступности
+## «сколько живёт тост», где 0 значит «не закрывать сами» (docs/03 §3.6).
+## Ползунок иначе не делал ничего вовсе (аудит B4). Явное число сильнее:
+## тост тонущего persistent по своей природе.
+##
+## Настройку читает HUD, а не сам Toast: компонентам про Settings знать нельзя
+## (tests/test_ui, components_are_pure).
 func _toast(type: String, text: String, tone: Toast.Tone,
 		cell: Vector2i = Vector2i.ZERO, life: float = -1.0) -> void:
 	notices.push(NoticeQueue.Kind.TOAST, {"type": type, "text": text,
-		"tone": tone, "cell": cell, "life": life})
+		"tone": tone, "cell": cell,
+		"life": Settings.toast_seconds if life < 0.0 else life})
 
 ## Тонущий — единственный персистентный тост: он не должен исчезнуть раньше,
 ## чем игрок нажмёт Отзыв (docs/01 §2).

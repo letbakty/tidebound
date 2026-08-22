@@ -72,14 +72,22 @@ func _build() -> void:
 	_seed = Label.new()
 	_seed.theme_type_variation = &"LabelNum"
 	_seed.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	_seed.tooltip_text = "SUMMARY_SEED_TIP"
+	# tr() вручную: у ноды выключен автоперевод, и тултип показал бы сам ключ.
+	_seed.tooltip_text = tr("SUMMARY_SEED_TIP")
 	_seed.mouse_filter = Control.MOUSE_FILTER_STOP
 	_seed.gui_input.connect(_on_seed_input)
 	box.add_child(_seed)
 
 	_to_journal = PixelButton.new()
 	_to_journal.setup("RUN_TO_JOURNAL", PixelButton.Variant.PRIMARY)
-	_to_journal.pressed.connect(func() -> void: journal_requested.emit())
+	# Первое нажатие досказывает числа, второе уводит в Журнал: так пропуск
+	# анимации доступен и с геймпада, и с клавиатуры — тап по фону работает
+	# только пальцем (аудит B4).
+	_to_journal.pressed.connect(func() -> void:
+		if _counting():
+			_finish_numbers()
+			return
+		journal_requested.emit())
 	box.add_child(_to_journal)
 
 func open_with(args: Dictionary) -> void:
@@ -102,9 +110,9 @@ static func _outcome_key(end_kind: int) -> String:
 
 static func _outcome_color(end_kind: int) -> Color:
 	match end_kind:
-		int(SimTypes.RunEnd.SHIP): return UITokens.SUCCESS
-		int(SimTypes.RunEnd.EARLY): return UITokens.WARM
-	return UITokens.DANGER
+		int(SimTypes.RunEnd.SHIP): return UIPalette.success()
+		int(SimTypes.RunEnd.EARLY): return UIPalette.warm()
+	return UIPalette.danger()
 
 ## Очки построчно с «подъездом» чисел. Одна Tween на весь экран с chain():
 ## по твину на строку — и они пойдут вразнобой (research/22 §7).
@@ -142,6 +150,8 @@ func _fill_score(report: Dictionary) -> void:
 	# Что игрок ПОЛУЧИЛ — отдельной строкой и всегда, даже при вайпе.
 	_gain.text = tr("RUN_GAIN").format({
 		"n": total, "points": Meta.points_total, "next": _affordable_count()})
+	if Settings.reduce_motion:
+		_finish_numbers()               # «меньше движения» (docs/03 §3.6)
 
 ## Сколько разблокировок теперь по карману: конкретная причина открыть Журнал.
 static func _affordable_count() -> int:
@@ -192,6 +202,14 @@ func _gui_input(event: InputEvent) -> void:
 	var touch: InputEventScreenTouch = event as InputEventScreenTouch
 	if touch != null and touch.pressed:
 		_finish_numbers()
+		return
+	var click: InputEventMouseButton = event as InputEventMouseButton
+	if click != null and click.pressed:
+		_finish_numbers()
+
+## Идёт ли ещё «подъезд» чисел.
+func _counting() -> bool:
+	return _tween != null and _tween.is_valid() and _tween.is_running()
 
 func _finish_numbers() -> void:
 	_kill_tween()

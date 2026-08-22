@@ -69,8 +69,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		var mb := event as InputEventMouseButton
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
 			zoom_step.emit(1)
+			get_viewport().set_input_as_handled()
 		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			zoom_step.emit(-1)
+			get_viewport().set_input_as_handled()
 		elif mb.button_index == MOUSE_BUTTON_RIGHT:
 			# Удержание ПКМ = долгое нажатие пальцем (промпт 12 п.5).
 			if mb.pressed:

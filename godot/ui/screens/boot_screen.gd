@@ -48,6 +48,9 @@ static func build_version() -> String:
 
 func on_enter(_args: Dictionary = {}) -> void:
 	_t = 0.0
+	# ⚠️ set_process взводится обратно: после finished он выключен, и второй
+	# вход в заставку висел бы на пустой полосе (аудит B5).
+	set_process(true)
 	# Профиль читает Meta в своём _ready; здесь только проверяем результат.
 	_profile_ok = not FileAccess.file_exists(Meta.PROFILE_PATH) or Meta.load_profile()
 

@@ -95,9 +95,9 @@ static func _letter_for(t: Tone) -> String:
 
 static func _color_for(t: Tone) -> Color:
 	match t:
-		Tone.WARN: return UITokens.WARM
-		Tone.DANGER: return UITokens.DANGER
-	return UITokens.WATER_COLD
+		Tone.WARN: return UIPalette.warm()
+		Tone.DANGER: return UIPalette.danger()
+	return UIPalette.water()
 
 func _on_timeout() -> void:
 	dismissed.emit()

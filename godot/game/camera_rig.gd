@@ -44,6 +44,8 @@ func _ready() -> void:
 	make_current()
 
 func _process(delta: float) -> void:
+	if not is_visible_in_tree():
+		return                          # мир скрыт экраном (аудит B1.5)
 	var dir: Vector2 = Input.get_vector("pan_left", "pan_right", "pan_up", "pan_down")
 	if dir != Vector2.ZERO:
 		_kill_zoom_tween()
@@ -52,17 +54,15 @@ func _process(delta: float) -> void:
 		_commit()
 
 func _unhandled_input(event: InputEvent) -> void:
+	if not is_visible_in_tree():
+		return
 	var mb: InputEventMouseButton = event as InputEventMouseButton
 	if mb != null and mb.button_index == MOUSE_BUTTON_RIGHT:
 		_dragging = mb.pressed
 		return
-	if mb != null and mb.pressed:
-		# Колесо — зум ступенями (docs/00 §13).
-		if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-			zoom_in()
-		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			zoom_out()
-		return
+	# ⚠️ Колесо здесь НЕ ловим: жесты (в том числе зум колесом) распознаёт
+	# InputService и отдаёт их сигналом zoom_step. Пока это делали оба, один
+	# щелчок давал две ступени (аудит B2.7).
 	var mm: InputEventMouseMotion = event as InputEventMouseMotion
 	if mm != null and _dragging:
 		_kill_focus_tween()
@@ -75,7 +75,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func focus_on(world_pos: Vector2, animated: bool = true) -> void:
 	_kill_focus_tween()
 	var target: Vector2 = world_pos.clamp(_limit_min, _limit_max)
-	if not animated or Game.fast_forwarding:
+	# reduce_motion — про вестибулярный дискомфорт, и наезд камеры под него
+	# подпадает наравне с анимациями интерфейса (docs/03 §3.6).
+	if not animated or Game.fast_forwarding or Settings.reduce_motion:
 		_virtual_pos = target
 		_commit()
 		return
@@ -121,7 +123,7 @@ func _apply_zoom(factor: int, animated: bool) -> void:
 	# Контейнер уже увеличивает мир вдвое, камере остаётся factor / 2.
 	var target: Vector2 = Vector2.ONE * (float(factor) * 0.5)
 	_kill_zoom_tween()
-	if not animated:
+	if not animated or Settings.reduce_motion:
 		zoom = target
 		_recalc_limits()
 		_commit()
@@ -131,13 +133,18 @@ func _apply_zoom(factor: int, animated: bool) -> void:
 	_zoom_tween = create_tween()
 	_zoom_tween.tween_property(self, "zoom", target, ZOOM_TWEEN_SEC) \
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_zoom_tween.tween_callback(func() -> void:
-		zoom = target
-		_recalc_limits()
-		_commit())
+	# ⚠️ parallel() цепляет следующий твинер к ПРЕДЫДУЩЕМУ шагу. Стоя после
+	# tween_callback, он шёл параллельно колбэку — то есть уже ПОСЛЕ анимации,
+	# и всю отдалённую анимацию камера жила со старыми лимитами: на краю карты
+	# в кадр попадала пустота за её пределами (аудит B5).
 	_zoom_tween.parallel().tween_method(func(_v: float) -> void:
 		_recalc_limits()
 		_commit(), 0.0, 1.0, ZOOM_TWEEN_SEC)
+	# chain(): «приземление» на ступень — строго после обоих.
+	_zoom_tween.chain().tween_callback(func() -> void:
+		zoom = target
+		_recalc_limits()
+		_commit())
 
 func _kill_zoom_tween() -> void:
 	if _zoom_tween != null and _zoom_tween.is_valid():

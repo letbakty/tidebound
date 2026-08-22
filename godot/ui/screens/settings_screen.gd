@@ -246,6 +246,12 @@ func _start_capture(action: String) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if _capturing.is_empty() or not visible:
 		return
+	# Esc и «назад» на геймпаде отменяют захват, а не назначаются на действие:
+	# без выхода игрок был обязан назначить хоть что-то (аудит B5).
+	if event.is_action_pressed("ui_cancel"):
+		_cancel_capture()
+		get_viewport().set_input_as_handled()
+		return
 	var ok: bool = event is InputEventKey and (event as InputEventKey).pressed
 	ok = ok or (event is InputEventJoypadButton
 		and (event as InputEventJoypadButton).pressed)
@@ -256,6 +262,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	_capture_note.visible = false
 	_refresh_bindings()
 	get_viewport().set_input_as_handled()
+
+func _cancel_capture() -> void:
+	_capturing = ""
+	_capture_note.visible = false
+	_refresh_bindings()
 
 ## Конфликт видно сразу: две одинаковые клавиши краснеют обе.
 func _refresh_bindings() -> void:
@@ -280,21 +291,23 @@ func _build_access_tab() -> Control:
 	UILayout.wrap(note, 520.0)
 	note.text = "SET_ACCESS_NOTE"
 	box.add_child(note)
+	# Кегль, пресет для дальтоников и контраст пересобирают тему — эффект виден
+	# сразу, а не после смены языка или перезапуска (docs/03 §3.6, аудит B2.8).
 	_row(box, "SET_FONT_SCALE", _slider(Settings.font_scale, 0.75, 2.0, 0.25,
 		func(v: float) -> void:
 			Settings.font_scale = v
-			Settings.mark_dirty()), "SET_FONT_SCALE_HINT")
+			Settings.apply_accessibility()), "SET_FONT_SCALE_HINT")
 	_row(box, "SET_COLORBLIND", _options(["CB_NONE", "CB_PROTAN", "CB_DEUTER",
 		"CB_TRITAN"], int(Settings.colorblind), func(i: int) -> void:
 			Settings.colorblind = i as Settings.Colorblind
-			Settings.mark_dirty()), "SET_COLORBLIND_HINT")
+			Settings.apply_accessibility()), "SET_COLORBLIND_HINT")
 	_row(box, "SET_REDUCE_MOTION", _check(Settings.reduce_motion,
 		func(on: bool) -> void:
 			Settings.reduce_motion = on
 			Settings.mark_dirty()), "SET_REDUCE_MOTION_HINT")
 	_row(box, "SET_CONTRAST", _check(Settings.high_contrast, func(on: bool) -> void:
 		Settings.high_contrast = on
-		Settings.mark_dirty()), "SET_CONTRAST_HINT")
+		Settings.apply_accessibility()), "SET_CONTRAST_HINT")
 	_row(box, "SET_TOAST_TIME", _slider(Settings.toast_seconds, 0.0, 15.0, 1.0,
 		func(v: float) -> void:
 			Settings.toast_seconds = v

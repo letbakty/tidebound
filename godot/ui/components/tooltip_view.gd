@@ -3,6 +3,10 @@ extends PanelContainer
 ## Тултип проекта. Подставляется компонентами через _make_custom_tooltip;
 ## на таче показывается по долгому нажатию (это делает владелец элемента).
 
+## Обычный тултип узкий, но легенда шкалы — это десять строк, и на 180px она
+## превращается в лапшу. Ширину задаёт вызывающий.
+const WIDTH_PX: float = 180.0
+
 var _label: Label = null
 
 func _ready() -> void:
@@ -16,12 +20,13 @@ func _build() -> void:
 	_label = Label.new()
 	_label.name = "Text"
 	_label.theme_type_variation = &"TooltipLabel"
-	UILayout.wrap(_label, 180.0)
+	UILayout.wrap(_label, WIDTH_PX)
 	add_child(_label)
 
 ## text — уже переведённая строка: тултип часто собирают из чисел.
-func setup(text: String) -> void:
+func setup(text: String, width: float = WIDTH_PX) -> void:
 	_build()
+	UILayout.wrap(_label, width)
 	_label.text = text
 	_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
 

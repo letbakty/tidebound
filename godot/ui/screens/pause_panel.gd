@@ -64,7 +64,8 @@ func _build() -> void:
 	_seed = Label.new()
 	_seed.theme_type_variation = &"LabelNum"
 	_seed.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	_seed.tooltip_text = "SUMMARY_SEED_TIP"
+	# tr() вручную: у ноды выключен автоперевод, и тултип показал бы сам ключ.
+	_seed.tooltip_text = tr("SUMMARY_SEED_TIP")
 	_seed.mouse_filter = Control.MOUSE_FILTER_STOP
 	_seed.gui_input.connect(_on_seed_input)
 	_panel.add_content(_seed)

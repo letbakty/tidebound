@@ -68,6 +68,8 @@ func is_open(panel_name: String = "") -> bool:
 ## Esc в _unhandled_input, а не в _input: LineEdit внутри панели должен
 ## сначала снять свой фокус (research/21 §6).
 func _unhandled_input(event: InputEvent) -> void:
+	if not is_visible_in_tree():
+		return                          # слой панелей скрыт экраном (B1.5)
 	if event.is_action_pressed("pause_menu") and not _current.is_empty():
 		close()
 		get_viewport().set_input_as_handled()

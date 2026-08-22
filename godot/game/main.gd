@@ -43,6 +43,10 @@ var capture: CaptureMode = null
 var _beacon_mode: bool = false
 ## Корни UI на слоях: их размер держим синхронным с окном вручную.
 var _layer_roots: Array[Control] = []
+## Текущая тема. ⚠️ Хранится, а не читается с диска каждый раз: диалоги
+## создаются в рантайме, и после смены кегля новый ConfirmDialog получал
+## СТАРУЮ тему из main_theme.tres (аудит B3).
+var _theme: Theme = null
 
 func _ready() -> void:
 	Events.cycle_ended.connect(_on_cycle_ended)
@@ -146,6 +150,8 @@ func _spawn_screens() -> void:
 	attach_ui(screen_layer, router)
 	router.setup_layers(world_container, hud_layer, panel_layer)
 
+	router.screen_changed.connect(_on_screen_changed)
+
 	var boot: BootScreen = BootScreen.new()
 	boot.name = "BootScreen"
 	router.register(ScreenRouter.Screen.BOOT, boot)
@@ -226,10 +232,10 @@ func _spawn_modals() -> void:
 	var cycle: CycleSummary = CycleSummary.new()
 	cycle.name = "CycleSummary"
 	router.register_modal(ScreenRouter.Modal.CYCLE_SUMMARY, cycle)
-	cycle.closed.connect(func() -> void:
-		router.close_modal()
-		# Паузу ставил Game на границе цикла — снимаем её тем же счётчиком.
-		Game.pop_pause())
+	# Паузу этого окна ставил Game на границе цикла, а снимает роутер: окно
+	# может закрыться и не кнопкой (его вытеснил Итог забега), а счётчик
+	# автопаузы обязан сойтись в любом случае.
+	cycle.closed.connect(func() -> void: router.close_modal())
 
 	var run: RunSummary = RunSummary.new()
 	run.name = "RunSummary"
@@ -263,21 +269,38 @@ func _spawn_modals() -> void:
 		router.close_modal()
 		router.goto(ScreenRouter.Screen.MAIN_MENU))
 
+## Мир и жесты по миру живут ТОЛЬКО на экране игры. Скрытый мир продолжал
+## считать и ловить ввод: WASD и колесо крутили камеру под меню, а тап по
+## «пустому месту» экрана уходил в размещение постройки (аудит B1.5).
+func _on_screen_changed(screen: int) -> void:
+	var in_game: bool = screen == int(ScreenRouter.Screen.GAME)
+	var mode: Node.ProcessMode = Node.PROCESS_MODE_INHERIT if in_game \
+		else Node.PROCESS_MODE_DISABLED
+	if world_view != null:
+		world_view.process_mode = mode
+	if input_service != null:
+		input_service.process_mode = mode
+
 func _on_boot_finished(profile_ok: bool) -> void:
 	if not profile_ok:
 		router.open_modal(ScreenRouter.Modal.ERROR, {
 			"what": "ERROR_PROFILE_BROKEN", "did": "ERROR_PROFILE_BROKEN_DID",
 			"details": Meta.PROFILE_PATH}, false)
 		return
-	# Профиля нет вовсе — это первый запуск: спрашиваем язык (docs/03 §3.2).
-	router.goto(ScreenRouter.Screen.FIRST_LAUNCH if not Settings.has_file()
+	# Настроек на диске не было — это первый запуск: спрашиваем язык
+	# (docs/03 §3.2; карта переходов говорит «нет профиля», но профиль
+	# появляется и от одной покупки в Журнале, а settings.json — ровно от
+	# первого старта). Флаг снят в Settings._ready ДО первой записи файла:
+	# к концу заставки has_file() уже врёт (аудит B1.3).
+	router.goto(ScreenRouter.Screen.FIRST_LAUNCH if Settings.first_launch
 		else ScreenRouter.Screen.MAIN_MENU)
 
 func _start_run(seed_value: int) -> void:
-	Game.cmd_new_run(seed_value)
+	# Скорость забега передаём в сам старт: выставлять её после — значит снять
+	# автопаузу стартового драфта (см. Game.cmd_new_run).
+	Game.cmd_new_run(seed_value, Settings.default_speed)
 	world_view.camera.set_zoom_step(Settings.world_zoom)
 	router.goto(ScreenRouter.Screen.GAME)
-	Game.cmd_set_speed(Settings.default_speed)
 
 ## Продолжение забега из сейва. Битый файл — ErrorDialog, профиль не трогаем
 ## (docs/03 §8).
@@ -453,16 +476,22 @@ func _spawn_debug_panel() -> void:
 	panel.call("setup", world_view)
 
 ## Драфт, итог цикла и итог забега — модальные окна поверх живой игры.
+##
+## Оба приходят из sim ОДНИМ батчем, поэтому оба идут в очередь роутера, а не
+## затирают друг друга: Итог цикла показывается первым, драфт ждёт (docs/03 §1).
+## Экран не проверяем — окно забега вне игры роутер придержит сам, и драфт
+## после «Продолжить» не потеряется (docs/03 §8).
 func _on_draft_ready(card_ids: Array[String]) -> void:
-	if card_ids.is_empty() or router.current != ScreenRouter.Screen.GAME:
+	if card_ids.is_empty():
 		return
-	# Паузу уже поставил Game (если игрок её не выключил) — второй раз не ставим.
-	router.open_modal(ScreenRouter.Modal.DRAFT, {"cards": card_ids}, false)
+	# Паузу уже поставил Game (если игрок её не выключил) — второй раз не ставим,
+	# но роутер обязан её снять, когда окно закроется.
+	router.open_modal(ScreenRouter.Modal.DRAFT, {"cards": card_ids}, false,
+		Settings.pause_on_draft)
 
 func _on_cycle_ended(report: Dictionary) -> void:
-	if router.current != ScreenRouter.Screen.GAME:
-		return
-	router.open_modal(ScreenRouter.Modal.CYCLE_SUMMARY, {"report": report}, false)
+	router.open_modal(ScreenRouter.Modal.CYCLE_SUMMARY, {"report": report}, false,
+		Settings.pause_on_cycle)
 
 ## Забег кончился, пока была открыта панель — панель закрывается, итог поверх
 ## (docs/03 §8).
@@ -473,10 +502,22 @@ func _on_run_ended(report: Dictionary) -> void:
 ## Тема слоям назначается ЯВНО: CanvasLayer — не Control, и каскад темы на нём
 ## рвётся (research/19 §3). Через этот хелпер этапы 13–15 кладут свои корни.
 func attach_ui(layer: CanvasLayer, node: Control) -> void:
-	node.theme = load(UI_THEME) as Theme
+	if _theme == null:
+		_theme = load(UI_THEME) as Theme
+	node.theme = _theme
 	layer.add_child(node)
+	_prune_layer_roots()
 	_layer_roots.append(node)
 	_stretch_to_viewport(node)
+
+## Диалоги живут до закрытия и уходят в queue_free — их ссылки в списке
+## остаются навсегда, если их не выметать (аудит B3).
+func _prune_layer_roots() -> void:
+	var alive: Array[Control] = []
+	for node: Control in _layer_roots:
+		if is_instance_valid(node):
+			alive.append(node)
+	_layer_roots = alive
 
 ## ⚠️ Control, созданный кодом под CanvasLayer, размера сам не получает:
 ## у слоя нет прямоугольника, и якоря считаются от нуля (в сцене это скрыто
@@ -484,12 +525,13 @@ func attach_ui(layer: CanvasLayer, node: Control) -> void:
 ## Пересборка темы из токенов и палитры: сцены при этом не трогаются —
 ## компоненты подхватят новое через NOTIFICATION_THEME_CHANGED (docs/01 §1.2).
 func _rebuild_theme() -> void:
-	var th: Theme = UIThemeFactory.build()
+	_theme = UIThemeFactory.build()
+	_prune_layer_roots()
 	for node: Control in _layer_roots:
-		if is_instance_valid(node):
-			node.theme = th
+		node.theme = _theme
 
 func _restretch_layer_roots() -> void:
+	_prune_layer_roots()
 	for node: Control in _layer_roots:
 		_stretch_to_viewport(node)
 

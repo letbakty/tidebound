@@ -27,6 +27,11 @@ var _gear: IconStub = null
 var _timer: Timer = null
 var _focus_button: PixelButton = null
 
+## Сигнатуры последнего отрисованного состояния рядов: пересобираем только
+## когда содержимое реально изменилось.
+var _traits_sig: String = ""
+var _bag_sig: String = ""
+
 func _ready() -> void:
 	super()
 	_build_card()
@@ -106,6 +111,8 @@ func _build_card() -> void:
 
 func open_with(args: Dictionary) -> void:
 	agent_id = int(args.get("id", -1))
+	_traits_sig = ""                # другой агент — другие черты и котомка
+	_bag_sig = ""
 	_refresh()
 	_timer.start()
 
@@ -135,8 +142,19 @@ func _refresh() -> void:
 	_refresh_traits(a["traits"] as Array)
 	_refresh_bag(a["bag"] as Array, bool(a["has_gear"]))
 
+## Черты за забег не меняются, котомка — редко, а карточка обновляется раз в
+## секунду: без сравнения сигнатуры оба ряда пересоздавались вхолостую вместе
+## со всеми их тултипами (аудит B3).
+static func _sig(items: Array) -> String:
+	return JSON.stringify(items)
+
 func _refresh_traits(ids: Array) -> void:
+	var sig: String = _sig(ids)
+	if sig == _traits_sig:
+		return
+	_traits_sig = sig
 	for c: Node in _traits.get_children():
+		_traits.remove_child(c)
 		c.queue_free()
 	for v: Variant in ids:
 		var trait_id: String = str(v)
@@ -150,19 +168,29 @@ func _refresh_traits(ids: Array) -> void:
 		_traits.add_child(chip)
 
 func _refresh_bag(bag: Array, has_gear: bool) -> void:
+	var sig: String = "%s|%s" % [_sig(bag), has_gear]
+	if sig == _bag_sig:
+		return
+	_bag_sig = sig
 	for c: Node in _bag.get_children():
+		_bag.remove_child(c)
 		c.queue_free()
 	for i: int in BAG_SLOTS:
 		var slot: IconStub = IconStub.new()
 		_bag.add_child(slot)
 		if i < bag.size():
 			var stack: Dictionary = bag[i] as Dictionary
-			slot.setup(str(stack["item_id"]).substr(0, 1),
-				UITokens.WARM if bool(stack.get("wet", false)) else UITokens.INK,
+			var item_id: String = str(stack["item_id"])
+			slot.setup(item_id.substr(0, 1),
+				UIPalette.warm() if bool(stack.get("wet", false)) else UITokens.INK,
 				UITokens.SPACE_5)
-			slot.tooltip_text = "%s x%d" % [str(stack["item_id"]), int(stack["count"])]
+			# IconStub по умолчанию IGNORE — на нём тултипа не увидеть; и имя
+			# предмета берём из дефа, а не сырым id (аудит B2.9, B4).
+			slot.mouse_filter = Control.MOUSE_FILTER_PASS
+			slot.tooltip_text = "%s ×%d" % [
+				tr(StationPanel.item_key(item_id)), int(stack["count"])]
 		else:
 			slot.setup(".", UITokens.FAINT, UITokens.SPACE_5)
 	_gear.visible = has_gear
 	if has_gear:
-		_gear.setup("G", UITokens.ACCENT, UITokens.SPACE_5)
+		_gear.setup("G", UIPalette.accent(), UITokens.SPACE_5)

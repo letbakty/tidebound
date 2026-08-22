@@ -34,7 +34,10 @@ func _notification(what: int) -> void:
 ## _process в нём может не выполниться. Окно потери — одна покупка
 ## разблокировки или один итог забега (REL-03).
 func _save_all() -> void:
-	save_run()
+	# ⚠️ ui_state передаём явно: без него аварийный сейв затирал секцию
+	# интерфейса пустым словарём, и после «Продолжить» банеры кризисов снова
+	# считались первыми — снова автопаузы на каждом (аудит B2.6).
+	save_run(Game.ui_state)
 	Meta.save_profile()
 
 func has_save() -> bool:
@@ -73,7 +76,8 @@ func load_run() -> bool:
 		push_warning("сейв версии %d, ожидалась %d — загрузка отклонена"
 			% [v, SAVE_VERSION])
 		return false
-	Game.restore_world(d.get("world", {}) as Dictionary)
+	Game.restore_world(d.get("world", {}) as Dictionary,
+		d.get("ui", {}) as Dictionary)
 	_load_commands(Game.world)
 	return true
 
@@ -105,6 +109,7 @@ func saved_info() -> Dictionary:
 func has_valid_save() -> bool:
 	return not saved_info().is_empty()
 
+## Секция интерфейса из файла — для меню, которому мир поднимать незачем.
 func saved_ui() -> Dictionary:
 	var d: Dictionary = SaveIO.read_json(RUN_PATH)
 	return d.get("ui", {}) as Dictionary

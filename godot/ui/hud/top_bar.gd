@@ -15,6 +15,10 @@ const COMPACT_FROM: int = 8
 
 var _totals: Dictionary[String, int] = {}
 var _totals_prev_cycle: Dictionary[String, int] = {}
+## Сухие остатки отдельным кэшем: чип топлива показывает СУХОЙ плавник, и
+## тренд обязан сравнивать то же число, а не общее (аудит B2.10).
+var _dry: Dictionary[String, int] = {}
+var _dry_prev_cycle: Dictionary[String, int] = {}
 var _chips: Dictionary[String, ResourceChip] = {}
 var _agents: Dictionary[int, AgentChip] = {}
 
@@ -78,6 +82,8 @@ func _build() -> void:
 ## Отзыву, а паузу — Esc. Приоритет у docs/00 (CONVENTIONS): пауза — кнопка ⏸
 ## в этой строке, Esc открывает окно паузы на этапе 15.
 func _unhandled_input(event: InputEvent) -> void:
+	if not is_visible_in_tree():
+		return                          # скрытый HUD не командует симом (B1.5)
 	for m: int in [1, 2, 3]:
 		if event.is_action_pressed("speed_%d" % m):
 			Game.cmd_set_speed(m)
@@ -97,6 +103,8 @@ func _on_run_started(_seed_value: int) -> void:
 	for k: Variant in start:
 		_totals[str(k)] = int(start[k])
 	_totals_prev_cycle = _totals.duplicate()
+	_pull_dry()
+	_dry_prev_cycle = _dry.duplicate()
 	for id: int in _agents:
 		_agents[id].queue_free()
 	_agents.clear()
@@ -112,6 +120,8 @@ func _on_resources(totals: Dictionary) -> void:
 ## всегда равно «настоящему» и стрелка тренда вечно показывает → (research/21 §9).
 func _on_cycle_started(cycle: int) -> void:
 	_totals_prev_cycle = _totals.duplicate()
+	_pull_dry()
+	_dry_prev_cycle = _dry.duplicate()
 	_refresh_cycle()
 	_refresh_chips()
 
@@ -147,32 +157,44 @@ func _on_agent_died(id: int, _cause: String) -> void:
 
 # --- Отрисовка состояния --------------------------------------------------
 
+## Лёгкий срез вместо полного: чипу нужны имя, худшая потребность и «жив ли»,
+## а query_agent ради этого копировал котомку на каждое обновление (аудит B3).
 func _update_agent(id: int) -> void:
 	if not _agents.has(id):
 		return
-	var a: Dictionary = Game.query_agent(id)
+	var a: Dictionary = Game.query_agent_look(id)
 	if a.is_empty():
 		return
-	var worst: float = minf(minf(float(a["satiety"]), float(a["warmth"])),
-		float(a["mood"]))
-	_agents[id].setup(id, str(a["name"]), worst,
-		int(a["state"]) == int(SimTypes.AgentState.DEAD))
+	_agents[id].setup(id, str(a["name"]), float(a["worst_need"]), bool(a["dead"]))
 
 func _apply_compact() -> void:
 	var compact: bool = _agents.size() > COMPACT_FROM
 	for id: int in _agents:
 		_agents[id].set_compact(compact)
 
-func _refresh_chips() -> void:
+func _pull_dry() -> void:
+	_dry.clear()
 	var dry: Dictionary = Game.query_dry_totals()
-	for item_id: String in SHOWN_ITEMS:
-		var now: int = int(_totals.get(item_id, 0))
-		if DRY_ITEMS.has(item_id):
-			now = int(dry.get(item_id, 0))
-		# Ноль показывается нулём, а не исчезает (docs/03 §8).
-		_chips[item_id].setup(item_id, now, trend(item_id))
+	for k: Variant in dry:
+		_dry[str(k)] = int(dry[k])
 
+func _refresh_chips() -> void:
+	_pull_dry()
+	for item_id: String in SHOWN_ITEMS:
+		_chips[item_id].setup(item_id, shown_count(item_id), trend(item_id))
+
+## Что показывает чип: у сухих предметов — сухой остаток («мокрое полено в очаг
+## не пойдёт»), у остальных — общий. Ноль показывается нулём (docs/03 §8).
+func shown_count(item_id: String) -> int:
+	if DRY_ITEMS.has(item_id):
+		return int(_dry.get(item_id, 0))
+	return int(_totals.get(item_id, 0))
+
+## Стрелка тренда сравнивает ТО ЖЕ число, что показано: иначе подсохший за цикл
+## плавник давал стрелку вниз при растущем топливе.
 func trend(item_id: String) -> int:
+	if DRY_ITEMS.has(item_id):
+		return signi(int(_dry.get(item_id, 0)) - int(_dry_prev_cycle.get(item_id, 0)))
 	return signi(int(_totals.get(item_id, 0)) - int(_totals_prev_cycle.get(item_id, 0)))
 
 func _refresh_cycle() -> void:

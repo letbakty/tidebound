@@ -28,7 +28,7 @@ func _ready() -> void:
 	_build()
 	Events.crisis_announced.connect(_on_crisis)
 	Events.cycle_ended.connect(_on_cycle_ended)
-	Events.resources_changed.connect(_on_resources.unbind(1))
+	_watch_resources()
 	Events.run_started.connect(_on_run_started)
 
 func _build() -> void:
@@ -79,6 +79,7 @@ func _on_run_started(_seed_value: int) -> void:
 	_queue.clear()
 	_showing = false
 	_panel.visible = false
+	_watch_resources()          # подсказки могли включить в настройках
 
 func _on_crisis(type: int, cycle: int) -> void:
 	match type:
@@ -100,9 +101,27 @@ func _on_cycle_ended(report: Dictionary) -> void:
 	if int(report.get("washed", 0)) > 0:
 		trigger("first_washed")
 
+## Урок про мокрый плавник — единственный, ради которого нужен сторож на
+## resources_changed. Подписка снимается, как только он показан: два обхода
+## складов на КАЖДОЕ изменение ресурсов до конца сессии — чистая трата
+## (аудит B3).
+func _watch_resources() -> void:
+	var need: bool = Settings.hints_enabled and not Meta.hint_shown("first_wet_wood")
+	var on: bool = Events.resources_changed.is_connected(_on_resources_bound)
+	if need and not on:
+		Events.resources_changed.connect(_on_resources_bound)
+	elif not need and on:
+		Events.resources_changed.disconnect(_on_resources_bound)
+
+## Отдельный именованный обработчик: unbind-обёртку не отсоединить обратно —
+## каждый вызов .unbind() даёт НОВЫЙ Callable.
+func _on_resources_bound(_totals: Dictionary) -> void:
+	_on_resources()
+
 ## Мокрый плавник виден как расхождение общего и сухого остатка.
 func _on_resources() -> void:
 	var total: int = int(Game.query_totals().get("driftwood", 0))
 	var dry: int = int(Game.query_dry_totals().get("driftwood", 0))
 	if total > dry:
 		trigger("first_wet_wood")
+	_watch_resources()

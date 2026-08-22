@@ -56,7 +56,12 @@ func _build() -> void:
 
 ## Space на ПК и B на геймпаде — та же команда, что и кнопка (docs/00 §13).
 ## _unhandled_input: при фокусе в поле ввода пробел должен печататься.
+## ⚠️ Гейт по видимости обязателен: _unhandled_input приходит и СКРЫТОМУ узлу
+## (в отличие от _gui_input), и Space под главным меню отзывал людей в мире,
+## которого игрок не видит (аудит B1.5).
 func _unhandled_input(event: InputEvent) -> void:
+	if not is_visible_in_tree():
+		return
 	if event.is_action_pressed("recall"):
 		_on_pressed()
 		get_viewport().set_input_as_handled()
@@ -86,9 +91,20 @@ func _apply_pulse() -> void:
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
 	_tween = null
+	# Уведомление о видимости прилетает и в середине сборки HUD — до _build.
+	if _button == null:
+		return
 	_button.pivot_offset = _button.size * 0.5
 	_button.scale = Vector2.ONE
+	# Зациклённый твин в СКРЫТОМ HUD крутится под меню до конца сессии
+	# (аудит B3): пульс живёт только пока кнопку видно.
+	if not is_visible_in_tree():
+		return
 	if _phase != int(SimTypes.Phase.SIGNAL):
+		return
+	# «Меньше движения» — настройка доступности, а не украшение: пульсирующая
+	# кнопка первой попадает под неё (docs/03 §3.6, аудит B4).
+	if Settings.reduce_motion:
 		return
 	_tween = create_tween().set_loops()
 	_tween.tween_property(_button, "scale", Vector2.ONE * PULSE_SCALE, PULSE_SEC) \
@@ -96,8 +112,10 @@ func _apply_pulse() -> void:
 	_tween.tween_property(_button, "scale", Vector2.ONE, PULSE_SEC) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
+## Лёгкий срез: полный query_agent копирует котомку целиком, а нужна одна
+## отметка — и приходит это на КАЖДОЕ agent_updated (аудит B3).
 func _on_agent_updated(id: int) -> void:
-	var a: Dictionary = Game.query_agent(id)
+	var a: Dictionary = Game.query_agent_look(id)
 	if a.is_empty():
 		return
 	_marks[id] = float(a["mark"])
@@ -128,3 +146,5 @@ func _refresh_below() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_TRANSLATION_CHANGED:
 		_refresh_below()
+	elif what == NOTIFICATION_VISIBILITY_CHANGED:
+		_apply_pulse()          # скрылись — гасим твин, вернулись — заводим

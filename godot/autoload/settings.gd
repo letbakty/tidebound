@@ -72,8 +72,15 @@ var _dirty: bool = false
 ## Настройки доступности НИКОГДА не отключают достижения и не помечают забег
 ## (docs/03 §3.2) — флага «облегчённого режима» в этом файле нет и не будет.
 
+## Первый ли это запуск игры. ⚠️ Снимается ОДИН раз в _ready до первой записи
+## файла: apply() ставит mark_dirty, и файл появляется в том же кадре — к концу
+## заставки has_file() отвечает «да» на любом запуске, и экран выбора языка не
+## увидел бы никто (аудит B1.3).
+var first_launch: bool = false
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	first_launch = not has_file()
 	if not load_settings():
 		# Файла нет — первый запуск: подбираем умолчания по железу.
 		_apply_platform_defaults()
@@ -163,6 +170,15 @@ static func dpi_scale() -> float:
 ## Итоговый множитель контента: плотность экрана × пользовательский ползунок.
 func effective_scale() -> float:
 	return snappedf(dpi_scale() * ui_scale, UI_SCALE_STEP)
+
+## Доступность обязана применяться СРАЗУ, без перезапуска и без смены языка
+## (docs/03 §3.6). Полный apply() ради кегля дёргал бы окно, звук и локаль,
+## поэтому пересборка темы вынесена отдельно.
+func apply_accessibility() -> void:
+	UIPalette.apply(int(colorblind), high_contrast)
+	UIThemeFactory.font_scale = font_scale
+	theme_changed.emit()
+	mark_dirty()
 
 ## Язык по системной локали — предлагается на первом запуске (docs/03 §3.2).
 static func system_locale() -> String:

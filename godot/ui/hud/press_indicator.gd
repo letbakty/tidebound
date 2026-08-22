@@ -24,4 +24,4 @@ func _draw() -> void:
 		return
 	draw_arc(_pos, RADIUS, 0.0, TAU, 32, UITokens.BORDER, 2.0)
 	draw_arc(_pos, RADIUS, -TAU * 0.25, -TAU * 0.25 + TAU * _t, 32,
-		UITokens.ACCENT, 3.0)
+		UIPalette.accent(), 3.0)

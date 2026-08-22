@@ -40,7 +40,7 @@ layer = 10
 layer = 20
 
 [node name="WeatherLayer" type="CanvasLayer" parent="."]
-layer = 25
+layer = 15
 
 [node name="Vignette" type="ColorRect" parent="WeatherLayer"]
 material = ExtResource("3_vignette_mat")

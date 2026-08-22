@@ -107,9 +107,9 @@ static func _letter_for(state: int) -> String:
 static func _color_for(state: int) -> Color:
 	match state:
 		int(SimTypes.AgentState.PANIC), int(SimTypes.AgentState.DROWNING):
-			return UITokens.DANGER
+			return UIPalette.danger()
 		int(SimTypes.AgentState.REST), int(SimTypes.AgentState.EAT):
-			return UITokens.WARM
+			return UIPalette.warm()
 		int(SimTypes.AgentState.IDLE):
 			return UITokens.FAINT
 	return UITokens.INK

@@ -49,9 +49,9 @@ func setup(title_key: String, text_key: String, tone: Tone) -> void:
 	_text_key = text_key
 	var border: Color = UITokens.BORDER
 	if tone == Tone.WARN:
-		border = UITokens.WARM
+		border = UIPalette.warm()
 	elif tone == Tone.DANGER:
-		border = UITokens.DANGER
+		border = UIPalette.danger()
 	add_theme_stylebox_override("panel",
 		UIThemeFactory.flat(UITokens.PAPER, border, UITokens.BORDER_W, UITokens.SPACE_3))
 	_refresh_texts()

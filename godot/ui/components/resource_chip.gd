@@ -69,11 +69,11 @@ static func letter_for(id: String) -> String:
 ## Цвет предмета: им пользуются и панели, поэтому публичный.
 static func color_for(id: String) -> Color:
 	match id:
-		"rations", "catch": return UITokens.SUCCESS
-		"freshwater": return UITokens.WATER_COLD
-		"driftwood", "fiber": return UITokens.WARM
+		"rations", "catch": return UIPalette.success()
+		"freshwater": return UIPalette.water()
+		"driftwood", "fiber": return UIPalette.warm()
 		"part", "ingot", "rope", "gear": return UITokens.MUTED
-		"relic": return UITokens.ACCENT
+		"relic": return UIPalette.accent()
 	return UITokens.MUTED
 
 ## Треугольник вверх/вниз и черта для «без изменений» — форма несёт смысл

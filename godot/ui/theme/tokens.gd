@@ -87,7 +87,7 @@ static func need_color(value_0_100: float) -> Color:
 	if value_0_100 < 30.0:
 		return UIPalette.danger()
 	if value_0_100 < 55.0:
-		return WARM
+		return UIPalette.warm()
 	return UIPalette.success()
 
 ## Цвет тренда: −1 / 0 / +1. Цвет НЕ единственный канал — рядом всегда стрелка.

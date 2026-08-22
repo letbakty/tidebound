@@ -112,7 +112,7 @@ func _unlock_card(id: String) -> Control:
 	if Meta.is_unlock_new(id):
 		# Новое подсвечено рамкой до первого просмотра.
 		card.add_theme_stylebox_override("panel", UIThemeFactory.flat(
-			UITokens.RAISE, UITokens.ACCENT, UITokens.BORDER_FOCUS, UITokens.SPACE_3))
+			UITokens.RAISE, UIPalette.accent(), UITokens.BORDER_FOCUS, UITokens.SPACE_3))
 	var box: VBoxContainer = VBoxContainer.new()
 	card.add_child(box)
 	var title: Label = Label.new()

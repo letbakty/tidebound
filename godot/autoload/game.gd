@@ -32,9 +32,21 @@ var _paused_speed: int = 1
 ## Глубина автопаузы. СЧЁТЧИК, а не флаг: драфт может лечь поверх итога цикла,
 ## и закрытие верхнего окна не должно снимать паузу нижнего (research/21 §5).
 var _pause_depth: int = 0
+## Мир скрыт экраном (главное меню, настройки, Журнал) — тик не идёт вовсе.
+##
+## ⚠️ Это НЕ автопауза, и намеренно. Счётчик автопауз обнуляют cmd_new_run и
+## restore_world, поэтому любая долгоживущая «заявка» на паузу поверх них
+## разъезжается со счётчиком: после «Продолжить» снятие экранной паузы съедало
+## паузу стартового драфта, и окно выбора висело над идущей игрой. Флаг живёт
+## отдельно, выбранную игроком скорость не трогает и возвращает её сам
+## (аудит B1.5).
+var world_hidden: bool = false
 ## Секция интерфейса в сейве: показанные банеры и подсказки. Наполняют
 ## этапы 13 и 15; sim о ней не знает.
 var ui_state: Dictionary = {}
+## Результат последней записи сейва. Метка «Сохранено» не имеет права врать:
+## именно из-за неё игрок спокойно закрывает игру (аудит B5).
+var last_save_ok: bool = true
 
 func _ready() -> void:
 	# Своя метрика в Monitors рядом со встроенными графиками: бюджет тика
@@ -43,7 +55,7 @@ func _ready() -> void:
 	Performance.add_custom_monitor(&"tidebound/tick_ms", tick_budget_ms)
 
 func _physics_process(delta: float) -> void:
-	if speed == 0 or world == null:
+	if speed == 0 or world == null or world_hidden:
 		# Время шейдеров пушим и на паузе: значение не меняется, но материалы,
 		# созданные во время паузы, должны получить актуальное число.
 		_push_shader_time()
@@ -91,7 +103,7 @@ func cmd_new_run(seed_value: int = 0, start_speed: int = 1) -> void:
 	_accum = 0.0
 	_error_count = 0
 	_pause_depth = 0
-	ui_state = {"banners": [], "hints": []}
+	ui_state = {"banners": []}
 	cmd_set_speed(clampi(start_speed, 0, 3))
 	_flush_events()
 
@@ -106,7 +118,7 @@ func cmd_surrender() -> void:
 		world.apply_command({"kind": "surrender"})
 
 func cmd_save() -> void:
-	SaveService.save_run(ui_state)
+	last_save_ok = SaveService.save_run(ui_state)
 
 func cmd_load() -> bool:
 	return SaveService.load_run()
@@ -115,12 +127,14 @@ func has_save() -> bool:
 	return SaveService.has_save()
 
 ## Восстановление мира из сейва + повторная эмиссия событий для UI.
-func restore_world(data: Dictionary) -> void:
+## ui — секция интерфейса того же сейва (показанные банеры).
+func restore_world(data: Dictionary, ui: Dictionary = {}) -> void:
 	world = SimWorld.new(OS.is_debug_build())
 	world.from_dict(data, cliff_def())
 	_accum = 0.0
 	_error_count = 0
 	_pause_depth = 0
+	ui_state = _ui_from_dict(ui)
 	world.events_out.clear()
 	rebroadcast_state()
 	cmd_set_speed(0)
@@ -217,12 +231,16 @@ func cmd_set_beacon(cell: Vector2i) -> void:
 		return
 	world.apply_command({"kind": "set_beacon", "cell": SimTypes.v2i_to_arr(cell)})
 
-## Выбор плана вылазки. Снимает автопаузу драфта.
+## Выбор плана вылазки.
+##
+## ⚠️ Автопаузу драфта снимает ScreenRouter при закрытии окна — по одному
+## снятию на одну постановку. Второй pop_pause здесь уводил бы счётчик в чужую
+## паузу: банер кризиса под драфтом отпускало бы вместе с ним, и игра шла бы
+## под открытым банером.
 func cmd_pick_card(card_id: String) -> void:
 	if world == null:
 		return
 	world.apply_command({"kind": "pick_card", "card": card_id})
-	pop_pause()
 
 func cmd_set_speed(mult: int) -> void:
 	var m: int = clampi(mult, 0, 3)
@@ -354,7 +372,12 @@ func query_agent_look(id: int) -> Dictionary:
 	var a: SimAgent = world.agents.agent(id)
 	if a == null:
 		return {}
-	return {"state": int(a.state), "wet": a.wet, "facing": a.facing}
+	# mark и worst_need здесь, а не в query_agent: HUD дёргает срез на каждое
+	# agent_updated, а полный срез копирует котомку целиком (аудит B3, PERF-01).
+	return {"state": int(a.state), "wet": a.wet, "facing": a.facing,
+		"mark": world.agents.agent_mark_f(a, world),
+		"worst_need": minf(minf(a.satiety(), a.warmth()), a.mood()),
+		"name": a.agent_name, "dead": a.state == SimTypes.AgentState.DEAD}
 
 ## Мировая позиция агента в пикселях — для AgentView каждый кадр.
 func query_agent_pos(id: int) -> Vector2:
@@ -591,6 +614,15 @@ func _on_run_ended(report: Dictionary) -> void:
 ##
 ## Список, а не словарь: ключи Dictionary[int, bool] после JSON round-trip
 ## станут строками (research/21 §5).
+## JSON отдаёт числа float'ами, а банеры сравниваются как int: без приведения
+## `shown.has(type)` промахивается, и каждый банер после загрузки снова первый.
+func _ui_from_dict(ui: Dictionary) -> Dictionary:
+	var shown: Array[int] = []
+	for v: Variant in ui.get("banners", []) as Array:
+		shown.append(int(v))
+	shown.sort()
+	return {"banners": shown}
+
 func note_banner(type: int) -> bool:
 	var shown: Array = ui_state.get("banners", []) as Array
 	if shown.has(type):
@@ -598,16 +630,6 @@ func note_banner(type: int) -> bool:
 	shown.append(type)
 	shown.sort()
 	ui_state["banners"] = shown
-	return true
-
-## То же для карточек-уроков (этап 15): показанные не повторяются.
-func note_hint(id: String) -> bool:
-	var shown: Array = ui_state.get("hints", []) as Array
-	if shown.has(id):
-		return false
-	shown.append(id)
-	shown.sort()
-	ui_state["hints"] = shown
 	return true
 
 # --- Трансляция событий ---------------------------------------------------
@@ -634,7 +656,7 @@ func _flush_events() -> void:
 				# Какие события паузят — решает игрок (docs/03 §3.6).
 				if Settings.pause_on_cycle:
 					push_pause()
-				SaveService.save_run(ui_state)
+				last_save_ok = SaveService.save_run(ui_state)
 				Events.cycle_ended.emit(e.data as Dictionary)
 			"run_started":
 				Events.run_started.emit(int(e.data["seed"]))

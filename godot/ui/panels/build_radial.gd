@@ -47,11 +47,11 @@ func _slots() -> Array[Dictionary]:
 		var d: BuildingDef = DB.building(id)
 		out.append({
 			"label": d.display_key, "letter": id.substr(0, 1).to_upper(),
-			"color": UITokens.WARM, "enabled": true, "def_id": id,
+			"color": UIPalette.warm(), "enabled": true, "def_id": id,
 		})
 	if _ids.size() > PER_PAGE:
 		out.append({"label": "RADIAL_MORE", "letter": "+",
-			"color": UITokens.ACCENT, "enabled": true, "def_id": ""})
+			"color": UIPalette.accent(), "enabled": true, "def_id": ""})
 	return out
 
 func _on_slot_picked(index: int) -> void:
