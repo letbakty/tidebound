@@ -510,3 +510,14 @@ static func test_grinder_builds_faster(t: TestCtx) -> void:
 	t.check(grinder < plain,
 		"Трудяга построил быстрее: %d тиков против %d" % [grinder, plain])
 
+## R7: два ПЛАНА лестницы в одну колонку. Проверка «место свободно» смотрит
+## на граф, а планов в графе ещё нет — оба проходят, оба строятся, и второй
+## получает edge_id = −1: материалы ушли в никуда.
+static func test_second_ladder_plan_in_same_column_is_refused(t: TestCtx) -> void:
+	var w: SimWorld = _world(49)
+	var cell: Vector2i = Vector2i(25, Balance.mark_to_floor_cell_y(-2))
+	var first: int = w.buildings.place("ladder_wood", cell, w)
+	t.check(first > 0, "первый план встал")
+	t.check_eq(w.buildings.place_error("ladder_wood", cell, w), "ERR_NO_LADDER_SPOT",
+		"второй план в ту же колонку не ставится")
+	t.check_eq(w.buildings.place("ladder_wood", cell, w), -1, "и place его не берёт")

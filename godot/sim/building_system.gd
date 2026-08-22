@@ -49,7 +49,12 @@ func place_error(def_id: String, cell: Vector2i, w: SimWorld) -> String:
 	if not d.unlock_id.is_empty() and not w.unlocked.has(d.unlock_id):
 		return "ERR_LOCKED"
 	# Лестница живёт не на сетке, а на ребре графа: у неё своя проверка.
+	# Планы в графе ещё не лежат, поэтому колонку проверяем и по ним (R7):
+	# иначе два плана в одну колонку проходят оба, второй достраивается
+	# с edge_id = −1, и вложенные в него материалы уходят в никуда.
 	if d.special == "ladder":
+		if _planned_ladder_at(cell) >= 0:
+			return "ERR_NO_LADDER_SPOT"
 		return "" if w.terrain.can_place_ladder(cell) else "ERR_NO_LADDER_SPOT"
 	var bottom: int = cell.y + d.size.y - 1
 	var mark: int = Balance.cell_to_mark(Vector2i(cell.x, bottom))
@@ -70,6 +75,19 @@ func place_error(def_id: String, cell: Vector2i, w: SimWorld) -> String:
 		if not w.terrain.is_solid_ground(Vector2i(cell.x + dx2, bottom + 1)):
 			return "ERR_NO_SUPPORT"
 	return ""
+
+## id ещё не достроенной лестницы в этой колонке, или −1.
+func _planned_ladder_at(cell: Vector2i) -> int:
+	for id: int in order:
+		var b: Dictionary = buildings[id]
+		if int(b["state"]) == int(SimTypes.BuildState.ACTIVE):
+			continue
+		var d: BuildingDef = DB.building(str(b["def_id"]))
+		if d == null or d.special != "ladder":
+			continue
+		if (b["cell"] as Vector2i) == cell:
+			return id
+	return -1
 
 func can_place(def_id: String, cell: Vector2i, w: SimWorld) -> bool:
 	return place_error(def_id, cell, w).is_empty()
