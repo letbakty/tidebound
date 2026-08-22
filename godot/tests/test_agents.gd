@@ -517,3 +517,86 @@ static func test_sick_holds_until_fully_warm(t: TestCtx) -> void:
 	var warm: float = _step_len(t, w, a)
 	t.check(not a.sick, "полный отогрев вылечил")
 	t.check_approx(warm / healthy, 1.0, 0.01, "скорость вернулась")
+
+# --- C2.7: три черты были мёртвыми данными ---------------------------------
+
+## Неуклюжий (docs/00 §6.4): «5% уронить предмет при RETURN». Модификатор
+## drop_chance был объявлен и нигде не читался.
+static func test_clumsy_drops_on_return(t: TestCtx) -> void:
+	var w: SimWorld = _world(91)
+	_no_jobs(w)
+	var a: SimAgent = w.agents.agents[0]
+	a.trait_ids = ["clumsy", "sinew"]
+	a.recompute_from_traits()
+	t.check_approx(a.modifier("drop_chance"), 0.05, 0.001, "шанс 5% из дефа")
+	# Сто отзывов с полной котомкой: при 5% хоть один раз да уронит.
+	var drops: int = 0
+	for i: int in 100:
+		a.bag = [StackUtil.make("scrap", 1, false)]
+		a.state = SimTypes.AgentState.IDLE
+		w.agents.recall(false, w)
+		if a.bag.is_empty():
+			drops += 1
+		w.agents.clear_recall()
+	t.check(drops > 0, "хоть раз уронил (%d из 100)" % drops)
+	t.check(drops < 30, "и не роняет каждый раз (%d из 100)" % drops)
+
+	# А аккуратный не роняет никогда.
+	var b: SimAgent = w.agents.agents[1]
+	b.trait_ids = ["sinew", "hardy"]
+	b.recompute_from_traits()
+	var b_drops: int = 0
+	for i2: int in 100:
+		b.bag = [StackUtil.make("scrap", 1, false)]
+		b.state = SimTypes.AgentState.IDLE
+		w.agents.recall(false, w)
+		if b.bag.is_empty():
+			b_drops += 1
+		w.agents.clear_recall()
+	t.check_eq(b_drops, 0, "агент без черты не роняет ничего")
+
+## Бодряк: «не нуждается в отдыхе первые 4 цикла».
+static func test_chipper_skips_rest_for_four_cycles(t: TestCtx) -> void:
+	var w: SimWorld = _world(93)
+	var a: SimAgent = w.agents.agents[0]
+	a.trait_ids = ["chipper", "sinew"]
+	a.recompute_from_traits()
+	a.needs["fatigue"] = 0                    # вымотан до предела
+	var rest: Dictionary = {"kind": "rest", "cell": Vector2i.ZERO,
+		"class": SimTypes.JobClass.REST, "platform": 0}
+	while w.clock.phase != SimTypes.Phase.HIGH:
+		t.run_ticks(w, 1)
+	t.check_eq(w.clock.cycle, 1, "первый цикл")
+	t.check(not w.jobs.applies_to(a, rest, w), "Бодряк на 1-м цикле отдых не берёт")
+	var b: SimAgent = w.agents.agents[1]
+	b.trait_ids = ["sinew", "hardy"]
+	b.recompute_from_traits()
+	b.needs["fatigue"] = 0
+	t.check(w.jobs.applies_to(b, rest, w), "а обычный агент берёт")
+
+## Запасливый: «перенос ×1.15» — с грузом идёт быстрее.
+static func test_thrifty_carries_faster(t: TestCtx) -> void:
+	var w: SimWorld = _world(95)
+	_no_jobs(w)
+	var a: SimAgent = w.agents.agents[0]
+	a.trait_ids = ["sinew", "hardy"]
+	a.recompute_from_traits()
+	a.needs["satiety"] = Balance.NEED_MAX_MILLI
+	a.needs["warmth"] = Balance.NEED_MAX_MILLI
+	a.bag = [StackUtil.make("scrap", 1, false)]
+	var plain: float = _step_len(t, w, a)
+	a.trait_ids = ["thrifty", "hardy"]
+	a.recompute_from_traits()
+	a.bag = [StackUtil.make("scrap", 1, false)]
+	var thrifty: float = _step_len(t, w, a)
+	t.check_approx(thrifty / plain, 1.15, 0.01, "с грузом Запасливый на 15% быстрее")
+	# Пустые руки — черта ничего не меняет.
+	a.trait_ids = ["sinew", "hardy"]
+	a.recompute_from_traits()
+	a.bag.clear()
+	var empty_plain: float = _step_len(t, w, a)
+	a.trait_ids = ["thrifty", "hardy"]
+	a.recompute_from_traits()
+	a.bag.clear()
+	t.check_approx(_step_len(t, w, a) / empty_plain, 1.0, 0.01,
+		"без груза Запасливый идёт как все")

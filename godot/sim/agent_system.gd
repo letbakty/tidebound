@@ -649,6 +649,11 @@ func _speed(a: SimAgent, w: SimWorld, ladder: bool) -> float:
 	if a.recall_hard:
 		base *= Balance.HARD_RECALL_SPEED_MULT
 	if not a.bag.is_empty():
+		# РЕШЕНИЕ (C2.7): «перенос ×1.15» Запасливого — скорость С ГРУЗОМ.
+		# Вместимость уже занята другим ключом (bag_slots_add у Жилы), и
+		# читать carry_mult как второй способ носить больше значило бы
+		# завести две несравнимые «вместимости» в одной таблице черт.
+		base *= a.modifier("carry_mult")
 		base *= float(w.cycle_modifiers.get("haul_speed_mult", 1.0))
 	base *= float(w.cycle_modifiers.get("move_speed_mult", 1.0))
 	return base
@@ -855,8 +860,25 @@ func _average_mood() -> float:
 func _set_state(a: SimAgent, s: SimTypes.AgentState, w: SimWorld) -> void:
 	if a.state == s:
 		return
+	if s == SimTypes.AgentState.RETURN:
+		_roll_clumsy_drop(a, w)
 	a.state = s
 	a.state_ticks = 0
+	_queue_agent_updated(a, w)
+
+## Неуклюжий (docs/00 §6.4): «5% уронить предмет при RETURN». Бросок ОДИН
+## на возвращение, а не каждый тик: посекундная рулетка отняла бы котомку
+## целиком за один подъём.
+func _roll_clumsy_drop(a: SimAgent, w: SimWorld) -> void:
+	var chance: float = a.modifier("drop_chance")
+	if chance <= 0.0 or a.bag.is_empty():
+		return
+	if not w.rng.chance(chance):
+		return
+	# Событие своё не заводим: уронённое видно через agent_updated и появление
+	# стака на земле — ровно так же, как груз, брошенный жёстким Отзывом.
+	w.storage.drop(agent_cell(a, w), a.bag.pop_back() as Dictionary)
+	w.jobs.mark_dirty()
 	_queue_agent_updated(a, w)
 
 func _queue_agent_updated(a: SimAgent, w: SimWorld) -> void:

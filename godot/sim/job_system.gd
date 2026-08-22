@@ -388,6 +388,9 @@ func applies_to(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
 		"eat":
 			return int(a.needs["satiety"]) < Balance.EAT_WANT_MILLI
 		"rest":
+			# Бодряк: «не нуждается в отдыхе первые 4 цикла» (docs/00 §6.4).
+			if float(w.clock.cycle) <= a.modifier("no_rest_cycles", 0.0):
+				return false
 			# Отдых — только на Высокой воде (docs/00 §6.6).
 			return w.clock.phase == SimTypes.Phase.HIGH \
 				and int(a.needs["fatigue"]) < Balance.REST_WANT_MILLI

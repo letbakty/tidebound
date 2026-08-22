@@ -201,3 +201,24 @@ static func test_db_reload(t: TestCtx) -> void:
 	DB.reload()
 	t.check_eq(DB.item_ids(), before, "после reload состав БД тот же")
 	t.check_eq(DB.trait_ids(), before_traits, "черты тоже")
+
+## C2.7: ключ модификатора, который никто не читает, — такие же мёртвые данные,
+## как опечатка. Так три черты (Неуклюжий, Бодряк, Запасливый) простояли
+## пустышками: валидатор проверял ТОЛЬКО что ключ известен TraitKeys.
+static func test_trait_keys_are_read_by_sim(t: TestCtx) -> void:
+	var src: String = ""
+	var d: DirAccess = DirAccess.open("res://sim/")
+	t.check(d != null, "каталог res://sim/ читается")
+	if d == null:
+		return
+	var files: Array[String] = []
+	files.assign(d.get_files())
+	files.sort()
+	for f: String in files:
+		# Сам список ключей не считается «чтением»: иначе объявление ключа
+		# в trait_keys.gd проходило бы проверку за использование.
+		if f.ends_with(".gd") and f != "trait_keys.gd":
+			src += FileAccess.get_file_as_string("res://sim/" + f)
+	for key: String in TraitKeys.all():
+		t.check(src.contains('"%s"' % key),
+			"ключ черт '%s' объявлен, но нигде в sim/ не читается" % key)
