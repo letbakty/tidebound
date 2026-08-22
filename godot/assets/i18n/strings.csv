@@ -107,6 +107,7 @@ ERR_NO_SUPPORT,Не на что опереть,Nothing to stand on
 ERR_NO_LADDER_SPOT,Здесь лестница не встанет,A ladder cannot go here
 ERR_NO_LADDER,Шлюз ставится только на лестницу,A sluice only goes on a ladder
 ERR_NOT_BUILDABLE,Эту постройку не строят,This structure cannot be built
+ERR_NO_BASKET_SPOT,Под корзиной нет площадки,No platform below the basket
 RCP_FORGE_INGOT,Слиток,Ingot
 RCP_WORKBENCH_PART,Деталь,Part
 RCP_SALTERY_RATIONS,Провизия,Rations
@@ -372,6 +373,7 @@ PAUSE_SURRENDER_CONFIRM,"Забег закончится сейчас и буд�
 PAUSE_TO_MENU,В главное меню,To the main menu
 PAUSE_TO_MENU_TIP,Забег сохранится автоматически,The run is saved automatically
 SAVE_DONE,Сохранено,Saved
+SAVE_FAILED,"Не сохранилось","Save failed"
 JOURNAL_TITLE,Журнал,Journal
 JOURNAL_POINTS,Очки: {n},Points: {n}
 JOURNAL_TAB_UNLOCKS,Разблокировки,Unlocks
@@ -490,3 +492,13 @@ HUD_PAD_Y,Y,Y
 HUD_PAD_LB,LB,LB
 HUD_PAD_X,X,X
 HUD_PAD_START,Start,Start
+HUD_LEGEND_TITLE,Шкала прилива,Tide gauge
+HUD_LEGEND_LEVEL,"► — уровень воды сейчас","► — water level right now"
+HUD_LEGEND_MARKS,"Риски слева — отметки ярусов, подписаны через одну","Ticks on the left are tier marks, labelled every other one"
+HUD_LEGEND_PLATEAU,"Пунктир — плато отлива: ниже вода не уйдёт","Dashed line is the ebb plateau: the water goes no lower"
+HUD_LEGEND_DOTS,"Точки — постройки на своих отметках; затопленные тускнеют","Dots are buildings at their marks; flooded ones dim"
+HUD_LEGEND_FORECAST,"Полоска сверху — прогноз на три цикла:","The strip on top is a three-cycle forecast:"
+HUD_LEGEND_SPRING,"^ сизигия — вода выше обычного","^ spring tide — water higher than usual"
+HUD_LEGEND_STORM,"! шторм — волны бьют по нижним ярусам","! storm — waves hit the lower tiers"
+HUD_LEGEND_VISIT,"* приход — в отмели кто-то есть","* visit — something is out on the flat"
+HUD_LEGEND_QUIET,"- цикл без объявленного кризиса","- a cycle with no announced crisis"

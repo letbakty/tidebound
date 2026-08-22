@@ -521,3 +521,32 @@ static func test_second_ladder_plan_in_same_column_is_refused(t: TestCtx) -> voi
 	t.check_eq(w.buildings.place_error("ladder_wood", cell, w), "ERR_NO_LADDER_SPOT",
 		"второй план в ту же колонку не ставится")
 	t.check_eq(w.buildings.place("ladder_wood", cell, w), -1, "и place его не берёт")
+
+## R2 · docs/00 §8: у Лебёдки отметки — «кромка площадки», но в дефе это
+## не выражено и нигде не проверялось. Корзина живёт ярусом ниже механизма:
+## если там площадки нет, груз уезжает на клетку, до которой не дойти, а
+## носильщик остаётся стоять с резервацией.
+static func test_winch_needs_ground_under_its_basket(t: TestCtx) -> void:
+	var w: SimWorld = _world(51)
+	w.unlocked.append("u_winch")
+	# Отметка +3 тянется до x = 11, отметка +2 — до x = 12: на x = 11 под
+	# лебёдкой площадка есть.
+	t.check_eq(w.buildings.place_error("winch", _cell_on(3, 11, 2), w), "",
+		"на кромке с площадкой под ней лебёдка встаёт")
+	# Отметка −1 начинается с x = 13, отметка −2 — с x = 18: на x = 14 под
+	# лебёдкой пусто.
+	t.check_eq(w.buildings.place_error("winch", _cell_on(-1, 14, 2), w),
+		"ERR_NO_BASKET_SPOT", "над пустотой — отказ с причиной")
+	t.check_eq(w.buildings.place("winch", _cell_on(-1, 14, 2), w), -1,
+		"и place её не ставит")
+
+## Корзина поставленной лебёдки обязана лежать на твёрдом полу — иначе
+## поднятый груз некому принести.
+static func test_winch_basket_is_on_solid_ground(t: TestCtx) -> void:
+	var w: SimWorld = _world(53)
+	w.unlocked.append("u_winch")
+	var id: int = w.buildings.place("winch", _cell_on(3, 11, 2), w, true)
+	t.check(id > 0, "лебёдка стоит")
+	var basket: Vector2i = ProductionSystem.basket_cell(w.buildings.buildings[id])
+	t.check(w.terrain.is_solid_ground(basket), "корзина лежит на полу площадки")
+	t.check(w.terrain.platform_at(basket) >= 0, "и до неё есть куда дойти")

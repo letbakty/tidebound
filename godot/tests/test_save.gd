@@ -207,11 +207,11 @@ static func test_score_counts_survivors_and_relics(t: TestCtx) -> void:
 static func test_unlocks_gate_content(t: TestCtx) -> void:
 	var locked: SimWorld = _world(37)
 	t.check_eq(locked.buildings.place_error("winch",
-		Vector2i(4, Balance.mark_to_floor_cell_y(0) - 2), locked), "ERR_LOCKED",
+		Vector2i(13, Balance.mark_to_floor_cell_y(0) - 2), locked), "ERR_LOCKED",
 		"лебёдка заперта без разблокировки")
 	var open_w: SimWorld = _world(37, ["u_winch"])
 	t.check_eq(open_w.buildings.place_error("winch",
-		Vector2i(4, Balance.mark_to_floor_cell_y(0) - 2), open_w), "",
+		Vector2i(13, Balance.mark_to_floor_cell_y(0) - 2), open_w), "",
 		"с разблокировкой ставится")
 
 static func test_start_bonuses(t: TestCtx) -> void:

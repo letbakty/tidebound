@@ -79,7 +79,7 @@ static func test_i18n_keys_exist(t: TestCtx) -> void:
 			"нет ключа '%s' (разблокировка %s)" % [ud.display_key, uid])
 		t.check(known.has(ud.desc_key), "нет ключа описания разблокировки %s" % uid)
 	for err: String in ["ERR_LOCKED", "ERR_MARK", "ERR_OCCUPIED", "ERR_NO_SUPPORT",
-			"ERR_NO_LADDER_SPOT", "ERR_NOT_BUILDABLE"]:
+			"ERR_NO_LADDER_SPOT", "ERR_NOT_BUILDABLE", "ERR_NO_BASKET_SPOT"]:
 		t.check(known.has(err), "нет ключа причины отказа '%s'" % err)
 
 static func test_all_traits_present(t: TestCtx) -> void:

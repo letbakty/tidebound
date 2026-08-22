@@ -222,10 +222,13 @@ static func test_smith_is_faster(t: TestCtx) -> void:
 
 # --- Лебёдка --------------------------------------------------------------
 
+## Колонка 13 — не случайная: отметка 0 тянется до x = 16, а отметка −1
+## НАЧИНАЕТСЯ с 13, и только там под корзиной есть пол (docs/00 §8 —
+## «кромка площадки», R2).
 static func test_winch_lifts_from_basket(t: TestCtx) -> void:
 	var w: SimWorld = _world(41)
 	w.unlocked.append("u_winch")
-	var winch: int = _station(w, "winch", 0, 4)
+	var winch: int = _station(w, "winch", 0, 13)
 	t.check(winch > 0, "лебёдка встала")
 	var b: Dictionary = w.buildings.buildings[winch]
 	var basket: Vector2i = ProductionSystem.basket_cell(b)
@@ -284,7 +287,7 @@ static func test_passive_station_reports_no_space(t: TestCtx) -> void:
 static func test_winch_keeps_stack_properties(t: TestCtx) -> void:
 	var w: SimWorld = _world(47)
 	w.unlocked.append("u_winch")
-	var winch: int = _station(w, "winch", 0, 4)
+	var winch: int = _station(w, "winch", 0, 13)
 	t.check(winch > 0, "лебёдка встала")
 	var basket: Vector2i = ProductionSystem.basket_cell(w.buildings.buildings[winch])
 
@@ -325,7 +328,7 @@ static func test_winch_keeps_stack_properties(t: TestCtx) -> void:
 static func test_basket_is_protected_from_water(t: TestCtx) -> void:
 	var w: SimWorld = _world(43)
 	w.unlocked.append("u_winch")
-	var winch: int = _station(w, "winch", 0, 4)
+	var winch: int = _station(w, "winch", 0, 13)
 	t.check(winch > 0, "лебёдка встала")
 	var basket: Vector2i = ProductionSystem.basket_cell(w.buildings.buildings[winch])
 	# Ломаем лебёдку, чтобы она не успела поднять груз до прилива.
@@ -341,7 +344,7 @@ static func test_basket_is_protected_from_water(t: TestCtx) -> void:
 static func test_haul_prefers_basket(t: TestCtx) -> void:
 	var w: SimWorld = _world(47)
 	w.unlocked.append("u_winch")
-	var winch: int = _station(w, "winch", -1, 14)
+	var winch: int = _station(w, "winch", -1, 18)
 	t.check(winch > 0, "лебёдка встала на −1")
 	var basket: Vector2i = ProductionSystem.basket_cell(w.buildings.buildings[winch])
 	w.tide.level_override = -8.0
@@ -377,7 +380,7 @@ static func test_production_survives_save(t: TestCtx) -> void:
 	var w: SimWorld = _world(2024)
 	_station(w, "forge", 3, 4)
 	w.unlocked.append("u_winch")
-	var winch: int = _station(w, "winch", 0, 8)
+	var winch: int = _station(w, "winch", 0, 13)
 	t.check(winch > 0, "лебёдка встала")
 	w.storage.store(0, StackUtil.make("scrap", 10, false))
 	w.storage.drop(ProductionSystem.basket_cell(w.buildings.buildings[winch]),

@@ -65,6 +65,12 @@ func place_error(def_id: String, cell: Vector2i, w: SimWorld) -> String:
 	# проходило мимо него, и понять причину было нельзя (SIM-05).
 	if d.special == "sluice" and w.terrain.ladder_id_at(cell.x, mark) < 0:
 		return "ERR_NO_LADDER"
+	# «Кромка площадки» из docs/00 §8 у лебёдки в дефе не выражена, а корзина
+	# живёт ярусом НИЖЕ механизма: без площадки под ней груз уезжает на клетку,
+	# до которой не дойти, и носильщик встаёт там навсегда (R2).
+	if d.special == "winch" and not w.terrain.is_solid_ground(
+			Vector2i(cell.x, Balance.mark_to_floor_cell_y(mark - 1))):
+		return "ERR_NO_BASKET_SPOT"
 	for dx: int in d.size.x:
 		for dy: int in d.size.y:
 			if _occupied.has(cell + Vector2i(dx, dy)):
