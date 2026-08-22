@@ -44,7 +44,7 @@ static func test_save_at_moment_of_death(t: TestCtx) -> void:
 	# Топим агента руками: искать сид, где кто-то тонет на нужном тике —
 	# это тест про сейв, а не про воду.
 	victim.state = SimTypes.AgentState.DEAD
-	w.run_state.note_death(victim, "drown")
+	w.run_state.note_death(victim, "drown", w.clock.cycle)
 	var alive_before: int = w.agents.alive_count()
 	var deaths_before: int = w.run_state.deaths.size()
 

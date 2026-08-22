@@ -222,3 +222,29 @@ static func test_trait_keys_are_read_by_sim(t: TestCtx) -> void:
 	for key: String in TraitKeys.all():
 		t.check(src.contains('"%s"' % key),
 			"ключ черт '%s' объявлен, но нигде в sim/ не читается" % key)
+
+## A1.4 · SPEC-03, решение ОКОНЧАТЕЛЬНОЕ (docs/00 §10, подтверждено аудитом
+## 22.08): плато ниже −8 даёт ВРЕМЯ, а не клетки, и утёс №1 не расширяется.
+## Тест держит решение с обеих сторон — чтобы следующий проход не «починил»
+## его в случайную сторону.
+static func test_bottom_mark_is_final(t: TestCtx) -> void:
+	t.check_eq(Balance.BOTTOM_MARK, -8, "дно карты — −8")
+	var cliff: CliffDef = load("res://data/cliffs/cliff_01.tres") as CliffDef
+	var lowest: int = Balance.TOP_MARK
+	var marks: Dictionary[int, bool] = {}
+	for p: Dictionary in cliff.platforms:
+		var m: int = int(p["mark"])
+		marks[m] = true
+		lowest = mini(lowest, m)
+	t.check_eq(lowest, Balance.BOTTOM_MARK, "площадок ниже дна в карте нет")
+	for m2: int in range(Balance.BOTTOM_MARK, Balance.TOP_MARK + 1):
+		t.check(marks.has(m2), "ярус %d в карте есть — дыр в лестнице отметок нет" % m2)
+	# Карты вылазки опускают ПЛАТО воды, а не пол карты: «до −12» в описании
+	# означает «дно открыто дольше», а не «появились ярусы −9…−12».
+	for cid: String in DB.card_ids():
+		var add: float = float(DB.card(cid).effects.get("low_plateau_add", 0.0))
+		if is_zero_approx(add):
+			continue
+		t.check(add < 0.0, "карта %s опускает плато, а не поднимает" % cid)
+		t.check(not marks.has(Balance.BOTTOM_MARK - 1),
+			"и ниже дна клеток от неё не появляется")

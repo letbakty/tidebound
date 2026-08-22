@@ -17,7 +17,11 @@ var runs_won: int = 0
 var cycles_total: int = 0
 var agents_lost: int = 0
 var best_score: int = 0
-## История забегов: {n, score, end, cycles, deaths: [{name, cause, bio}]}.
+## История забегов: {n, score, end, cycles, seed, deaths: [{name, cause, bio,
+## traits, cycle}]} — состав по docs/03 §3.5.
+##
+## ⚠️ Сид лежит СТРОКОЙ. Он 64-битный, а JSON отдаёт все числа как float:
+## числом он теряет разряды, и «поделиться сидом» отдаёт чужой забег (R9).
 var history: Array[Dictionary] = []
 ## Разблокировки, которые игрок ещё не видел в Журнале: подсвечиваются рамкой
 ## до первого просмотра (docs/03 §3.5).
@@ -76,7 +80,8 @@ func record_run(report: Dictionary) -> void:
 		runs_won += 1
 	history.append({
 		"n": runs_played, "score": score, "end": int(report.get("end", 0)),
-		"cycles": int(report.get("cycles", 0)), "deaths": deaths.duplicate(true),
+		"cycles": int(report.get("cycles", 0)),
+		"seed": str(report.get("seed", "")), "deaths": deaths.duplicate(true),
 	})
 	mark_dirty()
 
@@ -91,6 +96,11 @@ func mark_unlocks_seen() -> void:
 			seen_unlocks.append(id)
 	seen_unlocks.sort()
 	mark_dirty()
+
+## Только чтение: подписчику надо понять, нужен ли ему ещё сторож события,
+## не помечая урок показанным.
+func hint_shown(id: String) -> bool:
+	return hints_shown.has(id)
 
 ## Подсказка показывалась хоть раз за всё время. Помечаем в момент постановки
 ## в очередь, а не показа: иначе выход из игры повторит её при следующем
@@ -148,6 +158,7 @@ func from_dict(d: Dictionary) -> void:
 		history.append({
 			"n": int(e.get("n", 0)), "score": int(e.get("score", 0)),
 			"end": int(e.get("end", 0)), "cycles": int(e.get("cycles", 0)),
+			"seed": str(e.get("seed", "")),
 			"deaths": (e.get("deaths", []) as Array).duplicate(true),
 		})
 

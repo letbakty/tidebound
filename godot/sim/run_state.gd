@@ -149,8 +149,14 @@ func leave_early(w: SimWorld) -> bool:
 func surrender(w: SimWorld) -> void:
 	_finish(SimTypes.RunEnd.WIPE, w)
 
-func note_death(a: SimAgent, cause: String) -> void:
-	deaths.append({"name": a.agent_name, "cause": cause, "bio": a.bio_key})
+## Эпитафия по docs/03 §3.5: имя, ЧЕРТЫ, ЦИКЛ и причина гибели. Черты и цикл
+## заводятся здесь, а не в UI: после забега агента уже нет, а профиль без этих
+## полей потом потребовал бы миграции (A1.5).
+func note_death(a: SimAgent, cause: String, cycle: int) -> void:
+	var traits: Array[String] = []
+	traits.assign(a.trait_ids)
+	deaths.append({"name": a.agent_name, "cause": cause, "bio": a.bio_key,
+		"traits": traits, "cycle": cycle})
 
 ## Проверяется каждый тик: вайп немедленный, судно — на пике Высокой воды.
 ##
@@ -288,6 +294,10 @@ func from_dict(d: Dictionary) -> void:
 	deaths.clear()
 	for v: Variant in d.get("deaths", []) as Array:
 		var dd: Dictionary = v as Dictionary
+		var tr: Array[String] = []
+		for tv: Variant in dd.get("traits", []) as Array:
+			tr.append(str(tv))
 		deaths.append({"name": str(dd["name"]), "cause": str(dd["cause"]),
-			"bio": str(dd.get("bio", ""))})
+			"bio": str(dd.get("bio", "")), "traits": tr,
+			"cycle": int(dd.get("cycle", 0))})
 	_pending.clear()

@@ -786,7 +786,7 @@ func _kill(a: SimAgent, cause: String, w: SimWorld) -> void:
 	a.has_gear = false                 # снаряжение теряется вместе с агентом
 	w.jobs.on_agent_died(a)
 	_pending.append(SimEvent.make("agent_died", {"id": a.id, "cause": cause}))
-	w.run_state.note_death(a, cause)
+	w.run_state.note_death(a, cause, w.clock.cycle)
 	# Смерть бьёт по всем живым сразу, без проверки дистанции (docs/00 §6.3).
 	for other: SimAgent in agents:
 		if other.is_alive():

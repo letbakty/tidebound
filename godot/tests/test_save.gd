@@ -322,3 +322,57 @@ static func test_profile_round_trip(t: TestCtx) -> void:
 	t.check_eq(int(back["points_total"]), 120, "очки целые после чтения")
 	t.check_eq(typeof(int(back["runs_played"])), TYPE_INT, "и тип целый")
 	t.check_eq((back["unlocked"] as Array).size(), 2, "разблокировки на месте")
+
+## A1.5 · docs/03 §3.5: «История — список забегов (номер, исход, циклов,
+## очки, СИД)», «Павшие — имя, ЧЕРТЫ, ЦИКЛ и причина гибели». Сида в истории
+## не было, эпитафии шли без черт и цикла. Поля надо завести ДО первых
+## игроков: иначе это миграция профиля.
+static func test_journal_has_seed_traits_and_cycle(t: TestCtx) -> void:
+	var w: SimWorld = _world(20260822)
+	t.run_ticks(w, 600)
+	var victim: SimAgent = w.agents.agents[0]
+	var traits: Array[String] = victim.trait_ids.duplicate()
+	w.agents.kill(victim, "drown", w)
+	var death: Dictionary = w.run_state.deaths[0]
+	t.check_eq(str(death["name"]), victim.agent_name, "имя погибшего записано")
+	t.check_eq(death.get("traits", []), traits, "и его черты")
+	t.check_eq(int(death.get("cycle", -1)), w.clock.cycle, "и цикл гибели")
+
+	# Эпитафия переживает сейв забега: поля должны быть в to_dict/from_dict.
+	var text: String = JSON.stringify(w.to_dict(), "", true, true)
+	var restored: SimWorld = SimWorld.new()
+	restored.from_dict(JSON.parse_string(text) as Dictionary, _cliff())
+	t.check_eq(JSON.stringify(restored.to_dict(), "", true, true), text,
+		"эпитафия переживает JSON побайтово")
+
+	# И доезжает до профиля вместе с сидом забега.
+	var meta: Node = load("res://autoload/meta.gd").new() as Node
+	meta.call("record_run", {
+		"score": 40, "end": int(SimTypes.RunEnd.WIPE), "cycles": 3,
+		"relics": 0, "seed": w.rng.seed_value,
+		"deaths": w.run_state.deaths.duplicate(true),
+	})
+	var entry: Dictionary = (meta.get("history") as Array)[0] as Dictionary
+	t.check_eq(str(entry.get("seed", "")), str(w.rng.seed_value),
+		"сид забега попал в историю")
+	var saved_death: Dictionary = (entry["deaths"] as Array)[0] as Dictionary
+	t.check_eq(saved_death.get("traits", []), traits, "черты доехали до профиля")
+	t.check_eq(int(saved_death.get("cycle", -1)), w.clock.cycle,
+		"и цикл гибели тоже")
+	meta.free()
+
+## Сид 64-битный, а JSON отдаёт все числа как float: в профиле он обязан
+## лежать строкой, иначе шеринг сида отдаёт битое число (R9).
+static func test_seed_survives_profile_json(t: TestCtx) -> void:
+	var big: int = 9007199254740993        # 2^53 + 1 — в double уже не влезает
+	var meta: Node = load("res://autoload/meta.gd").new() as Node
+	meta.call("record_run", {"score": 0, "end": 0, "cycles": 1, "relics": 0,
+		"seed": big, "deaths": []})
+	var text: String = JSON.stringify(meta.call("to_dict"), "", true, true)
+	var back: Node = load("res://autoload/meta.gd").new() as Node
+	back.call("from_dict", JSON.parse_string(text) as Dictionary)
+	var entry: Dictionary = (back.get("history") as Array)[0] as Dictionary
+	t.check_eq(str(entry.get("seed", "")), str(big),
+		"сид пережил профиль без потери разрядов")
+	meta.free()
+	back.free()
