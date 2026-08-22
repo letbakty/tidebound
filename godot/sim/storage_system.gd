@@ -222,14 +222,29 @@ func drop(cell: Vector2i, stack: Dictionary) -> void:
 	if int(stack.get("count", 0)) <= 0:
 		return
 	var incoming: Dictionary = stack.duplicate()
+	# Земля не отменяет размер стака (R4): без этого «стак 40 утиля» лежал
+	# одной кучей и уносился одним слотом котомки — тихий обход вместимости.
+	var def: ItemDef = DB.item(str(incoming["item_id"]))
+	var cap: int = def.stack_size if def != null else 1
 	for g: Dictionary in ground:
+		if int(incoming["count"]) <= 0:
+			break
 		if (g["cell"] as Vector2i) != cell:
 			continue
-		if StackUtil.can_merge(g["stack"] as Dictionary, incoming):
-			var s: Dictionary = g["stack"] as Dictionary
-			s["count"] = int(s["count"]) + int(incoming["count"])
-			return
-	ground.append({"cell": cell, "stack": incoming})
+		if not StackUtil.can_merge(g["stack"] as Dictionary, incoming):
+			continue
+		var s: Dictionary = g["stack"] as Dictionary
+		var room: int = cap - int(s["count"])
+		if room <= 0:
+			continue
+		var moved: int = mini(room, int(incoming["count"]))
+		s["count"] = int(s["count"]) + moved
+		incoming["count"] = int(incoming["count"]) - moved
+	while int(incoming["count"]) > 0:
+		var piece: Dictionary = incoming.duplicate()
+		piece["count"] = mini(cap, int(incoming["count"]))
+		incoming["count"] = int(incoming["count"]) - int(piece["count"])
+		ground.append({"cell": cell, "stack": piece})
 
 ## Забирает ВСЕ стаки с клетки и убирает их с земли.
 func pickup_at(cell: Vector2i) -> Array[Dictionary]:

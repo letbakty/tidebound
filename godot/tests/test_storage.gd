@@ -289,3 +289,24 @@ static func test_storage_survives_save(t: TestCtx) -> void:
 		t.run_ticks(restored, 1)
 	t.check_eq(TestCtx.state_hash(w), TestCtx.state_hash(restored),
 		"после загрузки мир со складами продолжается идентично")
+
+## R4: наземный стак сливался без оглядки на stack_size — «стак 40 утиля»
+## лежал одной кучей и уносился одним слотом котомки.
+static func test_ground_merge_respects_stack_size(t: TestCtx) -> void:
+	var w: SimWorld = _world(31)
+	var cell: Vector2i = Vector2i(6, Balance.mark_to_floor_cell_y(3))
+	var cap: int = DB.item("scrap").stack_size
+	for i: int in 4:
+		w.storage.drop(cell, StackUtil.make("scrap", cap, false))
+	var got: Array[Dictionary] = w.storage.ground_at(cell)
+	t.check_eq(got.size(), 4, "четыре полных стака остались четырьмя стаками")
+	for s: Dictionary in got:
+		t.check(int(s["count"]) <= cap,
+			"наземный стак не больше stack_size (%d ≤ %d)" % [int(s["count"]), cap])
+	# Долив в неполный стак работает как раньше, с переливом в новый.
+	var cell2: Vector2i = Vector2i(7, Balance.mark_to_floor_cell_y(3))
+	w.storage.drop(cell2, StackUtil.make("scrap", cap - 2, false))
+	w.storage.drop(cell2, StackUtil.make("scrap", 5, false))
+	var got2: Array[Dictionary] = w.storage.ground_at(cell2)
+	t.check_eq(got2.size(), 2, "перелив ушёл во второй стак")
+	t.check_eq(_sum(got2), cap + 3, "и ничего не потерялось")
