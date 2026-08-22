@@ -300,6 +300,9 @@ static func test_hard_recall_drops_cargo(t: TestCtx) -> void:
 	var cell: Vector2i = Vector2i(20, Balance.mark_to_floor_cell_y(-2))
 	_place(w, a, cell)
 	a.bag.append(StackUtil.make("scrap", 3, false))
+	# На отливе −2 сухо. Под водой брошенное УНОСИТ (R3) — это проверяет
+	# test_storage/items_dropped_into_standing_water_are_washed.
+	w.tide.level_override = -6.0
 	w.apply_command({"kind": "recall", "hard": true})
 	w.tick()
 	t.check_eq(a.bag.size(), 0, "жёсткий отзыв освободил котомку")

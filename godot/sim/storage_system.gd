@@ -308,28 +308,48 @@ func remove_storage(id: int, w: SimWorld) -> bool:
 ## это −10 к Духу всем, а звать AgentSystem из склада нечем — SimWorld
 ## разносит удар сам.
 func on_tick(level: float, protected: Array[Vector2i] = []) -> int:
-	if is_equal_approx(level, _last_level):
-		return 0
 	var flooded: int = 0
-	for s: Dictionary in storages:
-		var mark: int = Balance.cell_to_mark(s["cell"] as Vector2i)
-		if _crossed_down(mark, level):
-			flooded += 1
-			_flood_storage(s)
+	# Склад «топит» ПЕРЕСЕЧЕНИЕ уровнем его отметки — ровно один раз, иначе
+	# правило §7 применялось бы каждый тик, пока склад под водой.
+	if not is_equal_approx(level, _last_level):
+		for s: Dictionary in storages:
+			var mark: int = Balance.cell_to_mark(s["cell"] as Vector2i)
+			if _crossed_down(mark, level):
+				flooded += 1
+				_flood_storage(s)
+		_last_level = level
+	_wash_ground(level, protected)
+	return flooded
+
+## Смыв брошенного на землю — по «лежит под водой», а не по пересечению (R3).
+## На пересечении брошенное в УЖЕ стоящую воду лежало бессмертно: жёсткий
+## Отзыв на Высокой воде ронял котомку под воду, и «налог на жадность»
+## обходился — груз спокойно дожидался отлива.
+##
+## Проход каждый тик, но БЕЗ аллокации, пока смывать нечего: массив
+## пересобирается только в тот тик, когда что-то действительно уносит.
+func _wash_ground(level: float, protected: Array[Vector2i]) -> void:
+	var any: bool = false
+	for g: Dictionary in ground:
+		if _washes_away(g, level, protected):
+			any = true
+			break
+	if not any:
+		return
 	var washed: int = 0
 	var kept: Array[Dictionary] = []
-	for g: Dictionary in ground:
-		var cell: Vector2i = g["cell"] as Vector2i
-		var m: int = Balance.cell_to_mark(cell)
-		if _crossed_down(m, level) and not protected.has(cell):
-			washed += int((g["stack"] as Dictionary)["count"])
+	for g2: Dictionary in ground:
+		if _washes_away(g2, level, protected):
+			washed += int((g2["stack"] as Dictionary)["count"])
 		else:
-			kept.append(g)
-	if washed > 0:
-		ground = kept
-		_washed_this_cycle += washed
-	_last_level = level
-	return flooded
+			kept.append(g2)
+	ground = kept
+	_washed_this_cycle += washed
+
+static func _washes_away(g: Dictionary, level: float, protected: Array[Vector2i]) -> bool:
+	var cell: Vector2i = g["cell"] as Vector2i
+	return Balance.is_mark_flooded(Balance.cell_to_mark(cell), level) \
+		and not protected.has(cell)
 
 func _crossed_down(mark: int, level: float) -> bool:
 	var was: bool = Balance.is_mark_flooded(mark, _last_level)
@@ -415,9 +435,27 @@ func on_cycle_ended() -> Dictionary:
 		if changed:
 			s["stacks"] = kept
 			_changed(int(s["id"]))
+	_spoil_ground(spoiled)
 	var report: Dictionary = {"spoiled": spoiled, "washed": _washed_this_cycle}
 	_washed_this_cycle = 0
 	return report
+
+## Порча брошенного на землю. Срок годности — свойство ПРЕДМЕТА (docs/00 §7),
+## а не склада: пока порча тикала только в складах, сырую добычу можно было
+## вечно хранить кучей на полу (R3). Сушка на земле не идёт — сушит очаг
+## и Сушила, то есть постройки, а не пол.
+func _spoil_ground(spoiled: Dictionary[String, int]) -> void:
+	var kept: Array[Dictionary] = []
+	for g: Dictionary in ground:
+		var cur: Dictionary = g["stack"] as Dictionary
+		if int(cur["spoil_left"]) > 0:
+			cur["spoil_left"] = int(cur["spoil_left"]) - 1
+			if int(cur["spoil_left"]) <= 0:
+				var id: String = str(cur["item_id"])
+				spoiled[id] = int(spoiled.get(id, 0)) + int(cur["count"])
+				continue
+		kept.append(g)
+	ground = kept
 
 ## Плавник, вынесенный водой: 3–6 стаков вдоль отметок 0..+1, только на
 ## свободные клетки (docs/00 §3.2).

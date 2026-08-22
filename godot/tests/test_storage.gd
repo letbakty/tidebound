@@ -310,3 +310,32 @@ static func test_ground_merge_respects_stack_size(t: TestCtx) -> void:
 	var got2: Array[Dictionary] = w.storage.ground_at(cell2)
 	t.check_eq(got2.size(), 2, "перелив ушёл во второй стак")
 	t.check_eq(_sum(got2), cap + 3, "и ничего не потерялось")
+
+## R3a: смыв считался только на ПЕРЕСЕЧЕНИИ уровнем отметки, поэтому
+## брошенное в УЖЕ стоящую воду лежало под ней бессмертно — жёсткий Отзыв
+## на Высокой воде ронял котомку под воду и обходил «налог на жадность».
+static func test_items_dropped_into_standing_water_are_washed(t: TestCtx) -> void:
+	var w: SimWorld = _world(33)
+	var deep: Vector2i = Vector2i(40, Balance.mark_to_floor_cell_y(-8))
+	# Вода УЖЕ стоит над отметкой: пересечения не будет.
+	w.tide.level_override = 0.0
+	t.run_ticks(w, 2)
+	w.storage.drop(deep, StackUtil.make("scrap", 3, false))
+	t.check_eq(w.storage.ground_at(deep).size(), 1, "стак лежит под водой")
+	t.run_ticks(w, 2)
+	t.check_eq(w.storage.ground_at(deep).size(), 0, "и его унесло")
+
+## R3b: порча тикала только на складах, поэтому сырую добычу можно было
+## вечно хранить на земле (docs/00 §7 — срок годности у предмета, а не
+## у склада).
+static func test_ground_stacks_spoil(t: TestCtx) -> void:
+	var w: SimWorld = _world(35)
+	var cell: Vector2i = Vector2i(6, Balance.mark_to_floor_cell_y(3))
+	w.storage.drop(cell, StackUtil.make("catch", 2, false))
+	var life: int = DB.item("catch").spoil_cycles
+	t.check(life > 0, "у сырой добычи есть срок годности")
+	for i: int in life:
+		t.check_eq(w.storage.ground_at(cell).size(), 1,
+			"на %d-м цикле добыча ещё лежит" % i)
+		w.storage.on_cycle_ended()
+	t.check_eq(w.storage.ground_at(cell).size(), 0, "и в срок испортилась")
