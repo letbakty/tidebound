@@ -65,6 +65,10 @@ var idle_ticks_cycle: int = 0
 ## Существо пугает агента ОДИН раз за цикл; без флага −10 духа прилетало бы
 ## каждые десять тиков, пока существо рядом.
 var scared_this_cycle: bool = false
+## Дух падал до нуля в этом цикле — «отказ спускаться» (docs/00 §6.3).
+## Именно латч на цикл, а не проверка «Дух == 0 прямо сейчас»: спека обещает
+## отказ НА ЦИКЛ, и отросший на пару единиц Дух не должен его отменять.
+var no_descend_cycle: bool = false
 
 ## Расходы за цикл, посчитанные ОДИН раз при спавне: множитель черты может
 ## быть дробью вроде 24/18, и умножать её каждый тик значило бы копить
@@ -216,6 +220,7 @@ func to_dict() -> Dictionary:
 		"idle_ticks": idle_ticks_cycle,
 		"job_id": job_id, "work_ticks": work_ticks, "deep_gathered": deep_gathered,
 		"scared": scared_this_cycle,
+		"no_descend": no_descend_cycle,
 	}
 
 func from_dict(d: Dictionary) -> void:
@@ -263,4 +268,5 @@ func from_dict(d: Dictionary) -> void:
 	work_ticks = int(d.get("work_ticks", 0))
 	deep_gathered = int(d.get("deep_gathered", 0))
 	scared_this_cycle = bool(d.get("scared", false))
+	no_descend_cycle = bool(d.get("no_descend", false))
 	recompute_from_traits()

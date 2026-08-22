@@ -141,6 +141,9 @@ func _tick_needs(a: SimAgent, w: SimWorld) -> void:
 		a.heat_ticks = 0
 	if a.state == SimTypes.AgentState.IDLE:
 		a.idle_ticks_cycle += 1
+	# Дно Духа: «отказ спускаться в этом цикле» (docs/00 §6.3).
+	if int(a.needs["mood"]) <= 0:
+		a.no_descend_cycle = true
 
 func _near_heat(a: SimAgent, w: SimWorld) -> bool:
 	var cell: Vector2i = agent_cell(a, w)
@@ -773,6 +776,7 @@ func on_cycle_started(w: SimWorld) -> void:
 		a.idle_ticks_cycle = 0
 		a.deep_gathered = 0
 		a.scared_this_cycle = false
+		a.no_descend_cycle = false
 		a.wet = false                    # к началу нового цикла успел обсохнуть
 		if a.state == SimTypes.AgentState.RETURN:
 			_set_state(a, SimTypes.AgentState.IDLE, w)

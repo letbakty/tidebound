@@ -356,7 +356,7 @@ func _best_job_for(a: SimAgent, w: SimWorld) -> int:
 		var j: Dictionary = jobs.get(id, {})
 		if j.is_empty() or int(j["taken_by"]) != -1:
 			continue
-		if not _applies_to(a, j, w):
+		if not applies_to(a, j, w):
 			continue
 		if not _greed_allows(a, j, w):
 			continue
@@ -371,8 +371,20 @@ func _best_job_for(a: SimAgent, w: SimWorld) -> int:
 	return best_id
 
 ## Кому эта задача вообще имеет смысл.
-func _applies_to(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
-	match str(j["kind"]):
+func applies_to(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
+	var kind: String = str(j["kind"])
+	# Дно потребностей (docs/00 §6.3). Сытость = 0 — «только ест/лежит»:
+	# работать голодный не может вообще, а не «работает медленнее».
+	if int(a.needs["satiety"]) <= 0 and kind != "eat" and kind != "rest":
+		return false
+	# Дух дошёл до нуля в этом цикле — вниз агент не пойдёт.
+	# «Вниз» — это отливная зона (ниже воды этого цикла), а не «на ярус ниже,
+	# чем стою»: иначе агент с верхней площадки отказывался бы и от станции
+	# на +3, и от переноски по дому, и колония замирала бы целиком.
+	if a.no_descend_cycle \
+			and float(Balance.cell_to_mark(j["cell"] as Vector2i)) < w.danger_mark():
+		return false
+	match kind:
 		"eat":
 			return int(a.needs["satiety"]) < Balance.EAT_WANT_MILLI
 		"rest":

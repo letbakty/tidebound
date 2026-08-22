@@ -558,3 +558,84 @@ static func test_hearth_finishes_after_recall(t: TestCtx) -> void:
 			done = true
 			break
 	t.check(done, "очаг всё-таки достроен, колония не залипла")
+
+# --- A1.2: дно потребностей (docs/00 §6.3) --------------------------------
+
+## Первая задача указанного вида, за которую агент прямо сейчас взялся бы.
+static func _applicable_job(w: SimWorld, a: SimAgent, kind: String) -> Dictionary:
+	for id: int in w.jobs.order:
+		var j: Dictionary = w.jobs.jobs[id]
+		if str(j["kind"]) != kind:
+			continue
+		if w.jobs.applies_to(a, j, w):
+			return j
+	return {}
+
+## Сытость = 0 — «не работает: только ест/лежит». Голодный агент брал любую
+## работу наравне с сытым: две полосы из трёх были без дна.
+static func test_starving_agent_only_eats(t: TestCtx) -> void:
+	var w: SimWorld = _world(101)
+	# До Малой воды: на старте вода стоит на нуле, и вся добыча под ней.
+	t.run_ticks(w, 600)
+	var a: SimAgent = w.agents.agents[0]
+	var gather: Dictionary = _applicable_job(w, a, "gather")
+	t.check(not gather.is_empty(), "сытому агенту добыча по силам")
+	if gather.is_empty():
+		return
+	a.needs["satiety"] = 0
+	t.check(not w.jobs.applies_to(a, gather, w), "голодный за ту же добычу не берётся")
+	# Но еда ему по-прежнему доступна — иначе он просто умрёт стоя.
+	var eat: Dictionary = _applicable_job(w, a, "eat")
+	t.check(not eat.is_empty(), "а поесть голодный идёт")
+
+## Дух = 0 — «отказ спускаться в этом цикле». Флаг латч: Дух может отрасти
+## внутри цикла, но вниз агент в этом цикле уже не пойдёт.
+static func test_broken_spirit_refuses_to_descend(t: TestCtx) -> void:
+	var w: SimWorld = _world(103)
+	t.run_ticks(w, 600)
+	# Стройка на +3: работа «дома», которой отказ спускаться касаться не должен.
+	# Ставим ПОСЛЕ прокрутки, иначе агенты успевают её закончить.
+	var plan: int = w.buildings.place("hearth",
+		Vector2i(10, Balance.mark_to_floor_cell_y(3) - 1), w)
+	for k: String in DB.building("hearth").cost:
+		w.buildings.deliver(plan, StackUtil.make(k,
+			int(DB.building("hearth").cost[k]), false), w)
+	t_tick(w)
+	var a: SimAgent = w.agents.agents[0]
+	var below: Dictionary = {}
+	for id: int in w.jobs.order:
+		var j: Dictionary = w.jobs.jobs[id]
+		if float(Balance.cell_to_mark(j["cell"] as Vector2i)) >= w.danger_mark():
+			continue
+		if w.jobs.applies_to(a, j, w):
+			below = j
+			break
+	t.check(not below.is_empty(), "в пуле есть работа в отливной зоне, и агент за неё берётся")
+	if below.is_empty():
+		return
+	# Работа «дома» — её отказ спускаться трогать не должен. Ищем до того, как
+	# уронили Дух, и без потребностей: те зависят от сытости, а не от спуска.
+	var home: Dictionary = {}
+	for id2: int in w.jobs.order:
+		var j2: Dictionary = w.jobs.jobs[id2]
+		if str(j2["kind"]) == "eat" or str(j2["kind"]) == "rest":
+			continue
+		if float(Balance.cell_to_mark(j2["cell"] as Vector2i)) < w.danger_mark():
+			continue
+		if w.jobs.applies_to(a, j2, w):
+			home = j2
+			break
+	a.needs["mood"] = 0
+	t_tick(w)
+	t.check(a.no_descend_cycle, "Дух в ноль поднял флаг «вниз не пойду»")
+	t.check(not w.jobs.applies_to(a, below, w), "и работу внизу агент не берёт")
+	# Дом при этом продолжает работать: отказ касается только спуска.
+	t.check(not home.is_empty(), "в пуле нашлась работа выше воды")
+	if not home.is_empty():
+		t.check(w.jobs.applies_to(a, home, w), "а работу наверху берёт как раньше")
+	a.needs["mood"] = Balance.NEED_MAX_MILLI
+	t.check(not w.jobs.applies_to(a, below, w),
+		"отказ держится до конца цикла, а не отпускает вместе с Духом")
+	w.agents.on_cycle_started(w)
+	t.check(not a.no_descend_cycle, "новый цикл флаг снимает")
+	t.check(w.jobs.applies_to(a, below, w), "и агент снова спускается")
