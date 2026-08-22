@@ -704,3 +704,29 @@ static func _eat_job_for(w: SimWorld, sid: int) -> int:
 		if str(j["kind"]) == "eat" and int(j["target_id"]) == sid:
 			return id
 	return -1
+
+## O1 · docs/00 §6.5: «каждый свободный агент РАЗ В СЕКУНДУ оценивает
+## доступные задачи». Скоринг гонялся каждый тик — десятикратная переплата
+## за решение, которое спека требует принимать раз в секунду.
+static func test_scoring_runs_once_per_second(t: TestCtx) -> void:
+	var w: SimWorld = _world(109)
+	for a: SimAgent in w.agents.agents:
+		var hits: int = 0
+		for i: int in Balance.TICKS_PER_SEC:
+			if JobSystem._scores_this_tick(a, w):
+				hits += 1
+			t_tick(w)
+		t.check_eq(hits, 1,
+			"агент %d оценивает задачи ровно раз в секунду" % a.id)
+
+## И разные агенты считают в разные тики: пик нагрузки размазан по секунде.
+static func test_scoring_is_staggered(t: TestCtx) -> void:
+	var w: SimWorld = _world(111)
+	var ticks_used: Dictionary[int, bool] = {}
+	for i: int in Balance.TICKS_PER_SEC:
+		for a: SimAgent in w.agents.agents:
+			if JobSystem._scores_this_tick(a, w):
+				ticks_used[i] = true
+		t_tick(w)
+	t.check(ticks_used.size() > 1,
+		"агенты считают не все разом (занято тиков: %d)" % ticks_used.size())

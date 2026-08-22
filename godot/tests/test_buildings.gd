@@ -181,7 +181,12 @@ static func test_agent_survives_broken_ladder(t: TestCtx) -> void:
 	# Проверяем то, ради чего тест написан: путь пересчитан ПОСЛЕ пропажи ребра.
 	t.check(a.path_graph_version >= gv_storm,
 		"и пересчитал путь после исчезновения ребра")
-	t.check(a.climb_to < 0, "и не завис на сломанной лестнице")
+	# «Не завис» — про движение, а не про мгновенный снимок: в этот тик агент
+	# может законно лезть по ДРУГОЙ лестнице, и climb_to там ≥ 0.
+	var was: Array = [a.platform_id, a.x, a.climb_t, a.climb_to]
+	t.run_ticks(w, 100)
+	var now: Array = [a.platform_id, a.x, a.climb_t, a.climb_to]
+	t.check(was != now, "и не завис на сломанной лестнице")
 
 ## Склад переживает два шторма — не спецкейсом, а потому что у него hp = 2.
 static func test_storage_hp_two(t: TestCtx) -> void:
