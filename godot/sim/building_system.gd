@@ -164,8 +164,11 @@ func tick(w: SimWorld) -> void:
 	_update_flooding(w)
 	for id: int in order:
 		var b: Dictionary = buildings[id]
+		if bool(b["damaged"]):
+			_request_materials(b, w, repair_cost(DB.building(str(b["def_id"]))))
+			continue
 		if int(b["state"]) == int(SimTypes.BuildState.PLANNED):
-			_request_materials(b, w)
+			_request_materials(b, w, DB.building(str(b["def_id"])).cost)
 			_try_start_construction(b, w)
 
 ## Затопление — событие ПЕРЕСЕЧЕНИЯ уровнем отметки, а не состояние: иначе
@@ -205,14 +208,13 @@ func on_phase_started(_phase: int) -> void:
 
 ## Заказ недостающего с учётом того, что УЖЕ едет. Без этого учёта постройка
 ## каждый тик просила бы полный комплект заново.
-func _request_materials(b: Dictionary, w: SimWorld) -> void:
+func _request_materials(b: Dictionary, w: SimWorld, cost: Dictionary) -> void:
 	b["pending_jobs"] = MaterialRequester.prune(b["pending_jobs"] as Array[int], w)
-	var d: BuildingDef = DB.building(str(b["def_id"]))
 	var have: Dictionary[String, int] = {}
-	for k2: String in d.cost:
+	for k2: String in cost:
 		have[k2] = buffer_count(b, k2, false)
 	var need: Dictionary[String, int] = MaterialRequester.missing(
-		d.cost, have, b["pending_jobs"] as Array[int], w)
+		cost, have, b["pending_jobs"] as Array[int], w)
 	for k: String in need:
 		if int(need[k]) <= 0:
 			continue
@@ -287,13 +289,24 @@ func advance_construction(building_id: int, ticks: int, w: SimWorld) -> bool:
 		return true
 	var d: BuildingDef = DB.building(str(b["def_id"]))
 	if bool(b["damaged"]):
+		# Ремонт стоит половину постройки — и эту половину надо привезти.
+		# Пока её нет, работа не идёт: иначе шторм чинился из воздуха, а план
+		# лестницы за ноль материалов превращался в рабочее ребро графа (C1.3).
+		if not has_repair_materials(b):
+			return false
 		b["progress_ticks"] = int(b["progress_ticks"]) + ticks
 		if int(b["progress_ticks"]) >= _repair_ticks(d):
+			var cost: Dictionary[String, int] = repair_cost(d)
+			for k: String in cost:
+				buffer_take(b, k, int(cost[k]), false)
 			b["damaged"] = false
 			b["repair_urgent"] = false          # приказ выполнен
 			b["hp"] = d.hp
 			b["progress_ticks"] = 0
-			_on_became_active(b, w)
+			# Только ACTIVE: починенный недострой остаётся недостроем.
+			if int(b["state"]) == int(SimTypes.BuildState.ACTIVE):
+				_on_became_active(b, w)
+			w.jobs.mark_dirty()
 			_pending.append(SimEvent.make("building_state_changed", {"id": building_id}))
 			return true
 		return false
@@ -320,6 +333,16 @@ func build_progress(b: Dictionary) -> float:
 	var d: BuildingDef = DB.building(str(b["def_id"]))
 	var total: int = _repair_ticks(d) if bool(b["damaged"]) else _build_ticks(d)
 	return clampf(float(b["progress_ticks"]) / float(total), 0.0, 1.0)
+
+## Лежит ли в буфере вся смета ремонта. По ней же JobSystem решает,
+## объявлять ли задачу «починить»: звать агента к постройке, которую нечем
+## чинить, значит занять его навсегда.
+func has_repair_materials(b: Dictionary) -> bool:
+	var cost: Dictionary[String, int] = repair_cost(DB.building(str(b["def_id"])))
+	for k: String in cost:
+		if buffer_count(b, k, false) < int(cost[k]):
+			return false
+	return true
 
 ## Стоимость ремонта — половина от постройки, округление вниз.
 static func repair_cost(d: BuildingDef) -> Dictionary[String, int]:
@@ -429,6 +452,9 @@ func on_storm(w: SimWorld) -> void:
 		var b: Dictionary = buildings.get(id, {})
 		if b.is_empty():
 			continue
+		# Недострой шторму ломать нечего: там ещё ничего не стоит.
+		if int(b["state"]) != int(SimTypes.BuildState.ACTIVE):
+			continue
 		var d: BuildingDef = DB.building(str(b["def_id"]))
 		if not d.storm_breaks:
 			continue
@@ -451,6 +477,8 @@ func apply_damage(id: int, w: SimWorld) -> bool:
 	var b: Dictionary = buildings.get(id, {})
 	if b.is_empty() or bool(b["damaged"]):
 		return false
+	if int(b["state"]) != int(SimTypes.BuildState.ACTIVE):
+		return false                      # грызть недострой нечего
 	b["hp"] = int(b["hp"]) - 1
 	if int(b["hp"]) > 0:
 		_pending.append(SimEvent.make("building_state_changed", {"id": id}))

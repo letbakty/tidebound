@@ -155,6 +155,10 @@ func _generate_build(w: SimWorld) -> void:
 		var building: bool = int(b["state"]) == int(SimTypes.BuildState.UNDER_CONSTRUCTION)
 		if not damaged and not building:
 			continue
+		# Ремонт объявляем только когда смета уже в буфере: иначе агент
+		# уйдёт к постройке, которую нечем чинить, и застрянет там (C1.3).
+		if damaged and not w.buildings.has_repair_materials(b):
+			continue
 		var kind: String = "repair" if damaged else "build"
 		if _has_job_for(kind, id):
 			continue

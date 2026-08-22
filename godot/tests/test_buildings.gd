@@ -203,6 +203,10 @@ static func test_repair_restores(t: TestCtx) -> void:
 	w.buildings.on_storm(w)
 	t.check(bool(w.buildings.buildings[id]["damaged"]), "сломана")
 	var d: BuildingDef = DB.building("ladder_wood")
+	# Смета ремонта — в буфер: без материалов работа не начнётся (C1.3).
+	for k: String in BuildingSystem.repair_cost(d):
+		w.buildings.deliver(id, StackUtil.make(k, int(BuildingSystem.repair_cost(d)[k]),
+			false), w)
 	var done: bool = false
 	for i: int in 5000:
 		if w.buildings.advance_construction(id, 1, w):
@@ -364,3 +368,61 @@ static func test_determinism_with_buildings(t: TestCtx) -> void:
 			return
 	t.check_eq(TestCtx.state_hash(a), TestCtx.state_hash(b),
 		"10 000 тиков с постройками: состояния совпадают")
+
+# --- C1.3: бесплатный ремонт и активация недостроя ------------------------
+
+## Ремонт стоит половину — и эту половину надо реально привезти, а не
+## показать в панели. Раньше damaged-ветка чинила из воздуха.
+static func test_repair_spends_materials(t: TestCtx) -> void:
+	var w: SimWorld = _world(31)
+	var id: int = w.buildings.place("ladder_wood",
+		Vector2i(25, Balance.mark_to_floor_cell_y(-2)), w, true)
+	w.buildings.on_storm(w)
+	t.check(bool(w.buildings.buildings[id]["damaged"]), "лестница сломана")
+	var b: Dictionary = w.buildings.buildings[id]
+
+	# Без материалов в буфере ремонт не двигается.
+	for i: int in 5000:
+		w.buildings.advance_construction(id, 1, w)
+	t.check(bool(b["damaged"]), "без материалов ремонт не идёт")
+
+	# С материалами — идёт и списывает ровно repair_cost.
+	var cost: Dictionary[String, int] = BuildingSystem.repair_cost(DB.building("ladder_wood"))
+	for k: String in cost:
+		w.buildings.deliver(id, StackUtil.make(k, int(cost[k]), false), w)
+	var done: bool = false
+	for i2: int in 5000:
+		if w.buildings.advance_construction(id, 1, w):
+			done = true
+			break
+	t.check(done, "с материалами ремонт завершился")
+	t.check(not bool(b["damaged"]), "постройка снова цела")
+	for k2: String in cost:
+		t.check_eq(BuildingSystem.buffer_count(b, k2, false), 0,
+			"материал '%s' списан ремонтом" % k2)
+
+## Эксплойт: план лестницы, материалы не возим, шторм метит damaged —
+## и «ремонт» даёт рабочее ребро графа за ноль материалов.
+static func test_planned_is_not_activated_by_repair(t: TestCtx) -> void:
+	var w: SimWorld = _world(37)
+	var id: int = w.buildings.place("ladder_wood",
+		Vector2i(25, Balance.mark_to_floor_cell_y(-2)), w)
+	t.check_eq(int(w.buildings.buildings[id]["state"]),
+		int(SimTypes.BuildState.PLANNED), "лестница только запланирована")
+	var top: int = w.terrain.platform_of_mark(6)
+	var deep: int = w.terrain.platform_of_mark(-3)
+	t.check_eq(w.terrain.find_path(top, deep).size(), 0, "ребра ещё нет")
+
+	w.buildings.on_storm(w)
+	t.check(not bool(w.buildings.buildings[id]["damaged"]),
+		"недострой шторму ломать нечего")
+	# Даже если пометить руками — «ремонт» не имеет права активировать план.
+	w.buildings.buildings[id]["damaged"] = true
+	for k: String in BuildingSystem.repair_cost(DB.building("ladder_wood")):
+		w.buildings.deliver(id, StackUtil.make(k, 9, false), w)
+	for i: int in 5000:
+		w.buildings.advance_construction(id, 1, w)
+	t.check_eq(int(w.buildings.buildings[id]["state"]),
+		int(SimTypes.BuildState.PLANNED), "план остался планом")
+	t.check_eq(w.terrain.find_path(top, deep).size(), 0,
+		"бесплатного ребра в графе не появилось")

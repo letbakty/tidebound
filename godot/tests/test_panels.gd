@@ -111,6 +111,10 @@ static func test_repair_order_is_urgent(t: TestCtx) -> void:
 	t.check(bool(w.buildings.buildings[forge]["repair_urgent"]),
 		"команда repair пометила постройку")
 	# Ремонт закончен — флаг снят, иначе он переживёт саму поломку.
+	# Смету ремонта кладём в буфер: без материалов работа не идёт (C1.3).
+	var cost: Dictionary[String, int] = BuildingSystem.repair_cost(DB.building("forge"))
+	for k: String in cost:
+		w.buildings.deliver(forge, StackUtil.make(k, int(cost[k]), false), w)
 	w.buildings.advance_construction(forge, 100000, w)
 	t.check(not bool(w.buildings.buildings[forge]["repair_urgent"]),
 		"после ремонта срочность снимается")
