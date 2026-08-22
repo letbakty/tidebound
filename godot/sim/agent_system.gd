@@ -198,8 +198,15 @@ func _check_recall(a: SimAgent, w: SimWorld) -> bool:
 	_do_return(a, w)
 	return true
 
-## PANIC по docs/00 §6.2: «Дух<30 в воде/рядом существо». «В воде» считаем как
-## «ниже опасной отметки цикла» — там агента и застаёт прилив.
+## PANIC по docs/00 §6.2: «Дух<30 в воде/рядом существо».
+##
+## РЕШЕНИЕ (C2.6): «в воде» — вода подошла вплотную к ногам, а НЕ «ниже плато
+## прилива». По плато агент на −2 в разгар отлива (вода на −8, вокруг сухо)
+## паниковал на ровном месте, а две смерти давали пинг-понг половины колонии.
+## Буквальный «строго затоплен» тоже не годится: затопленного агента раньше
+## перехватывает _check_drowning, и паника от воды стала бы мёртвым кодом —
+## поэтому запас PANIC_WATER_MARGIN_MARKS. На нём же ожил выход по Духу ≥55:
+## раньше выход требовал отметки выше плато, куда агента и так уводил RETURN.
 ##
 ## Второе условие — существо рядом — работает ТОЛЬКО для Пугливого
 ## (docs/00 §9.3: «агент в 4 тайлах — Дух −10, паника у Пугливых»): дистанцию
@@ -216,17 +223,22 @@ func _check_panic(a: SimAgent, w: SimWorld) -> bool:
 	var exit_v: int = Balance.NEED_LOW_EXIT_MILLI
 	var mark: float = agent_mark_f(a, w)
 	var scared: bool = _creature_panic(a, w)
+	var in_water: bool = _water_at_feet(mark, w)
 	if not panicking:
-		if not scared and (int(a.needs["mood"]) >= low or mark >= w.danger_mark()):
+		if not scared and (int(a.needs["mood"]) >= low or not in_water):
 			return false
 		w.jobs.release(a)          # паникующий работу бросает — задача в пул (C1.1)
 		_set_state(a, SimTypes.AgentState.PANIC, w)
 		_set_return_target(a, w)
-	elif not scared and int(a.needs["mood"]) >= exit_v and mark >= w.danger_mark():
+	elif not scared and int(a.needs["mood"]) >= exit_v and not in_water:
 		_set_state(a, SimTypes.AgentState.IDLE, w)
 		return false
 	_do_return(a, w)
 	return true
+
+## Достала ли агента вода: он в ней или она у самых ног.
+static func _water_at_feet(mark: float, w: SimWorld) -> bool:
+	return mark < w.tide.level + Balance.PANIC_WATER_MARGIN_MARKS
 
 # --- Состояния ------------------------------------------------------------
 

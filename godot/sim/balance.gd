@@ -105,6 +105,10 @@ const FATIGUE_REST_PER_CYCLE_MILLI: int = 60_000
 ## без гистерезиса агент дребезжит на границе каждый тик (research/15 §4).
 const NEED_LOW_ENTER_MILLI: int = 30_000
 const NEED_LOW_EXIT_MILLI: int = 55_000
+## На сколько ярусов над водой агент ещё считает, что он «в воде» (docs/00
+## §6.2, условие паники). Ноль сюда не годится: под водой агент уже DROWNING,
+## и паника с порогом «строго затоплен» была бы недостижима вовсе.
+const PANIC_WATER_MARGIN_MARKS: float = 1.0
 const NEED_SLOW_MULT: float = 0.75         # скорость при потребности <30
 const NEED_SICK_MULT: float = 0.5          # «болезнь» при тепле = 0
 

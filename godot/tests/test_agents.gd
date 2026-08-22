@@ -426,3 +426,47 @@ static func test_storage_flood_hits_mood(t: TestCtx) -> void:
 	t.run_ticks(w, 5)
 	t.check_eq(int(w.agents.agents[0].needs["mood"]), after,
 		"пока склад под той же водой, по Духу больше не бьёт")
+
+# --- C2.6: «в воде» для паники ---------------------------------------------
+
+## Паника считала «в воде» как «ниже плато прилива» — и агент на −2 в разгар
+## отлива (вода на −8, вокруг сухо) паниковал на ровном месте.
+static func test_panic_needs_water_not_low_mark(t: TestCtx) -> void:
+	var w: SimWorld = _world(81)
+	_no_jobs(w)
+	var a: SimAgent = w.agents.agents[0]
+	a.trait_ids = ["sinew", "hardy"]         # ни «не паникует», ни «пугливый»
+	a.recompute_from_traits()
+	a.needs["mood"] = 0
+	_place(w, a, Vector2i(20, Balance.mark_to_floor_cell_y(-2)))
+	# Разгар отлива: вода на дне, под ногами сухо.
+	w.tide.level_override = -8.0
+	t.run_ticks(w, 2)
+	t.check(a.state != SimTypes.AgentState.PANIC,
+		"на сухом −2 при воде на дне агент не паникует")
+
+	# Вода подошла вплотную — вот теперь паника по спеке.
+	_place(w, a, Vector2i(20, Balance.mark_to_floor_cell_y(-2)))
+	w.tide.level_override = -2.5
+	t.run_ticks(w, 1)
+	t.check_eq(a.state, SimTypes.AgentState.PANIC, "у самой воды паникует")
+
+## Гистерезис-ветка (Дух ≥ 55) была мёртвой: выход требовал отметки выше
+## плато, а туда агент и так доходил через RETURN.
+static func test_panic_exits_by_hysteresis(t: TestCtx) -> void:
+	var w: SimWorld = _world(83)
+	_no_jobs(w)
+	var a: SimAgent = w.agents.agents[0]
+	a.trait_ids = ["sinew", "hardy"]
+	a.recompute_from_traits()
+	a.needs["mood"] = 0
+	_place(w, a, Vector2i(20, Balance.mark_to_floor_cell_y(-2)))
+	w.tide.level_override = -2.5
+	t.run_ticks(w, 1)
+	t.check_eq(a.state, SimTypes.AgentState.PANIC, "паникует")
+	# Дух отпустило и вода ушла — а до безопасной площадки ещё далеко.
+	a.needs["mood"] = Balance.NEED_LOW_EXIT_MILLI + 1000
+	w.tide.level_override = -8.0
+	t.run_ticks(w, 1)
+	t.check_eq(a.state, SimTypes.AgentState.IDLE,
+		"успокоился, не дожидаясь возвращения наверх")
