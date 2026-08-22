@@ -123,6 +123,14 @@ func _creature_panic(a: SimAgent, w: SimWorld) -> bool:
 # --- Потребности ----------------------------------------------------------
 
 func _tick_needs(a: SimAgent, w: SimWorld) -> void:
+	# Дно Тепла: болезнь с гистерезисом — до ПОЛНОГО отогрева (A1.6, docs/00
+	# §6.3). Считается ДО расхода тепла: иначе «полный отогрев» недостижим —
+	# расход этого же тика сразу уводит тепло из максимума, и вылечиться
+	# нельзя было бы даже у очага.
+	if int(a.needs["warmth"]) <= 0:
+		a.sick = true
+	elif int(a.needs["warmth"]) >= Balance.NEED_MAX_MILLI:
+		a.sick = false
 	a.apply_rate("satiety", -a.hunger_rate_milli)
 	var near_heat: bool = _near_heat(a, w)
 	var warm_rate: int = -(a.warmth_wet_rate_milli if a.wet else a.warmth_rate_milli)
@@ -634,7 +642,7 @@ func _speed(a: SimAgent, w: SimWorld, ladder: bool) -> float:
 	base *= a.modifier("ladder_speed_mult" if ladder else "speed_mult")
 	if int(a.needs["satiety"]) < Balance.NEED_LOW_ENTER_MILLI:
 		base *= Balance.NEED_SLOW_MULT
-	if int(a.needs["warmth"]) <= 0:
+	if a.sick:
 		base *= Balance.NEED_SICK_MULT
 	elif int(a.needs["warmth"]) < Balance.NEED_LOW_ENTER_MILLI:
 		base *= Balance.NEED_SLOW_MULT

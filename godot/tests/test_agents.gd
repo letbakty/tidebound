@@ -470,3 +470,50 @@ static func test_panic_exits_by_hysteresis(t: TestCtx) -> void:
 	t.run_ticks(w, 1)
 	t.check_eq(a.state, SimTypes.AgentState.IDLE,
 		"успокоился, не дожидаясь возвращения наверх")
+
+# --- A1.6: болезнь при Тепле = 0 -------------------------------------------
+
+## Сколько тайлов агент проходит за тик, идя по своей площадке.
+static func _step_len(t: TestCtx, w: SimWorld, a: SimAgent) -> float:
+	var span: Array[int] = w.terrain.platform_x_range(Balance.TOP_MARK)
+	_place(w, a, Vector2i(span[0] + 1, Balance.mark_to_floor_cell_y(Balance.TOP_MARK)))
+	a.goto_platform = a.platform_id
+	a.goto_x = float(span[1])
+	a.intent = SimTypes.AgentState.IDLE
+	a.state = SimTypes.AgentState.GOTO
+	var before: float = a.x
+	t.run_ticks(w, 1)
+	return a.x - before
+
+## docs/00 §6.3: Тепло = 0 — «болезнь: скорость −50% ДО ПОЛНОГО ОТОГРЕВА».
+## Множитель отпускал при тепле 1: болезни как состояния не было.
+static func test_sick_holds_until_fully_warm(t: TestCtx) -> void:
+	var w: SimWorld = _world(87)
+	_no_jobs(w)
+	var a: SimAgent = w.agents.agents[0]
+	a.trait_ids = ["sinew", "grinder"]        # без модификаторов скорости
+	a.recompute_from_traits()
+	a.needs["satiety"] = Balance.NEED_MAX_MILLI
+	a.needs["warmth"] = Balance.NEED_MAX_MILLI
+	var healthy: float = _step_len(t, w, a)
+	t.check(healthy > 0.0, "здоровый агент идёт")
+
+	a.needs["warmth"] = 0
+	t.check(a.sick == false, "флаг болезни поднимается тиком, а не присваиванием")
+	var frozen: float = _step_len(t, w, a)
+	t.check(a.sick, "тепло в ноль — агент заболел")
+	t.check_approx(frozen / healthy, Balance.NEED_SICK_MULT, 0.01,
+		"скорость упала вдвое")
+
+	# Отогрели наполовину — болезнь ДЕРЖИТСЯ.
+	a.needs["warmth"] = Balance.NEED_MAX_MILLI / 2
+	var half: float = _step_len(t, w, a)
+	t.check(a.sick, "на половине тепла всё ещё болен")
+	t.check_approx(half / healthy, Balance.NEED_SICK_MULT, 0.01,
+		"и всё ещё вдвое медленнее")
+
+	# Полный отогрев снимает болезнь.
+	a.needs["warmth"] = Balance.NEED_MAX_MILLI
+	var warm: float = _step_len(t, w, a)
+	t.check(not a.sick, "полный отогрев вылечил")
+	t.check_approx(warm / healthy, 1.0, 0.01, "скорость вернулась")

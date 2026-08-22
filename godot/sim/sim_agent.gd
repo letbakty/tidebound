@@ -69,6 +69,10 @@ var scared_this_cycle: bool = false
 ## Именно латч на цикл, а не проверка «Дух == 0 прямо сейчас»: спека обещает
 ## отказ НА ЦИКЛ, и отросший на пару единиц Дух не должен его отменять.
 var no_descend_cycle: bool = false
+## «Болезнь» docs/00 §6.3: Тепло дошло до нуля — скорость ×0.5 ДО ПОЛНОГО
+## отогрева. Без флага множитель отпускал при тепле 1, и болезни как
+## состояния не существовало (A1.6).
+var sick: bool = false
 
 ## Расходы за цикл, посчитанные ОДИН раз при спавне: множитель черты может
 ## быть дробью вроде 24/18, и умножать её каждый тик значило бы копить
@@ -221,6 +225,7 @@ func to_dict() -> Dictionary:
 		"job_id": job_id, "work_ticks": work_ticks, "deep_gathered": deep_gathered,
 		"scared": scared_this_cycle,
 		"no_descend": no_descend_cycle,
+		"sick": sick,
 	}
 
 func from_dict(d: Dictionary) -> void:
@@ -269,4 +274,5 @@ func from_dict(d: Dictionary) -> void:
 	deep_gathered = int(d.get("deep_gathered", 0))
 	scared_this_cycle = bool(d.get("scared", false))
 	no_descend_cycle = bool(d.get("no_descend", false))
+	sick = bool(d.get("sick", false))
 	recompute_from_traits()
