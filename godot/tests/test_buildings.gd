@@ -479,3 +479,34 @@ static func test_flooded_planned_forge_is_intact(t: TestCtx) -> void:
 	t.run_ticks(w, 2)
 	t.check(bool(b["flooded"]), "план под водой")
 	t.check(not bool(b["damaged"]), "но ломаться в нём нечему")
+
+## R5 · docs/00 §6.4: «Трудяга — все работы ×1.1». В стройке множитель
+## съедало округление до целых тиков: int(round(1.1)) == 1, и черта не давала
+## ничего. Считаем тики до готовности одной и той же постройки.
+static func _ticks_to_build(t: TestCtx, seed_value: int, trait_id: String) -> int:
+	var w: SimWorld = _world(seed_value)
+	for a: SimAgent in w.agents.agents:
+		a.trait_ids = [trait_id, "hardy"]
+		a.recompute_from_traits()
+	# Только стройка: иначе агенты разбредутся по добыче, и тик считать нечего.
+	for p: int in SimTypes.POLICY_ORDER:
+		w.policies.set_value(p, 0)
+	w.policies.set_value(SimTypes.Policy.BUILD, 3)
+	var id: int = w.buildings.place("hearth", _cell_on(3, 10, 1), w)
+	for k: String in DB.building("hearth").cost:
+		w.buildings.deliver(id, StackUtil.make(k,
+			int(DB.building("hearth").cost[k]), false), w)
+	w.jobs.mark_dirty()
+	for i: int in 20000:
+		t.run_ticks(w, 1)
+		if int(w.buildings.buildings[id]["state"]) == int(SimTypes.BuildState.ACTIVE):
+			return i
+	return -1
+
+static func test_grinder_builds_faster(t: TestCtx) -> void:
+	var plain: int = _ticks_to_build(t, 47, "sinew")
+	var grinder: int = _ticks_to_build(t, 47, "grinder")
+	t.check(plain > 0 and grinder > 0, "обе стройки завершились")
+	t.check(grinder < plain,
+		"Трудяга построил быстрее: %d тиков против %d" % [grinder, plain])
+

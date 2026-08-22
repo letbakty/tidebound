@@ -549,8 +549,14 @@ func _do_work(a: SimAgent, w: SimWorld) -> void:
 		if w.production.advance_work(int(j["target_id"]), 1, a, w):
 			_finish_job(a, w)
 		return
-	# work_mult черты Трудяга ускоряет и стройку: вкладываем больше тика за тик.
-	var step: int = maxi(1, int(round(a.modifier("work_mult"))))
+	# work_mult Трудяги — 1.1, и округление до целого тика съедало его целиком:
+	# int(round(1.1)) == 1, черта не давала на стройке ничего (R5). Копим сотые
+	# доли тика в work_ticks — в состоянии WORK он больше ни для чего не нужен.
+	a.work_ticks += maxi(1, int(round(a.modifier("work_mult") * 100.0)))
+	var step: int = a.work_ticks / 100
+	if step <= 0:
+		return
+	a.work_ticks -= step * 100
 	if w.buildings.advance_construction(int(j["target_id"]), step, w):
 		_finish_job(a, w)
 
