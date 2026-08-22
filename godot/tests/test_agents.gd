@@ -398,3 +398,31 @@ static func test_agents_survive_save(t: TestCtx) -> void:
 		t.run_ticks(restored, 1)
 	t.check_eq(TestCtx.state_hash(w), TestCtx.state_hash(restored),
 		"после загрузки мир с агентами продолжается идентично")
+
+## C2.5 · docs/00 §6.3: «затопление склада −10» всем. Раньше по Духу била
+## только кража существом, а сам потоп проходил незамеченным.
+static func test_storage_flood_hits_mood(t: TestCtx) -> void:
+	var w: SimWorld = _world(77)
+	_no_jobs(w)
+	var id: int = w.storage.add_storage(Vector2i(20, Balance.mark_to_floor_cell_y(-2)))
+	w.storage.store(id, StackUtil.make("catch", 4, false))
+	# Сначала уводим воду ниже склада, потом накрываем: правило работает
+	# на ПЕРЕСЕЧЕНИИ, а не на «стоит под водой».
+	w.tide.level_override = -5.0
+	t.run_ticks(w, 2)
+	var before: Dictionary[int, int] = {}
+	for a: SimAgent in w.agents.agents:
+		before[a.id] = int(a.needs["mood"])
+	w.tide.level_override = 1.0
+	t.run_ticks(w, 1)
+	for a2: SimAgent in w.agents.agents:
+		if not a2.is_alive():
+			continue
+		t.check_eq(int(before[a2.id]) - int(a2.needs["mood"]),
+			Balance.MOOD_STORAGE_FLOODED_MILLI,
+			"Дух агента %d просел ровно на 10 за затопленный склад" % a2.id)
+	# Повторно за то же затопление — не бьёт.
+	var after: int = int(w.agents.agents[0].needs["mood"])
+	t.run_ticks(w, 5)
+	t.check_eq(int(w.agents.agents[0].needs["mood"]), after,
+		"пока склад под той же водой, по Духу больше не бьёт")

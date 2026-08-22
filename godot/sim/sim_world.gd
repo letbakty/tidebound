@@ -234,7 +234,9 @@ func _tick_agents() -> void:
 
 func _tick_storage() -> void:
 	# Корзины лебёдки вода не вымывает — в этом их смысл.
-	storage.on_tick(tide.level, production.basket_cells(self))
+	var flooded_storages: int = storage.on_tick(tide.level, production.basket_cells(self))
+	for i: int in flooded_storages:
+		agents.on_storage_flooded()      # docs/00 §6.3: −10 всем за каждый склад
 
 func _tick_run_state() -> void:
 	run_state.tick(self)

@@ -289,12 +289,17 @@ func remove_storage(id: int, w: SimWorld) -> bool:
 
 ## Затопление: срабатывает на ПЕРЕСЕЧЕНИИ уровнем отметки объекта, ровно один
 ## раз, а не каждый тик под водой.
-func on_tick(level: float, protected: Array[Vector2i] = []) -> void:
+## Возвращает, сколько складов ушло под воду за этот тик: по docs/00 §6.3
+## это −10 к Духу всем, а звать AgentSystem из склада нечем — SimWorld
+## разносит удар сам.
+func on_tick(level: float, protected: Array[Vector2i] = []) -> int:
 	if is_equal_approx(level, _last_level):
-		return
+		return 0
+	var flooded: int = 0
 	for s: Dictionary in storages:
 		var mark: int = Balance.cell_to_mark(s["cell"] as Vector2i)
 		if _crossed_down(mark, level):
+			flooded += 1
 			_flood_storage(s)
 	var washed: int = 0
 	var kept: Array[Dictionary] = []
@@ -309,6 +314,7 @@ func on_tick(level: float, protected: Array[Vector2i] = []) -> void:
 		ground = kept
 		_washed_this_cycle += washed
 	_last_level = level
+	return flooded
 
 func _crossed_down(mark: int, level: float) -> bool:
 	var was: bool = Balance.is_mark_flooded(mark, _last_level)
