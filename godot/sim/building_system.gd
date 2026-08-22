@@ -202,6 +202,11 @@ func _on_flooded(b: Dictionary, w: SimWorld) -> void:
 			(b["buffer"] as Dictionary)["salt"] = 0     # соль смыло
 		"hearth":
 			b["lit"] = false                            # очаг залило
+		"forge":
+			# docs/00 §8: у горна затопление — «DISABLED + повреждение».
+			# Он стоит на жилых ярусах, и накрыть его может только сизигия:
+			# это и есть налог за станцию на низкой отметке (A1.3).
+			apply_damage(int(b["id"]), w)
 		_:
 			pass                                        # лестницы, шлюз, фонарь — работают
 

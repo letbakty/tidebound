@@ -453,3 +453,29 @@ static func test_buildable_defs_have_cost(t: TestCtx) -> void:
 		if not d.buildable:
 			continue
 		t.check(d.cost_units() > 0, "у постройки '%s' есть цена" % bid)
+
+## A1.3 · docs/00 §8: у Горна затопление — «DISABLED + повреждение».
+## Особый случай был расписан только испарителю и очагу, горн падал в `_: pass`,
+## и налог на низкую станцию не работал вовсе.
+static func test_flooded_forge_takes_damage(t: TestCtx) -> void:
+	var w: SimWorld = _world(43)
+	var forge: int = w.buildings.place("forge", _cell_on(1, 6, 2), w, true)
+	t.check(forge > 0, "горн на +1 стоит")
+	var b: Dictionary = w.buildings.buildings[forge]
+	t.check(not bool(b["damaged"]), "целый до воды")
+	# Сизигия поднимает воду до +2 — вот тогда горн и накрывает.
+	w.tide.level_override = 2.0
+	t.run_ticks(w, 2)
+	t.check(bool(b["flooded"]), "горн под водой")
+	t.check(bool(b["damaged"]), "и повреждён, а не просто отключён")
+	t.check(not w.buildings.is_working(b), "работать он, разумеется, не может")
+
+## Обратная сторона: недострой затопление переживает без потерь (docs/00 §8).
+static func test_flooded_planned_forge_is_intact(t: TestCtx) -> void:
+	var w: SimWorld = _world(45)
+	var forge: int = w.buildings.place("forge", _cell_on(1, 6, 2), w)
+	var b: Dictionary = w.buildings.buildings[forge]
+	w.tide.level_override = 2.0
+	t.run_ticks(w, 2)
+	t.check(bool(b["flooded"]), "план под водой")
+	t.check(not bool(b["damaged"]), "но ломаться в нём нечему")
