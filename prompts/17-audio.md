@@ -4,6 +4,7 @@
 **Зависит от:** 13 (события UI уже есть). **Читать:** docs/00 §15.
 **Результат:** звуковая архитектура + все хуки; реальные ассеты — заглушки-синтетика или тишина с TODO.
 **Ресерч:** [research/23-audio-architecture.md](../research/23-audio-architecture.md) — шины из кода, `AudioStreamPolyphonic`, равномощностный кроссфейд, маппинг событий, генерация `.wav`-плейсхолдеров.
+**Плюс `research/35-*` — источники звуков, лицензии, звук воды и колокола** (⏳ файл будет создан ресерч-агентом по брифу [BRIEF-next.md](../research/BRIEF-next.md), тема 35). Файл 23 закрывает архитектуру, но не отвечает, откуда берутся настоящие звуки. Если файла ещё нет — плейсхолдеры генерируй по §6 файла 23 и оставь TODO.
 
 ## Задача
 1. Шины — **создать генератором `tools/gen_bus_layout.gd`** (File → Run), а не кликами ([research/23](../research/23-audio-architecture.md) §1). Master → Music, SFX, UI, Ambient. `autoload/audio_service.gd`: `play_sfx(id, volume_db=0)`, `play_ui(id)`, `set_music_state(state)`, пулы AudioStreamPlayer (8 SFX, 2 музыкальных для кроссфейда), громкости из Settings.

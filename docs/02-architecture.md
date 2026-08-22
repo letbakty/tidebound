@@ -169,7 +169,8 @@ func rebroadcast_state() -> void                 # после load: повтор
 func resume_prev_speed() -> void                 # снятие автопаузы Итога цикла/драфта: вернуть скорость, бывшую до паузы
 func push_pause() -> void / pop_pause() -> void  # автопауза СЧЁТЧИКОМ: два окна подряд не снимут паузу раньше времени
 func note_banner(type: int) -> bool              # банер этого кризиса ещё не показывали за забег (ui-секция сейва)
-func note_hint(id: String) -> bool               # то же для карточек-уроков
+# Карточки-уроки живут НЕ здесь: «показано один раз» относится к игроку, а не
+# к забегу, поэтому их помечает Meta.note_hint(id) в профиле (docs/03 §6).
 ```
 
 **Синхронные запросы (`query_*`) — единственный разрешённый «pull» из sim.**
@@ -223,7 +224,7 @@ WorldViewport (SubViewport 640×360)
     ├── RainLayer (CanvasLayer 5)  — Rain
     └── WaterLayer (CanvasLayer 10) — WaterView (ЕДИНСТВЕННЫЙ screen-read шейдер)
 Main
-└── WeatherLayer (CanvasLayer 25) — Vignette (снаружи вьюпорта, нативное разрешение)
+└── WeatherLayer (CanvasLayer 15) — Vignette (снаружи вьюпорта, нативное разрешение)
 ```
 
 - Туман **под** водой: вода читает уже затуманенный мир и преломляет его.
