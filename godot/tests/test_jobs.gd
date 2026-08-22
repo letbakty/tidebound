@@ -639,3 +639,33 @@ static func test_broken_spirit_refuses_to_descend(t: TestCtx) -> void:
 	w.agents.on_cycle_started(w)
 	t.check(not a.no_descend_cycle, "новый цикл флаг снимает")
 	t.check(w.jobs.applies_to(a, below, w), "и агент снова спускается")
+
+## R11: отдых берётся только на Высокой воде, но взятая задача жила вечно —
+## агент, начавший отдых под конец HIGH, простаивал пол-отлива.
+static func test_rest_ends_with_high_water(t: TestCtx) -> void:
+	var w: SimWorld = _world(105)
+	var rester: SimAgent = null
+	for i: int in Balance.TICKS_PER_CYCLE * 2:
+		for a0: SimAgent in w.agents.agents:
+			a0.needs["fatigue"] = 0        # вымотаны: отдых им точно нужен
+		t_tick(w)
+		if w.clock.phase != SimTypes.Phase.HIGH:
+			continue
+		for a: SimAgent in w.agents.agents:
+			if a.state == SimTypes.AgentState.REST:
+				rester = a
+				break
+		if rester != null:
+			break
+	t.check(rester != null, "кто-то лёг отдыхать на Высокой воде")
+	if rester == null:
+		return
+	# Докручиваем до Спада.
+	for i2: int in Balance.TICKS_PER_CYCLE:
+		t_tick(w)
+		if w.clock.phase == SimTypes.Phase.EBB:
+			break
+	t.check_eq(w.clock.phase, SimTypes.Phase.EBB, "начался Спад")
+	t_tick(w)
+	t.check(rester.state != SimTypes.AgentState.REST,
+		"на Спаде отдых прерван, а не тянется полфазы")

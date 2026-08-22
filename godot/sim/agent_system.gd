@@ -277,6 +277,13 @@ func _do_return(a: SimAgent, w: SimWorld) -> void:
 			_set_state(a, SimTypes.AgentState.IDLE, w)
 
 func _do_rest(a: SimAgent, w: SimWorld) -> void:
+	# Отдых кончается вместе с Высокой водой (docs/00 §6.6). Задача отдыха
+	# ОБЩАЯ, то есть не резервируется, и «задача стала невалидной» её не
+	# прерывает: без этой проверки агент, легший под конец HIGH, простаивал
+	# пол-отлива (R11).
+	if w.clock.phase != SimTypes.Phase.HIGH:
+		_finish_job(a, w)
+		return
 	if not _at_goal(a):
 		_advance_path(a, w)
 		return
