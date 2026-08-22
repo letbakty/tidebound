@@ -168,6 +168,9 @@ func _check_drowning(a: SimAgent, w: SimWorld) -> bool:
 	if a.submerged_ticks >= warn_at and not a.drowning_warned:
 		a.drowning_warned = true
 		_pending.append(SimEvent.make("agent_drowning", {"id": a.id}))
+	# Резервацию рвём ДО смены состояния: тонущий работу не доделает, а задача
+	# с мёртвым владельцем висит в пуле до конца забега (C1.1).
+	w.jobs.release(a)
 	_set_state(a, SimTypes.AgentState.DROWNING, w)
 	if a.submerged_ticks >= _drown_limit(a, w):
 		_kill(a, "drown", w)
@@ -216,6 +219,7 @@ func _check_panic(a: SimAgent, w: SimWorld) -> bool:
 	if not panicking:
 		if not scared and (int(a.needs["mood"]) >= low or mark >= w.danger_mark()):
 			return false
+		w.jobs.release(a)          # паникующий работу бросает — задача в пул (C1.1)
 		_set_state(a, SimTypes.AgentState.PANIC, w)
 		_set_return_target(a, w)
 	elif not scared and int(a.needs["mood"]) >= exit_v and mark >= w.danger_mark():
@@ -539,6 +543,7 @@ func _retarget(a: SimAgent, w: SimWorld, cell: Vector2i) -> void:
 ## на границе цикла.
 func force_return(a: SimAgent, w: SimWorld) -> void:
 	a.recalled = true
+	w.jobs.release(a)          # тот же инвариант, что у ручного Отзыва (C1.1)
 	_set_state(a, SimTypes.AgentState.RETURN, w)
 	_set_return_target(a, w)
 
@@ -710,6 +715,7 @@ func recall(hard: bool, w: SimWorld) -> void:
 			continue
 		a.recalled = true
 		a.recall_hard = hard
+		w.jobs.release(a)          # отозванный работу бросает — задача в пул (C1.1)
 		if hard:
 			# Жёсткий отзыв: груз бросают там, где стоят.
 			for s: Dictionary in a.bag:

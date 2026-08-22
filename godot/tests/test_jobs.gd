@@ -460,3 +460,101 @@ static func test_jobs_survive_save(t: TestCtx) -> void:
 		t.run_ticks(restored, 1)
 	t.check_eq(TestCtx.state_hash(w), TestCtx.state_hash(restored),
 		"после загрузки мир с работами продолжается идентично")
+
+# --- Резервация не переживает прерывания (C1.1) ---------------------------
+
+## Ставит план постройки и гоняет мир, пока кто-нибудь не возьмёт build-задачу.
+## Возвращает агента или null.
+static func _agent_on_build_job(w: SimWorld, max_ticks: int) -> SimAgent:
+	for i: int in max_ticks:
+		t_tick(w)
+		for a: SimAgent in w.agents.agents:
+			if a.job_id == -1:
+				continue
+			var j: Dictionary = w.jobs.jobs.get(a.job_id, {})
+			if not j.is_empty() and str(j["kind"]) == "build":
+				return a
+	return null
+
+static func t_tick(w: SimWorld) -> void:
+	w.tick()
+	w.events_out.clear()
+
+## Отзыв во время стройки не должен выключать агента из игры до конца забега:
+## задача обязана вернуться в пул, а сам он — снова работать после цикла.
+static func test_recall_releases_taken_job(t: TestCtx) -> void:
+	var w: SimWorld = _world(909)
+	var cell: Vector2i = Vector2i(10, Balance.mark_to_floor_cell_y(3) - 1)
+	t.check(w.buildings.place("hearth", cell, w) > 0, "план очага поставлен")
+	var a: SimAgent = _agent_on_build_job(w, 4000)
+	t.check(a != null, "кто-то взял стройку очага")
+	if a == null:
+		return
+	var job_id: int = a.job_id
+	w.agents.recall(false, w)
+	t_tick(w)
+	t.check_eq(a.job_id, -1, "Отзыв освободил резервацию")
+	var j: Dictionary = w.jobs.jobs.get(job_id, {})
+	if not j.is_empty():
+		t.check_eq(int(j["taken_by"]), -1, "и задача снова свободна")
+
+## Паника и утопление рвут ту же связь — проверяем их отдельно от Отзыва.
+static func test_panic_releases_taken_job(t: TestCtx) -> void:
+	var w: SimWorld = _world(911)
+	var cell: Vector2i = Vector2i(10, Balance.mark_to_floor_cell_y(3) - 1)
+	w.buildings.place("hearth", cell, w)
+	var a: SimAgent = _agent_on_build_job(w, 4000)
+	t.check(a != null, "кто-то взял стройку очага")
+	if a == null:
+		return
+	# Дух в ноль, агент на −2, вода подошла вплотную (но ещё не топит).
+	a.needs["mood"] = 0
+	a.recalled = false
+	_put_on_mark(w, a, -2, 20)
+	w.tide.level_override = -2.5
+	t_tick(w)
+	t.check_eq(a.state, SimTypes.AgentState.PANIC, "агент запаниковал")
+	t.check_eq(a.job_id, -1, "паника освободила резервацию")
+
+static func test_drowning_releases_taken_job(t: TestCtx) -> void:
+	var w: SimWorld = _world(912)
+	var cell: Vector2i = Vector2i(10, Balance.mark_to_floor_cell_y(3) - 1)
+	w.buildings.place("hearth", cell, w)
+	var a: SimAgent = _agent_on_build_job(w, 4000)
+	t.check(a != null, "кто-то взял стройку очага")
+	if a == null:
+		return
+	a.recalled = false
+	_put_on_mark(w, a, -2, 20)
+	w.tide.level_override = 4.0
+	t_tick(w)
+	t.check_eq(a.state, SimTypes.AgentState.DROWNING, "агент тонет")
+	t.check_eq(a.job_id, -1, "утопление освободило резервацию")
+
+## Переставляет агента на отметку: тестам нужна воспроизводимая мизансцена.
+static func _put_on_mark(w: SimWorld, a: SimAgent, mark: int, x: int) -> void:
+	a.platform_id = w.terrain.platform_of_mark(mark)
+	a.x = float(x)
+	a.target_x = a.x
+	a.climb_to = -1
+	a.climb_t = 0.0
+	a.path.clear()
+	a.path_graph_version = -1
+
+## Главный ущерб C1.1: после эпизода Отзыва стройку никто не достраивает.
+static func test_hearth_finishes_after_recall(t: TestCtx) -> void:
+	var w: SimWorld = _world(913)
+	var cell: Vector2i = Vector2i(10, Balance.mark_to_floor_cell_y(3) - 1)
+	var bid: int = w.buildings.place("hearth", cell, w)
+	var a: SimAgent = _agent_on_build_job(w, 4000)
+	t.check(a != null, "кто-то взял стройку очага")
+	w.agents.recall(false, w)
+	t_tick(w)
+	w.agents.clear_recall()               # как на границе цикла
+	var done: bool = false
+	for i: int in 12000:
+		t_tick(w)
+		if int(w.buildings.buildings[bid]["state"]) == int(SimTypes.BuildState.ACTIVE):
+			done = true
+			break
+	t.check(done, "очаг всё-таки достроен, колония не залипла")
