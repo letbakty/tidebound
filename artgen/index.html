@@ -1,0 +1,956 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>TIDEBOUND — Промпты генерации арта (Retro Diffusion)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --paper:#0a1216; --panel:#0e1a20; --raise:#16262e; --border:#2a4550;
+    --border-strong:#3d6270; --divider:#1e343d; --ink:#e8eff0; --muted:#9aabb0;
+    --faint:#64757c; --accent:#e8c170; --accent-shade:#8a7442; --danger:#d4553a;
+    --success:#7aa85e; --water:#2d6b7a; --deep:#1a3a4a; --warm:#c9a15e;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font:15px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif;}
+  code,pre{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+  a{color:var(--accent)}
+
+  header{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--panel) 96%,black);
+    border-bottom:2px solid var(--border);padding:10px 20px;}
+  .hrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  h1{font-size:18px;margin:0;letter-spacing:.06em}
+  h1 .tide{color:var(--accent)}
+  .htools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto}
+  button{cursor:pointer;border:2px solid var(--border);background:var(--raise);color:var(--ink);
+    padding:7px 12px;font:inherit;font-size:13px;border-radius:2px}
+  button:hover{border-color:var(--border-strong)}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#20180a;font-weight:600}
+  button.primary:hover{filter:brightness(1.08)}
+  button:disabled{opacity:.45;cursor:default}
+  input[type=search]{background:var(--raise);border:2px solid var(--border);color:var(--ink);
+    padding:7px 10px;font:inherit;font-size:13px;border-radius:2px;width:220px}
+  input[type=search]:focus{outline:none;border-color:var(--accent)}
+
+  #dirStatus{font-size:12.5px;color:var(--muted)}
+  #dirStatus b{color:var(--success);font-weight:600}
+  #dirStatus.off b{color:var(--danger)}
+
+  #activeBar{display:none;margin-top:8px;padding:7px 12px;background:var(--deep);
+    border:1px dashed var(--water);font-size:13px;color:var(--ink);border-radius:2px}
+  #activeBar.on{display:block}
+  #activeBar .k{color:var(--accent);font-weight:600}
+  #activeBar .hint{color:var(--muted)}
+
+  nav#toc{position:sticky;top:86px;float:left;width:230px;margin:16px 0 16px 16px;
+    padding:10px 0;background:var(--panel);border:2px solid var(--border);border-radius:2px;
+    max-height:calc(100vh - 120px);overflow:auto;font-size:13px}
+  nav#toc a{display:flex;justify-content:space-between;gap:8px;color:var(--muted);
+    text-decoration:none;padding:4px 12px}
+  nav#toc a:hover{color:var(--ink);background:var(--raise)}
+  nav#toc a .cnt{color:var(--faint)}
+  nav#toc a .cnt.done{color:var(--success)}
+
+  main{margin-left:266px;padding:16px 20px 80px 0;max-width:1050px}
+  @media(max-width:900px){nav#toc{display:none}main{margin-left:0;padding:16px}}
+
+  .intro{background:var(--panel);border:2px solid var(--border);padding:14px 18px;
+    border-radius:2px;margin-bottom:18px;font-size:14px}
+  .intro ol{margin:8px 0 0 18px;padding:0}
+  .intro li{margin:3px 0}
+  .intro .warn{color:var(--warm)}
+
+  .pal{display:flex;height:14px;margin:10px 0 2px;border:1px solid var(--divider)}
+  .pal i{flex:1}
+
+  section.sec{margin:34px 0 10px}
+  section.sec>h2{font-size:16px;letter-spacing:.05em;color:var(--accent);
+    border-bottom:2px solid var(--divider);padding-bottom:6px;margin:0 0 4px}
+  section.sec>.secnote{color:var(--muted);font-size:13.5px;margin:6px 0 14px;max-width:900px}
+
+  .card{background:var(--panel);border:2px solid var(--border);border-radius:2px;
+    margin:14px 0;scroll-margin-top:110px}
+  .card.active{border-color:var(--accent)}
+  .card>.chead{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;
+    padding:10px 14px;border-bottom:1px solid var(--divider)}
+  .card>.chead h3{margin:0;font-size:15px}
+  .badge{font-size:11.5px;color:var(--paper);background:var(--muted);border-radius:2px;
+    padding:1px 7px;white-space:nowrap}
+  .badge.size{background:var(--water);color:var(--ink)}
+  .badge.frames{background:var(--accent-shade);color:var(--ink)}
+  .badge.state{background:var(--deep);color:var(--muted)}
+  .cdesc{padding:9px 14px 2px;color:var(--muted);font-size:13.5px}
+  .cdesc b{color:var(--ink)}
+
+  .variant{margin:10px 14px 14px;border:1px solid var(--divider);border-radius:2px;background:var(--raise)}
+  .vhead{display:flex;align-items:center;gap:10px;padding:7px 10px;font-size:13px}
+  .vhead .vlabel{font-weight:600;color:var(--warm)}
+  .vhead .vnote{color:var(--muted)}
+  .vhead button{margin-left:auto;flex-shrink:0}
+  .vhead button.copied{background:var(--success);border-color:var(--success);color:#101a0c}
+  pre.prompt{margin:0;border-top:1px solid var(--divider);padding:10px 12px;font-size:12px;
+    line-height:1.55;white-space:pre-wrap;word-break:break-word;color:#cfe0e4;
+    max-height:210px;overflow:auto}
+
+  .gallery{display:flex;flex-wrap:wrap;gap:8px;padding:4px 14px 12px}
+  .gallery:empty{display:none}
+  .thumb{position:relative;width:96px;height:96px;border:2px solid var(--border);
+    background:#000 center/contain no-repeat;border-radius:2px;cursor:zoom-in;
+    image-rendering:pixelated}
+  .thumb.pick{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .thumb .tools{position:absolute;top:1px;right:1px;display:none;gap:2px}
+  .thumb:hover .tools{display:flex}
+  .thumb .tools b{display:block;width:20px;height:20px;line-height:20px;text-align:center;
+    background:rgba(10,18,22,.85);font-size:12px;cursor:pointer;border-radius:2px}
+  .thumb .tools b:hover{background:var(--danger)}
+  .thumb .tools b.star:hover{background:var(--accent);color:#20180a}
+  .thumb .fname{position:absolute;left:0;right:0;bottom:0;font-size:9px;color:var(--muted);
+    background:rgba(10,18,22,.8);padding:1px 3px;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap}
+
+  #toast{position:fixed;right:18px;bottom:18px;z-index:100;display:flex;
+    flex-direction:column;gap:8px;align-items:flex-end}
+  .tmsg{background:var(--raise);border:2px solid var(--success);color:var(--ink);
+    padding:9px 14px;font-size:13px;border-radius:2px;max-width:380px;
+    animation:tin .15s ease-out}
+  .tmsg.err{border-color:var(--danger)}
+  @keyframes tin{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+
+  #lightbox{position:fixed;inset:0;background:rgba(4,8,10,.92);z-index:200;display:none;
+    align-items:center;justify-content:center;cursor:zoom-out}
+  #lightbox.on{display:flex}
+  #lightbox img{max-width:92vw;max-height:92vh;image-rendering:pixelated;
+    border:2px solid var(--border-strong)}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="hrow">
+    <h1>ОТЛИВ / <span class="tide">TIDEBOUND</span> — промпты генерации арта</h1>
+    <div class="htools">
+      <input type="search" id="q" placeholder="Поиск: очаг, tile, icon…">
+      <button id="btnDir" class="primary">📁 Папка для артов…</button>
+      <button id="btnPaste">📋 Взять из буфера</button>
+      <span id="dirStatus" class="off">папка: <b>не выбрана</b></span>
+    </div>
+  </div>
+  <div id="activeBar"></div>
+</header>
+
+<nav id="toc"></nav>
+<main>
+  <div class="intro" id="intro"></div>
+  <div id="cards"></div>
+</main>
+
+<div id="toast"></div>
+<div id="lightbox"><img alt=""></div>
+<script>
+/* ================= ДАННЫЕ ПРОМПТОВ (Retro Diffusion) ================= */
+/* Каждый «промпт» — это JSON-аргументы инструмента rd_generate MCP-сервера
+   retro-diffusion. Копируй и вставляй в чат Claude Code («сгенерируй
+   rd_generate с этими аргументами») — или проси Claude прогнать пачку.
+   Файлы генерации автоматически падают в tidebound/art-rd/ с именем
+   <карточка>_v<вариант>_<номер>.png — выбери эту папку кнопкой сверху,
+   и результаты появятся прямо в карточках. ★ — пометить выбранное. */
+
+function J(o){
+  return JSON.stringify(o).replace(/,"/g, ', "').replace(/":/g, '": ');
+}
+
+/* Правила промптов RD (из ресерча): субъект без слов «pixel art» (это делает
+   prompt_style), коротко и конкретно; палитру/настроение — 2-4 слова хвостом. */
+const MOOD_COLD = 'muted cold teal palette, weathered wet';
+const MOOD_WARM = 'muted warm amber palette, weathered';
+
+const BUILDINGS = [
+
+ {id:'ladder_wood', ru:'Лестница деревянная', en:'wooden ladder', cells:'1×3', w:32, h:96,
+  det:'a rickety vertical ladder lashed together from grey driftwood poles with rope bindings, slightly uneven rungs',
+  dmg:'several rungs snapped, one rail splintered and hanging loose, rope bindings frayed',
+  note:'Базовая вертикаль колонии. Ломается штормом. Должна читаться как «дерево+верёвка» против стальной версии.'},
+ {id:'ladder_steel', ru:'Лестница стальная', en:'steel ladder', cells:'1×3', w:32, h:96,
+  det:'a salvaged industrial steel ladder with riveted rails, rust streaks and chipped grey-blue paint, sturdy',
+  dmg:'one rail bent inward, torn rivets, heavy rust patches',
+  note:'🔒 мета-разблокировка. Иммунна к шторму — обязана выглядеть заметно надёжнее деревянной.'},
+ {id:'platform', ru:'Помост', en:'wooden platform walkway', cells:'3×1', w:96, h:32,
+  det:'a horizontal plank walkway supported by angled timber braces bolted into rock, short rope-railing stubs',
+  dmg:'missing planks in the middle, cracked braces, boards tilted',
+  note:'Расширяет площадки утёса. Опоры снизу важны: постройка «прикручена к скале».'},
+ {id:'storage', ru:'Склад', en:'storage shed', cells:'2×2', w:64, h:64,
+  det:'an open storage shed: stacked wooden crates and barrels under a patched tarpaulin, rope netting, a small shelf',
+  dmg:'tarpaulin torn open and flapping, crates toppled and broken',
+  note:'Существа крадут отсюда стаки; затопление портит товары. Самая частая постройка на экране.'},
+ {id:'hearth', ru:'Очаг', en:'stone hearth', cells:'2×1', w:64, h:32,
+  det:'a low stone fire hearth with glowing orange embers, an iron kettle hook, ring of blackened stones and a tiny woodpile',
+  dmg:'scattered stones, dead wet ashes, no fire at all',
+  note:'Главный тёплый свет игры. Угли — самое яркое тёплое пятно палитры. Гаснет при затоплении.'},
+ {id:'bunk', ru:'Койка', en:'bunk bed', cells:'2×1', w:64, h:32,
+  det:'a narrow wooden bunk with a patched wool blanket and a rolled cloth pillow',
+  dmg:'collapsed frame, torn blanket hanging',
+  note:'Отдых в фазе Высокой воды. Уютная деталь среди сурового быта.'},
+ {id:'raincatcher', ru:'Дождесборник', en:'rain catcher', cells:'2×1', w:64, h:32,
+  det:'a rain catcher: a canvas funnel stretched on wooden poles, draining through a spout into a barrel',
+  dmg:'canvas ripped loose and flapping, one pole snapped',
+  note:'Стартовая постройка, стоит высоко (+4). Пресная вода для Солильни.'},
+ {id:'forge', ru:'Горн', en:'blacksmith forge', cells:'2×2', w:64, h:64,
+  det:'a blacksmith forge built from brick and salvaged metal plates, hand bellows, a short chimney, coals glowing hot orange',
+  dmg:'chimney toppled, coals dead and grey, bellows torn',
+  note:'Утиль+плавник → слитки. Второй тёплый источник света. Сердце производства.'},
+ {id:'workbench', ru:'Верстак', en:'workbench', cells:'2×1', w:64, h:32,
+  det:'a sturdy workbench with a vice, scattered hand tools, a drawer and a hanging oil lamp hook',
+  dmg:'split tabletop, drawer hanging open, tools gone',
+  note:'Слитки → детали. Механический, аккуратный силуэт.'},
+ {id:'evaporator', ru:'Испаритель', en:'salt evaporator', cells:'3×1', w:96, h:32,
+  det:'a row of three shallow salt evaporation pans on low stone supports, white salt crust on the rims, sea water inside',
+  dmg:'pans cracked and overturned, salt crust washed away',
+  note:'Единственная постройка НИЖЕ нуля (−2..0): холодная гамма + белые кромки соли. Пассивно даёт соль на отливе.'},
+ {id:'saltery', ru:'Солильня', en:'fish saltery', cells:'2×1', w:64, h:32,
+  det:'a fish salting station: a gutting table, a brine barrel, salted fish hanging on a line, an open salt sack',
+  dmg:'table broken, barrel burst open, line snapped',
+  note:'Соль+добыча+вода → провизия. Рыбацкий, «съедобный» силуэт.'},
+ {id:'dryer', ru:'Сушила', en:'drying rack', cells:'2×2', w:64, h:64,
+  det:'a tall drying rack: a wooden frame with taut cords, strips of dark kelp and split fish hanging to dry',
+  dmg:'frame keeled over, cords snapped, kelp scattered on the ground',
+  note:'Шторм срывает ВСЕГДА, на любой высоте. Лёгкий, «парусящий» силуэт это оправдывает.'},
+ {id:'ropery', ru:'Канатная', en:'rope-walk', cells:'2×1', w:64, h:32,
+  det:'a rope-making station: a spinning wheel, stretched strands of pale fiber, finished rope coils on a peg',
+  dmg:'wheel broken off its mount, strands tangled and slack',
+  note:'Волокно → трос → снаряжение. Горизонтальные натянутые нити — узнаваемость.'},
+ {id:'sluice', ru:'Шлюз', en:'sluice gate', cells:'1×2', w:32, h:64,
+  det:'a heavy watertight sluice gate: a riveted metal door with a locking wheel, set in a wooden shaft frame',
+  dmg:'door ajar and bent, locking wheel missing',
+  note:'Ставится в лестничную шахту, перекрывает путь существам. Обязан выглядеть герметичным и тяжёлым.'},
+ {id:'lantern', ru:'Фонарь', en:'storm lantern', cells:'1×1', w:32, h:32,
+  det:'a sealed brass storm lantern on a short hooked post, warm amber flame behind a glass pane',
+  dmg:'glass cracked, flame out, post leaning',
+  note:'Отпугивает существ (радиус 3/🔒5). Герметичен — работает даже под водой. Тёплая точка в холодной зоне.'},
+ {id:'condenser', ru:'Конденсатор', en:'water condenser', cells:'1×2', w:32, h:64,
+  det:'a water condenser: a vertical metal tank wrapped in coiled copper pipes, a drip spout over a small pot',
+  dmg:'pipes torn loose, tank dented',
+  note:'🔒 мета-разблокировка. Пассивная вода. Медные трубки — редкий цветовой акцент.'},
+ {id:'winch', ru:'Лебёдка', en:'hand winch', cells:'1×2', w:32, h:64,
+  det:'a hand winch at a platform edge: a crank handle, rope running over a pulley, a woven basket hanging below',
+  dmg:'rope snapped, basket fallen, crank bent',
+  note:'🔒 Первая автоматизация: поднимает грузы со дна. Ставится на кромку площадки.'}
+];
+const ITEMS = [
+ {id:'scrap', ru:'Утиль', det:'a bundle of rusty bent metal plates and bolts'},
+ {id:'catch', ru:'Сырая добыча', det:'two grey-blue shellfish (clams), one slightly open'},
+ {id:'driftwood', ru:'Плавник', det:'a weathered grey driftwood plank with wood grain'},
+ {id:'kelp', ru:'Водоросли', det:'a dark teal kelp frond with ribbon-like leaves'},
+ {id:'freshwater', ru:'Пресная вода', det:'a corked glass flask of clear water'},
+ {id:'salt', ru:'Соль', det:'a small heap of white salt crystals in an open cloth pouch'},
+ {id:'ingot', ru:'Слиток', det:'a single cast metal ingot bar with a bright top edge'},
+ {id:'fiber', ru:'Волокно', det:'a hank of pale twisted plant fiber'},
+ {id:'rations', ru:'Провизия', det:'a cloth-wrapped ration bundle tied with string'},
+ {id:'part', ru:'Деталь', det:'a machined metal cog with a short axle rod'},
+ {id:'rope', ru:'Трос', det:'a neatly coiled rope'},
+ {id:'gear', ru:'Снаряжение (дыхмешок)', det:'a diver breathing bag: a leather air bladder with a hose and brass mouthpiece'},
+ {id:'relic', ru:'Реликвия', det:'a strange angular idol-tablet crusted with barnacles, with a faint pale-green inner sign'}
+];
+
+const SECTIONS = [];
+
+/* ---------- 0. ПАЛИТРА И ПОСТОБРАБОТКА ---------- */
+SECTIONS.push({
+ id:'s0', title:'0 · Палитра и бесплатная постобработка',
+ note:'В Retro Diffusion консистентность держат prompt_style + seed + хвост промпта с палитрой — стиль-якорь картинкой не нужен. Здесь: заготовка палитры для input_palette и бесплатный конвейер доводки (в т.ч. для картинок из Gemini).',
+ cards:[
+  {id:'palette', name:'Палитра 32 цвета (input_palette)', size:'PNG-полоса', frames:'32 цвета',
+   desc:'Параметр <code>input_palette</code> принимает PNG с цветами — выход квантуется к ним прямо на сервере. Сделай полосу 32×1 px (по пикселю на цвет) из 16 UI-цветов + 16 мировых и сохрани как <code>art-rd/palette.png</code>. Дальше добавляй <code>"input_palette":"…/art-rd/palette.png"</code> в любой промпт — вся серия окажется в одной палитре без ручного квантования.',
+   variants:[
+    {label:'A · Черновик палитры генерацией', note:'≈$0.017 — свотч как картинка, цвета доутвердишь руками',
+     prompt: J({prompt:'color palette strip of 32 muted colors: 6 cold teal sea tones, 6 warm amber dry tones, 4 neutrals, dark ui tones, flat squares', style:'rd_fast__low_res', width:64, height:16, num_images:2, seed:7001})},
+    {label:'B · Квантовать готовый файл к палитре', note:'rd_edit / palette_converter — бесплатно',
+     prompt: J({tool:'palette_converter', image_path:'/Users/bakti/Documents/ресерч/игра/tidebound/art-rd/ФАЙЛ.png', palette_path:'/Users/bakti/Documents/ресерч/игра/tidebound/art-rd/palette.png'})}
+   ]},
+  {id:'pipeline', name:'Конвейер для Gemini-картинок', size:'rd_edit / rd_pixel_fix', frames:'бесплатно',
+   desc:'Если ассет пришёл из Gemini (artgen/generated/): 1) выровнять «плывущую» сетку, 2) даунскейл к целевому размеру, 3) квантовать к палитре. Всё — бесплатные инструменты, вызываются как rd_pixel_fix / rd_edit.',
+   variants:[
+    {label:'1 · Починить сетку', note:'rd_pixel_fix, 10 запр./мин, бесплатно',
+     prompt: J({tool:'rd_pixel_fix', image_path:'/Users/bakti/Documents/ресерч/игра/tidebound/artgen/generated/ФАЙЛ.png'})},
+    {label:'2 · Даунскейл к размеру', note:'k_centroid_downscale — бесплатно, укажи целевые width/height',
+     prompt: J({tool:'k_centroid_downscale', image_path:'…/ФАЙЛ.png', params:{width:32, height:32}})},
+    {label:'3 · К палитре игры', note:'palette_converter — бесплатно',
+     prompt: J({tool:'palette_converter', image_path:'…/ФАЙЛ.png', palette_path:'…/art-rd/palette.png'})}
+   ]}
+ ]});
+
+/* ---------- 1. ТАЙЛЫ 32×32 (P0) ---------- */
+function tileCard(id, name, ru, promptA, promptB, seed, extraDesc){
+  return {id:id, name:name, size:'32×32', frames:'бесшовные',
+   desc:ru + (extraDesc||'') + ' Проверка: стыковка 3×3.',
+   variants:[
+    {label:'A · Сплошной ×4', note:'rd_tile__single_tile, tile_x+tile_y ≈ $0.10 за 4 варианта',
+     prompt: J({prompt:promptA, style:'rd_tile__single_tile', width:32, height:32, num_images:4, seed:seed})},
+    {label:'B · Вариация ×4', note:'другая фактура того же семейства',
+     prompt: J({prompt:promptB, style:'rd_tile__single_tile', width:32, height:32, num_images:4, seed:seed+1})},
+    {label:'C · Целый тайлсет (экспериментально)', note:'rd_tile__tileset — $0.10 за лист с кромками; раскладку нарезать руками',
+     prompt: J({prompt:promptA, style:'rd_tile__tileset', width:32, height:32, num_images:1, seed:seed+2})}
+   ]};
+}
+SECTIONS.push({
+ id:'s1', title:'1 · Тайлы среза утёса — 32×32 (P0)',
+ note:'rd_tile__single_tile даёт бесшовность нативно — флаги tile_x/tile_y ему НЕ передавать (HTTP 400, проверено). Кромки и углы к семействам эффективнее дорисовать в Aseprite от сплошных тайлов; tileset-вариант C — эксперимент, вдруг отдаст готовые кромки.',
+ cards:[
+  tileCard('tile_dry','Сухой камень утёса','Жилая зона +1..+6, тёплый сухой известняк.',
+   'A seamless texture of weathered dry limestone cliff rock with thin cracks, warm ochre, side view, '+MOOD_WARM,
+   'A seamless texture of dry chipped limestone with embedded pebbles and faint strata lines, warm ochre, side view, '+MOOD_WARM, 7101),
+  tileCard('tile_wet','Мокрый камень (ниже прилива)','Зона 0..−4 — её накрывает каждый цикл.',
+   'A seamless texture of wet dark sea rock with algae streaks and glistening highlights, cold teal, side view, '+MOOD_COLD,
+   'A seamless texture of dark damp stone with barnacle patches and dripping algae, cold teal, side view, '+MOOD_COLD, 7111),
+  tileCard('tile_mud','Илистое дно','Осушаемое дно −1..−5, депозиты моллюсков.',
+   'A seamless texture of muddy seabed silt with pebbles, small shells and ripple marks, grey-green, '+MOOD_COLD,
+   'A seamless texture of wet tidal mudflat with worm casts and scattered shell fragments, grey-green, '+MOOD_COLD, 7121),
+  tileCard('tile_ruin','Руины затонувшего города','Глубина −5..−8, здесь реликвии.',
+   'A seamless texture of a sunken city ruin wall with broken dark bricks, rusted rebar and barnacles, cold teal with rust orange accents, '+MOOD_COLD,
+   'A seamless texture of drowned masonry with cracked stone carvings and coral crust, cold teal with rust accents, '+MOOD_COLD, 7131,
+   ' Вариант B — декоративные блоки (барельеф/кладка).'),
+  {id:'tile_edge', name:'Кромка воды', size:'32×32', frames:'гориз. бесшовные',
+   desc:'Урез воды: тонкая пена 1-2px, тёмная толща ниже. tile_x без tile_y — вертикально не зацикливается.',
+   variants:[
+    {label:'A · Поверхность воды ×4', note:'≈ $0.10',
+     prompt: J({prompt:'calm dark teal sea water surface seen from the side, thin pale foam line along the top, darker depth below, '+MOOD_COLD, style:'rd_tile__single_tile', width:32, height:32, num_images:4, seed:7141})},
+    {label:'B · Толща воды ×2', note:'заливка под урезом',
+     prompt: J({prompt:'deep dark teal sea water, subtle horizontal tone bands, darker toward bottom, '+MOOD_COLD, style:'rd_tile__single_tile', width:32, height:32, num_images:2, seed:7142})}
+   ]},
+  {id:'tile_trans', name:'Переходы между семействами', size:'32×32', frames:'экспериментально',
+   desc:'Стыки семейств. RD может не удержать «верх сухой / низ мокрый» в одном тайле — если не выйдет, переходы дорисовываются руками от сплошных.',
+   variants:[
+    {label:'A · Сухой → мокрый ×4', note:'главная граница: линия высокой воды',
+     prompt: J({prompt:'cliff rock tile, upper half dry warm limestone, lower half wet dark teal rock with algae, uneven tide line between, side view', style:'rd_tile__single_tile', width:32, height:32, num_images:4, seed:7151})},
+    {label:'B · Ил → руины ×4', note:'',
+     prompt: J({prompt:'seabed tile, left half grey-green silt mud, right half broken sunken brick ruin with rust, half-buried bricks at the seam', style:'rd_tile__single_tile', width:32, height:32, num_images:4, seed:7152})},
+    {label:'C · Wang-сет камень+вода', note:'rd_tile__tileset_advanced, $0.10 — полный автотайлинг двух текстур',
+     prompt: J({prompt:'wet dark sea rock with algae streaks, cold teal', extra_prompt:'calm dark teal sea water surface', style:'rd_tile__tileset_advanced', width:32, height:32, num_images:1, seed:7153})}
+   ]}
+ ]});
+
+/* ---------- 2. АГЕНТ 16×24 (P0) ---------- */
+const AGENT_P = 'A tiny hooded dock worker in a long amber oilskin raincoat with dark boots and a small satchel, standing in a neutral pose, side profile facing right, full body, no visible face, plain background, '+MOOD_WARM;
+const ART_RD = '/Users/bakti/Documents/ресерч/игра/tidebound/art-rd/';
+SECTIONS.push({
+ id:'s2', title:'2 · Агент — 16×24 (P0)',
+ note:'Порядок: сгенерить дизайн-варианты в нативном 16×24 (rd_fast__low_res умеет!), выбрать лучший (★), затем анимации через rd_advanced_animation__* от файла выбранного дизайна (нужен размер ≥32 — генерим копию 32×48, анимируем, даунскейлим бесплатным k_centroid). Анимации — вторая волна, после утверждения дизайна.',
+ cards:[
+  {id:'agent_design', name:'2.0 Дизайн персонажа', size:'16×24', frames:'варианты',
+   desc:'Выбрать одного — он станет референсом всех анимаций. Проверка: силуэт читается залитый одним цветом.',
+   variants:[
+    {label:'A · Плащ с капюшоном ×8', note:'≈ $0.13, нативный размер',
+     prompt: J({prompt:AGENT_P, style:'rd_fast__low_res', width:16, height:24, num_images:8, seed:7201})},
+    {label:'B · Куртка и зюйдвестка ×8', note:'альтернативный крой',
+     prompt: J({prompt:'A tiny dock worker in a short waxed canvas jacket and sou\'wester rain hat with a rope belt, standing in a neutral pose, side profile facing right, full body, no visible face, plain background, '+MOOD_WARM, style:'rd_fast__low_res', width:16, height:24, num_images:8, seed:7202})},
+    {label:'C · Утверждённый в 32×48 ×4', note:'для анимации (advanced_animation требует ≥32px)',
+     prompt: J({prompt:AGENT_P, style:'rd_fast__low_res', width:32, height:48, num_images:4, seed:7203})}
+   ]},
+  {id:'agent_walk', name:'2.1 Ходьба', size:'16×24 ←32×48', frames:'4+',
+   desc:'Вариант A — промпт-анимация 48×48 с 4 направлениями разом (side внутри). Вариант B — точная анимация ИМЕННО нашего персонажа от файла дизайна.',
+   variants:[
+    {label:'A · four_angle_walking', note:'$0.07, GIF 4 направлений, спрайтшитом',
+     prompt: J({prompt:'tiny hooded worker in amber oilskin coat walking', style:'rd_animation__four_angle_walking', width:48, height:48, num_images:1, return_spritesheet:true, seed:7211})},
+    {label:'B · advanced от дизайна', note:'$0.14; подставь файл утверждённого дизайна 32×48',
+     prompt: J({prompt:'walking cycle', style:'rd_advanced_animation__walking', width:32, height:48, num_images:1, input_image:ART_RD+'agent_design_v3_01.png', return_spritesheet:true})}
+   ]},
+  {id:'agent_carry', name:'2.2 Несёт груз', size:'32×48→16×24', frames:'custom',
+   desc:'Анимация переноски от утверждённого дизайна.',
+   variants:[
+    {label:'A · custom_action', note:'$0.14–0.25; input_image = дизайн 32×48',
+     prompt: J({prompt:'carrying a heavy wooden crate against the chest, walking hunched', style:'rd_advanced_animation__custom_action', width:32, height:48, num_images:1, input_image:ART_RD+'agent_design_v3_01.png', return_spritesheet:true})}
+   ]},
+  {id:'agent_work', name:'2.3 Работа', size:'32×48→16×24', frames:'custom',
+   desc:'Удар киркой/монтировкой — универсальный цикл труда.',
+   variants:[
+    {label:'A · custom_action', note:'$0.14–0.25',
+     prompt: J({prompt:'swinging a short pry-bar overhead and striking down', style:'rd_advanced_animation__custom_action', width:32, height:48, num_images:1, input_image:ART_RD+'agent_design_v3_01.png', return_spritesheet:true})}
+   ]},
+  {id:'agent_drown', name:'2.4 Тонет', size:'32×48→16×24', frames:'custom',
+   desc:'DROWNING: барахтается, уходит под воду, пузыри.',
+   variants:[
+    {label:'A · custom_action', note:'$0.14–0.25',
+     prompt: J({prompt:'flailing arms overhead, sinking into water, air bubbles', style:'rd_advanced_animation__custom_action', width:32, height:48, num_images:1, input_image:ART_RD+'agent_design_v3_01.png', return_spritesheet:true})}
+   ]},
+  {id:'agent_panic', name:'2.5 Паника', size:'32×48→16×24', frames:'custom',
+   desc:'Мечется, руки у капюшона.',
+   variants:[
+    {label:'A · custom_action', note:'$0.14–0.25',
+     prompt: J({prompt:'panicking, clutching head with both hands, twisting side to side', style:'rd_advanced_animation__custom_action', width:32, height:48, num_images:1, input_image:ART_RD+'agent_design_v3_01.png', return_spritesheet:true})}
+   ]},
+  {id:'agent_dead', name:'2.6 Лежит / отдых', size:'24×16 · 32×48', frames:'1 + subtle',
+   desc:'Статичный кадр гибели + лёгкое покачивание отдыха (subtle_motion).',
+   variants:[
+    {label:'A · Лежит ×4', note:'≈ $0.07, статичный low_res',
+     prompt: J({prompt:'tiny hooded worker in amber oilskin coat lying face down on the ground, motionless, side view, '+MOOD_WARM, style:'rd_fast__low_res', width:24, height:16, num_images:4, seed:7216})},
+    {label:'B · Отдых subtle_motion', note:'$0.14; лёгкое дыхание сидя',
+     prompt: J({prompt:'sitting hunched, gentle breathing', style:'rd_advanced_animation__subtle_motion', width:32, height:48, num_images:1, input_image:ART_RD+'agent_design_v3_01.png', return_spritesheet:true})}
+   ]}
+ ]});
+
+/* ---------- 3. СУЩЕСТВА 32×24 ---------- */
+const CREATURE_P = 'A low slinking sea creature, a cross of moray eel and hound, with slick wet dark teal body, fin ridge on the spine, short clawed limbs and two small glowing red eyes, neutral pose, side profile facing right, plain background, '+MOOD_COLD;
+SECTIONS.push({
+ id:'s3', title:'3 · Существа Прихода — 32×24',
+ note:'Лицо игры. Тот же порядок: дизайн в нативном размере → ★ → анимации от файла.',
+ cards:[
+  {id:'creature_design', name:'3.0 Дизайн существа', size:'32×24', frames:'варианты',
+   desc:'Красные глаза — единственный насыщенный акцент; тревожно, но без хоррор-мяса.',
+   variants:[
+    {label:'A · Угорь-гончая ×6', note:'≈ $0.10',
+     prompt: J({prompt:CREATURE_P, style:'rd_fast__low_res', width:32, height:24, num_images:6, seed:7251})},
+    {label:'B · Краб-панцирник ×4', note:'альтернативный образ',
+     prompt: J({prompt:'A broad crab-like sea crawler with plated dark teal back, short thick claws and two glowing red eyes, low flat silhouette, neutral pose, side profile facing right, plain background, '+MOOD_COLD, style:'rd_fast__low_res', width:32, height:24, num_images:4, seed:7252})},
+    {label:'C · Утверждённый в 64×48 ×2', note:'для анимаций',
+     prompt: J({prompt:CREATURE_P, style:'rd_fast__low_res', width:64, height:48, num_images:2, seed:7253})}
+   ]},
+  {id:'creature_swim', name:'3.1 Движение', size:'32×32', frames:'GIF',
+   desc:'Волнообразное движение по затопленным площадкам.',
+   variants:[
+    {label:'A · small_sprites анимация', note:'$0.07, промпт-driven',
+     prompt: J({prompt:'sea eel-hound creature with glowing red eyes swimming, body undulating, dark teal, side view', style:'rd_animation__small_sprites', width:32, height:32, num_images:1, return_spritesheet:true, seed:7261})},
+    {label:'B · custom_action от дизайна', note:'$0.14–0.25; точная анимация нашего существа',
+     prompt: J({prompt:'crawling forward with undulating body', style:'rd_advanced_animation__custom_action', width:64, height:48, num_images:1, input_image:ART_RD+'creature_design_v3_01.png', return_spritesheet:true})}
+   ]},
+  {id:'creature_gnaw', name:'3.2 Грызёт / крадёт', size:'64×48→32×24', frames:'custom',
+   desc:'Две атаки: грызёт постройку; хватает ящик и разворачивается.',
+   variants:[
+    {label:'A · Грызёт', note:'$0.14–0.25',
+     prompt: J({prompt:'lunging forward and biting, jaws snapping', style:'rd_advanced_animation__custom_action', width:64, height:48, num_images:1, input_image:ART_RD+'creature_design_v3_01.png', return_spritesheet:true})},
+    {label:'B · Крадёт', note:'$0.14–0.25',
+     prompt: J({prompt:'snatching a small crate in its jaws and turning away', style:'rd_advanced_animation__custom_action', width:64, height:48, num_images:1, input_image:ART_RD+'creature_design_v3_01.png', return_spritesheet:true})}
+   ]}
+ ]});
+
+/* ---------- 4. ПОСТРОЙКИ (P0) ---------- */
+(function(){
+ var cards = [];
+ BUILDINGS.forEach(function(b, i){
+  var cold = (b.id === 'evaporator' || b.id === 'sluice');
+  var mood = cold ? MOOD_COLD : MOOD_WARM;
+  var base = 'A ' + b.en + ' for a coastal cliff colony: ' + b.det + ', side view, weathered driftwood and salvaged metal, ' + mood;
+  cards.push({
+   id:'bld_'+b.id, name:b.ru, size:b.cells+' кл · '+b.w+'×'+b.h, frames:'целая + повреждённая',
+   desc:b.note + ' Origin: низ-лево; спрайт стоит на нижней кромке.',
+   variants:[
+    {label:'A · Целая ×2', note:'rd_fast__low_res (единственный стиль, держащий все наши размеры; тест 2026-08-22), remove_bg ≈ $0.035',
+     prompt: J({prompt:base, style:'rd_fast__low_res', width:b.w, height:b.h, num_images:2, remove_bg:true, seed:7300})},
+    {label:'B · Повреждённая ×2', note:'тот же seed 7300 — похожая композиция (официальный приём серий)',
+     prompt: J({prompt:'A storm-damaged ' + b.en + ': ' + b.dmg + ', side view, weathered wood and salvaged metal, ' + mood, style:'rd_fast__low_res', width:b.w, height:b.h, num_images:2, remove_bg:true, seed:7300})}
+   ]});
+ });
+ SECTIONS.push({
+  id:'s4', title:'4 · Постройки — 17 штук (P0)',
+  note:'Все 17 — в rd_fast__low_res: тест показал, что rd_fast__game_asset не принимает стороны <64px и уводит в «домики», а low_res держит и 32×96, и 64×32, и однородный язык серии. Один seed 7300 на всю серию — похожая композиция (официальный приём). Повреждённая — промптом с тем же seed; точную поломку утверждённой постройки добить в Aseprite.',
+  cards:cards});
+})();
+
+/* ---------- 5. ИКОНКИ ПРЕДМЕТОВ 16×16 (P1) ---------- */
+(function(){
+ var cards = [{
+  id:'icon_items_sheet', name:'Лист предметов (эксперимент)', size:'128×128', frames:'нарезка руками',
+  desc:'rd_plus__item_sheet рисует связный лист предметов одной рукой — можно нарезать 16×16 иконки. Дешевле поштучного при удаче.',
+  variants:[
+   {label:'A · Лист 13 предметов', note:'≈ $0.06',
+    prompt: J({prompt:'sheet of small coastal survival game items: rusty scrap metal, clams, driftwood plank, kelp frond, water flask, salt pouch, metal ingot, fiber hank, wrapped rations, cog, coiled rope, leather diving air bag, barnacled relic idol, '+MOOD_COLD, style:'rd_plus__item_sheet', width:128, height:128, num_images:1, seed:7401})}
+  ]}];
+ ITEMS.forEach(function(it, i){
+  cards.push({
+   id:'icon_'+it.id, name:'Иконка: '+it.ru, size:'16×16', frames:'1',
+   desc:'Инвентарь, чипы ресурсов, тултипы. Силуэт должен опознаваться залитый одним цветом.',
+   variants:[
+    {label:'A · mc_item ×2', note:'нативные 16×16 предметные иконки ≈ $0.033',
+     prompt: J({prompt:it.det+', game item icon', style:'rd_fast__mc_item', width:16, height:16, num_images:2, remove_bg:true, seed:7410})},
+    {label:'B · low_res ×2', note:'другая эстетика, менее «минекрафтовая»',
+     prompt: J({prompt:it.det+', small game item, '+MOOD_COLD, style:'rd_fast__low_res', width:16, height:16, num_images:2, remove_bg:true, seed:7440})}
+   ]});
+ });
+ SECTIONS.push({
+  id:'s5', title:'5 · Иконки предметов — 16×16, 13 штук (P1)',
+  note:'rd_fast__mc_item — стиль предметных иконок с нативными 16×16. Сначала прогнать по одной паре, стиль выбрать по первым результатам.',
+  cards:cards});
+})();
+
+/* ---------- 6. ИКОНКИ ПОСТРОЕК 24×24 (P1) ---------- */
+(function(){
+ var short_ = {
+  ladder_wood:'wooden ladder with rope bindings', ladder_steel:'riveted steel ladder',
+  platform:'plank walkway on angled braces', storage:'crate stack under a tarp',
+  hearth:'stone hearth with a small flame', bunk:'simple bunk bed',
+  raincatcher:'canvas funnel draining into a barrel', forge:'forge with chimney and glowing coals',
+  workbench:'workbench with a vice', evaporator:'wide shallow salt pan',
+  saltery:'hanging salted fish over a barrel', dryer:'drying rack with hanging strips',
+  ropery:'spinning wheel with a rope coil', sluice:'riveted gate with a locking wheel',
+  lantern:'glowing brass storm lantern', condenser:'tank wrapped in coiled pipes',
+  winch:'crank pulley with a hanging basket'
+ };
+ var cards = [];
+ BUILDINGS.forEach(function(b, i){
+  cards.push({
+   id:'iconb_'+b.id, name:'Иконка: '+b.ru, size:'24×24', frames:'1',
+   desc:'Пиктограмма радиального меню строительства — различимость важнее детальности.',
+   variants:[
+    {label:'A · low_res ×2', note:'нативные 24×24 ≈ $0.033',
+     prompt: J({prompt:short_[b.id]+', flat game build icon, bold silhouette, '+MOOD_WARM, style:'rd_fast__low_res', width:24, height:24, num_images:2, remove_bg:true, seed:7500})},
+    {label:'B · skill_icon 32→24', note:'сочнее, но дороже ($0.025) и нужен даунскейл',
+     prompt: J({prompt:short_[b.id]+', game skill icon, clean readable', style:'rd_mini__skill_icon', width:32, height:32, num_images:1, remove_bg:true, seed:7530})}
+   ]});
+ });
+ SECTIONS.push({
+  id:'s6', title:'6 · Иконки построек — 24×24, 17 штук (P1)',
+  note:'Проверять серию целиком рядом: у иконок радиального меню общий вес линий важнее красоты каждой.',
+  cards:cards});
+})();
+
+/* ---------- 7. ВОДА И СВЕТ (P1) ---------- */
+SECTIONS.push({
+ id:'s7', title:'7 · Кромка воды и свет (P1)',
+ note:'Анимации воды — rd_animation__vfx. Маски света НЕ генерим: три жёстких концентрических кольца собираются в Aseprite/скриптом за минуты и обязаны быть математически ровными.',
+ cards:[
+  {id:'fx_ripple', name:'Рябь кромки воды', size:'32×24', frames:'GIF-луп',
+   desc:'Зацикленная рябь уреза с пеной; кадры нарежутся из спрайтшита, высота ужмётся до 8px.',
+   variants:[
+    {label:'A · vfx-анимация', note:'$0.07',
+     prompt: J({prompt:'looping water surface ripple with thin pale foam crest, dark teal sea, side view', style:'rd_animation__vfx', width:32, height:24, num_images:1, return_spritesheet:true, seed:7601})}
+   ]},
+  {id:'fx_splash', name:'Брызги у стены', size:'24×24', frames:'GIF',
+   desc:'Всплеск при приходе воды на ярус.',
+   variants:[
+    {label:'A · vfx-анимация', note:'$0.07',
+     prompt: J({prompt:'small sea water splash burst against a wall, pale teal droplets, foam crown, one-shot', style:'rd_animation__vfx', width:24, height:24, num_images:1, return_spritesheet:true, seed:7602})}
+   ]},
+  {id:'light_hearth', name:'Маска света: очаг', size:'64×64', frames:'—',
+   desc:'⛔ Не генерим: add-blend маска из 3 жёстких ступеней должна быть идеально концентрической — это код/Aseprite, не генерация (ART-generation P1).',
+   variants:[{label:'⛔ Вне RD', note:'собрать программно',
+    prompt:'# пропущено: 3 концентрических хард-эдж кольца, собрать в Aseprite или скриптом'}]},
+  {id:'light_lantern', name:'Маска света: фонарь', size:'128×128', frames:'—',
+   desc:'⛔ Не генерим — та же причина, что у очага.',
+   variants:[{label:'⛔ Вне RD', note:'собрать программно',
+    prompt:'# пропущено: см. light_hearth'}]}
+ ]});
+
+/* ---------- 8. АТМОСФЕРА И ПАРАЛЛАКС (P2) ---------- */
+SECTIONS.push({
+ id:'s8', title:'8 · Атмосфера, параллакс, мета (P2)',
+ note:'После P0. Чайки генерим 16×16 и ужимаем к 8×8 бесплатным k_centroid_downscale.',
+ cards:[
+  {id:'amb_gull', name:'Чайки', size:'16×16→8×8', frames:'позы',
+   desc:'Силуэты взмаха; ужать к 8×8 бесплатно.',
+   variants:[
+    {label:'A · Позы ×4', note:'≈ $0.07',
+     prompt: J({prompt:'tiny distant seagull silhouette in flight, pale grey, minimal, side view, overcast sky mood', style:'rd_fast__low_res', width:16, height:16, num_images:4, remove_bg:true, seed:7611})}
+   ]},
+  {id:'amb_buoy', name:'Буи', size:'16×16', frames:'2 дизайна',
+   desc:'Ржавые буи на воде — деталь сеттинга.',
+   variants:[
+    {label:'A · Конус и колокол ×4', note:'≈ $0.07',
+     prompt: J({prompt:'weathered rusty navigation buoy floating on dark teal water line, faded red paint bands, '+MOOD_COLD, style:'rd_fast__low_res', width:16, height:16, num_images:4, remove_bg:true, seed:7612})}
+   ]},
+  {id:'amb_fog', name:'Полосы тумана', size:'320×64→320×32', frames:'2 слоя',
+   desc:'Бесшовные по X полосы; движок задаст полупрозрачность.',
+   variants:[
+    {label:'A · Две полосы', note:'$0.04',
+     prompt: J({prompt:'long horizontal wisp of pale grey-teal sea fog on black background, ragged torn edges, dense middle', style:'rd_fast__texture', width:320, height:64, num_images:2, tile_x:true, seed:7613})}
+   ]},
+  {id:'amb_portraits', name:'Портреты-силуэты агентов', size:'32×32', frames:'8',
+   desc:'Для карточки агента: капюшоны, один аксессуар, лиц нет.',
+   variants:[
+    {label:'A · Батч ×8', note:'≈ $0.14',
+     prompt: J({prompt:'hooded coastal colonist portrait bust, dark silhouette on cold teal circle, no facial features, one accessory, game character token, '+MOOD_COLD, style:'rd_fast__low_res', width:32, height:32, num_images:8, seed:7614})}
+   ]},
+  {id:'par_shore', name:'Параллакс: дальний берег', size:'512×128', frames:'1 слой',
+   desc:'Задний слой Parallax2D; дотянуть до 640 зеркалированием кромки.',
+   variants:[
+    {label:'A · Берег с маяком', note:'$0.058',
+     prompt: J({prompt:'distant hazy coastline with rocky shores and a broken lighthouse, flat silhouette layers, desaturated cold grey-teal, calm sea horizon, side view game background', style:'rd_plus__environment', width:512, height:128, num_images:1, tile_x:true, seed:7615})}
+   ]},
+  {id:'par_clouds', name:'Параллакс: облака', size:'512×128', frames:'1 слой',
+   desc:'Верхний медленный слой, пасмурно.',
+   variants:[
+    {label:'A · Пасмурная гряда', note:'$0.058',
+     prompt: J({prompt:'overcast flat-bottomed grey cloud banks, muted grey-teal, heavy calm mood, side view game background layer', style:'rd_plus__environment', width:512, height:128, num_images:1, tile_x:true, seed:7616})}
+   ]},
+  {id:'beacon', name:'Маркер маяка', size:'16×32', frames:'1-2',
+   desc:'Точка сбора на дне; радиус рисует движок.',
+   variants:[
+    {label:'A · Шест с лампой ×4', note:'≈ $0.07',
+     prompt: J({prompt:'slim driftwood pole with small warm amber signal lamp and tattered pennant flag, planted in ground, side view, '+MOOD_WARM, style:'rd_fast__low_res', width:16, height:32, num_images:4, remove_bg:true, seed:7617})}
+   ]}
+ ]});
+
+/* ---------- 9. ФОН МЕНЮ И ВИТРИНА ---------- */
+SECTIONS.push({
+ id:'s9', title:'9 · Фон меню и витрина',
+ note:'RD ограничен ~512px, поэтому фон меню генерим 512×288 и апскейлим/дорисовываем до 640×360. Капсулы Steam (1232×706 и крупнее) — вне RD: остаются за Gemini-промптами из прежней версии страницы или художником.',
+ cards:[
+  {id:'menu_bg', name:'Фон главного меню', size:'512×288→640×360', frames:'1',
+   desc:'Статичная иллюстрация утёса (docs/03 §87). Правый акцент, слева воздух под кнопки.',
+   variants:[
+    {label:'A · Утёс в отлив', note:'$0.099',
+     prompt: J({prompt:'tall coastal cliff colony at low tide seen from the sea, warm lantern lights on upper ledges, wooden walkways, exposed dark seabed with sunken ruins below, overcast sky, distant ship, cliff mass on the right, calm sky on the left, melancholic', style:'rd_plus__environment', width:512, height:288, num_images:1, seed:7621})},
+    {label:'B · Вечерний прилив', note:'$0.099',
+     prompt: J({prompt:'tidal cliff colony at dusk, high dark water swallowing lower ledges, warm hearth lights mirrored in the sea, heavy sky, cliff on the right, quiet melancholic', style:'rd_plus__environment', width:512, height:288, num_images:1, seed:7622})}
+   ]},
+  {id:'keyart_capsule', name:'Кей-арт горизонтальный', size:'1232×706', frames:'—',
+   desc:'⛔ Вне RD (максимум ~512px). Черновик можно снять в 512×288 и отдать художнику; финал — Gemini/вручную.',
+   variants:[
+    {label:'Черновик 512×288', note:'$0.099, только как референс композиции',
+     prompt: J({prompt:'dramatic cross-section of tidal cliff colony as the tide returns, tiny hooded colonists climbing ladders with crates, warm lanterns above, cold rising water with red-eyed sea creature below, waterline splits warm and cold', style:'rd_plus__environment', width:512, height:288, num_images:1, seed:7631})}
+   ]},
+  {id:'keyart_vertical', name:'Кей-арт вертикальный', size:'600×900', frames:'—',
+   desc:'⛔ Вне RD. Черновик композиции — 288×512.',
+   variants:[
+    {label:'Черновик 288×512', note:'$0.099',
+     prompt: J({prompt:'tall vertical slice of cliff colony from sky to seabed: gulls, lantern-lit dwellings, waterline, deep cold ruins with glowing red eyes at the bottom, warm top cold depth', style:'rd_plus__environment', width:288, height:512, num_images:1, seed:7632})}
+   ]}
+ ]});
+
+/* ================= ИНТРО ================= */
+const UI_PALETTE = ['#0a1216','#0e1a20','#16262e','#1e343d','#2a4550','#3d6270','#1a3a4a','#2d6b7a',
+'#64757c','#9aabb0','#e8eff0','#7aa85e','#8a7442','#c9a15e','#e8c170','#d4553a'];
+
+const INTRO_HTML = `
+<b>Workflow (Retro Diffusion через MCP):</b>
+<ol>
+<li>Генерирует Claude Code: скажи «прогони rd_generate с аргументами …» или попроси пачку карточек — тулы <code>rd_generate/rd_cost/rd_balance</code> уже подключены. Кнопка <b>«Копировать»</b> под вариантом даёт готовый JSON аргументов.</li>
+<li>Файлы автоматически падают в <code>tidebound/art-rd/</code> с именами <code>карточка_вариант_номер.png</code>.</li>
+<li>Нажми <b>«📁 Папка для артов…»</b> и выбери <code>art-rd/</code> — генерации появятся прямо в карточках. ★ — выбрать, ✕ — удалить брак, клик — увеличить.</li>
+<li>Cmd+V по-прежнему работает для картинок из буфера (например, из Gemini) — а их доводка бесплатна: секция 0, конвейер rd_pixel_fix → k_centroid_downscale → palette_converter.</li>
+</ol>
+<b class="warn">Правила промптов RD (из ресерча 2026-08):</b> одно описательное предложение + несколько тегов; <b>никогда не писать «pixel art»</b> (это делает prompt_style) и не сыпать «best quality»-мусор; поле negative игнорируется — всё в позитив; освещение/настроение словами работают («warm window light»). Точный размер RD держит нативно, бесшовность — через tile_x/tile_y, прозрачность — remove_bg. Аналог seed: <b>один seed на серию</b> — похожая композиция при смене промпта (официальный приём). Цвета промптом не ограничить — для единой палитры прогоняй победителей через бесплатный palette_converter с <code>art-rd/palette.png</code> (32 цвета, черновик уже лежит там).
+<br><br>
+<b>Цены</b> (rd_cost — бесплатная проверка): rd_fast/low_res ≈ $0.017–0.03 за картинку (батч ×N линеен — выгода в скорости, не в цене), тайлсет $0.10, анимации $0.07–0.25, rd_pro $0.18. Баланс: тул rd_balance или <a href="https://retrodiffusion.ai/app/devtools" target="_blank" rel="noopener">devtools</a>. Параллельность: несколько запросов одновременно — официальный паттерн (при 429 — подождать и повторить).
+<br><br>
+<b class="warn">Steam:</b> AI-контент раскрывается честно; генерация — основа под ручную доводку (ART-generation.md §6).
+<div class="pal">${UI_PALETTE.map(c=>`<i style="background:${c}" title="${c}"></i>`).join('')}</div>
+<span style="color:var(--faint);font-size:12px">16 UI-цветов + 16 мировых = art-rd/palette.png (input_palette / palette_converter)</span>`;
+
+/* ================= ЛОГИКА ================= */
+(function(){
+'use strict';
+var dirHandle = null;
+var FILES = {};   // cardId -> [{name, handle, pick}]
+var ACTIVE = null; // {cardId, vIdx, cardName, vLabel}
+var CARD_INDEX = {}; // cardId -> card
+var $ = function(s, el){ return (el||document).querySelector(s); };
+
+/* ---------- IndexedDB для хэндла папки ---------- */
+function idb(){ return new Promise(function(res, rej){
+  var r = indexedDB.open('tidebound-artgen', 1);
+  r.onupgradeneeded = function(){ r.result.createObjectStore('kv'); };
+  r.onsuccess = function(){ res(r.result); };
+  r.onerror = function(){ rej(r.error); };
+});}
+function idbSet(k, v){ return idb().then(function(db){ return new Promise(function(res, rej){
+  var tx = db.transaction('kv','readwrite'); tx.objectStore('kv').put(v,k);
+  tx.oncomplete = res; tx.onerror = function(){ rej(tx.error); };
+});});}
+function idbGet(k){ return idb().then(function(db){ return new Promise(function(res, rej){
+  var tx = db.transaction('kv','readonly'); var rq = tx.objectStore('kv').get(k);
+  rq.onsuccess = function(){ res(rq.result); }; rq.onerror = function(){ rej(rq.error); };
+});});}
+
+/* ---------- тосты ---------- */
+function toast(msg, isErr){
+  var d = document.createElement('div');
+  d.className = 'tmsg' + (isErr ? ' err' : '');
+  d.textContent = msg;
+  $('#toast').appendChild(d);
+  setTimeout(function(){ d.remove(); }, isErr ? 5000 : 2600);
+}
+
+/* ---------- рендер ---------- */
+function render(){
+  $('#intro').innerHTML = INTRO_HTML;
+  var toc = $('#toc'), main = $('#cards');
+  SECTIONS.forEach(function(sec){
+    var tl = document.createElement('a');
+    tl.href = '#' + sec.id;
+    tl.innerHTML = '<span>' + sec.title + '</span><span class="cnt" id="cnt_' + sec.id + '"></span>';
+    toc.appendChild(tl);
+
+    var s = document.createElement('section');
+    s.className = 'sec'; s.id = sec.id;
+    s.innerHTML = '<h2>' + sec.title + '</h2><div class="secnote">' + sec.note + '</div>';
+    sec.cards.forEach(function(card){
+      CARD_INDEX[card.id] = card;
+      card._sec = sec.id;
+      var c = document.createElement('div');
+      c.className = 'card'; c.id = 'card_' + card.id;
+      var badges = '<span class="badge size">' + card.size + '</span>' +
+        (card.frames ? '<span class="badge frames">' + card.frames + '</span>' : '') +
+        '<span class="badge state" id="st_' + card.id + '"></span>';
+      var vhtml = card.variants.map(function(v, i){
+        return '<div class="variant">' +
+          '<div class="vhead"><span class="vlabel">' + v.label + '</span>' +
+          (v.note ? '<span class="vnote">' + v.note + '</span>' : '') +
+          '<button data-copy="' + card.id + ':' + i + '">Копировать</button></div>' +
+          '<pre class="prompt">' + v.prompt.replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</pre></div>';
+      }).join('');
+      c.innerHTML = '<div class="chead"><h3>' + card.name + '</h3>' + badges + '</div>' +
+        '<div class="cdesc">' + card.desc + '</div>' + vhtml +
+        '<div class="gallery" id="g_' + card.id + '"></div>';
+      s.appendChild(c);
+    });
+    main.appendChild(s);
+  });
+
+  main.addEventListener('click', function(e){
+    var b = e.target.closest('button[data-copy]');
+    if (!b) return;
+    var parts = b.dataset.copy.split(':');
+    var card = CARD_INDEX[parts[0]], vIdx = +parts[1];
+    navigator.clipboard.writeText(card.variants[vIdx].prompt).then(function(){
+      setActive(card.id, vIdx);
+      b.classList.add('copied'); b.textContent = 'Скопировано ✓';
+      setTimeout(function(){ b.classList.remove('copied'); b.textContent = 'Копировать'; }, 1600);
+    }, function(){ toast('Не удалось скопировать в буфер', true); });
+  });
+}
+
+function setActive(cardId, vIdx){
+  ACTIVE = { cardId: cardId, vIdx: vIdx };
+  localStorage.setItem('artgen-active', JSON.stringify(ACTIVE));
+  document.querySelectorAll('.card.active').forEach(function(el){ el.classList.remove('active'); });
+  var el = $('#card_' + cardId);
+  if (el) el.classList.add('active');
+  var card = CARD_INDEX[cardId];
+  var bar = $('#activeBar');
+  bar.className = 'on';
+  bar.innerHTML = 'Активен: <span class="k">' + card.name + '</span> · ' +
+    card.variants[vIdx].label + ' &nbsp;<span class="hint">— сгенерируй в Gemini, скопируй картинку и нажми Cmd+V здесь: файл ляжет как <code>' +
+    nextName(cardId, vIdx) + '</code></span>';
+}
+
+/* ---------- имена файлов ---------- */
+function nextName(cardId, vIdx){
+  var seq = 1, re = new RegExp('^' + cardId + '_v' + (vIdx + 1) + '_(\\d+)');
+  (FILES[cardId] || []).forEach(function(f){
+    var m = f.name.match(re);
+    if (m) seq = Math.max(seq, +m[1] + 1);
+  });
+  return cardId + '_v' + (vIdx + 1) + '_' + String(seq).padStart(2, '0') + '.png';
+}
+
+/* ---------- папка ---------- */
+function updateDirStatus(){
+  var el = $('#dirStatus');
+  if (dirHandle){ el.className = ''; el.innerHTML = 'папка: <b>' + dirHandle.name + '</b>'; }
+  else { el.className = 'off'; el.innerHTML = 'папка: <b>не выбрана</b> (сохранение пойдёт в Загрузки)'; }
+}
+
+function pickDir(){
+  if (!window.showDirectoryPicker){
+    toast('File System Access API недоступен (открой в Chrome/Edge). Файлы будут скачиваться в Загрузки.', true);
+    return;
+  }
+  window.showDirectoryPicker({ mode: 'readwrite', id: 'tidebound-artgen' }).then(function(h){
+    dirHandle = h;
+    idbSet('dir', h);
+    updateDirStatus();
+    return scanDir();
+  }).catch(function(e){ if (e && e.name !== 'AbortError') toast('Папка не выбрана: ' + e.message, true); });
+}
+
+function restoreDir(){
+  if (!window.showDirectoryPicker) { updateDirStatus(); return; }
+  idbGet('dir').then(function(h){
+    if (!h) { updateDirStatus(); return; }
+    return h.queryPermission({ mode: 'readwrite' }).then(function(st){
+      if (st === 'granted'){ dirHandle = h; updateDirStatus(); return scanDir(); }
+      dirHandle = null; updateDirStatus();
+      var b = $('#btnDir');
+      b.textContent = '📁 Переподключить «' + h.name + '»';
+      b.onclick = function(){
+        h.requestPermission({ mode: 'readwrite' }).then(function(st2){
+          if (st2 === 'granted'){ dirHandle = h; updateDirStatus(); b.textContent = '📁 Папка для артов…'; b.onclick = pickDir; scanDir(); }
+          else pickDir();
+        });
+      };
+    });
+  }).catch(function(){ updateDirStatus(); });
+}
+
+/* ---------- скан и галереи ---------- */
+var FILE_RE = /^(.+)_v(\d+)_(\d+)(_pick)?\.(png|jpe?g|webp)$/i;
+function scanDir(){
+  if (!dirHandle) return Promise.resolve();
+  FILES = {};
+  var ops = [];
+  return (async function(){
+    for await (var entry of dirHandle.values()){
+      if (entry.kind !== 'file') continue;
+      var m = entry.name.match(FILE_RE);
+      if (!m || !CARD_INDEX[m[1]]) continue;
+      (FILES[m[1]] = FILES[m[1]] || []).push({ name: entry.name, handle: entry, pick: !!m[4] });
+    }
+  })().then(function(){
+    Object.keys(CARD_INDEX).forEach(function(id){ renderGallery(id); });
+    updateCounts();
+    var n = Object.keys(FILES).reduce(function(a, k){ return a + FILES[k].length; }, 0);
+    if (n) toast('В папке найдено сохранённых генераций: ' + n);
+  });
+}
+
+function renderGallery(cardId){
+  var g = $('#g_' + cardId);
+  if (!g) return;
+  g.innerHTML = '';
+  (FILES[cardId] || []).sort(function(a, b){ return a.name < b.name ? -1 : 1; }).forEach(function(f){
+    var t = document.createElement('div');
+    t.className = 'thumb' + (f.pick ? ' pick' : '');
+    t.innerHTML = '<span class="tools"><b class="star" title="пометить выбранным">★</b><b title="удалить">✕</b></span>' +
+      '<span class="fname">' + f.name + '</span>';
+    f.handle.getFile().then(function(file){
+      t.style.backgroundImage = 'url(' + URL.createObjectURL(file) + ')';
+    });
+    t.addEventListener('click', function(e){
+      if (e.target.closest('.tools')) return;
+      f.handle.getFile().then(function(file){
+        var lb = $('#lightbox');
+        lb.querySelector('img').src = URL.createObjectURL(file);
+        lb.classList.add('on');
+      });
+    });
+    t.querySelector('.star').addEventListener('click', function(){ togglePick(cardId, f); });
+    t.querySelector('.tools b:not(.star)').addEventListener('click', function(){
+      if (!confirm('Удалить ' + f.name + '?')) return;
+      dirHandle.removeEntry(f.name).then(function(){
+        FILES[cardId] = FILES[cardId].filter(function(x){ return x !== f; });
+        renderGallery(cardId); updateCounts();
+        toast('Удалено: ' + f.name);
+      }).catch(function(e){ toast('Не удалось удалить: ' + e.message, true); });
+    });
+    g.appendChild(t);
+  });
+  var st = $('#st_' + cardId);
+  var arr = FILES[cardId] || [];
+  st.textContent = arr.length ? ('сохранено: ' + arr.length + (arr.some(function(f){ return f.pick; }) ? ' · ★ выбран' : '')) : 'нет генераций';
+}
+
+function togglePick(cardId, f){
+  var newName = f.pick ? f.name.replace('_pick.', '.') : f.name.replace(/\.(png|jpe?g|webp)$/i, '_pick.$1');
+  var done = function(){ f.name = newName; f.pick = !f.pick; renderGallery(cardId); };
+  if (f.handle.move){
+    f.handle.move(newName).then(done, function(e){ toast('Не удалось переименовать: ' + e.message, true); });
+  } else {
+    f.handle.getFile().then(function(file){
+      return dirHandle.getFileHandle(newName, { create: true }).then(function(nh){
+        return nh.createWritable().then(function(w){ return w.write(file).then(function(){ return w.close(); }); })
+          .then(function(){ return dirHandle.removeEntry(f.name); })
+          .then(function(){ return dirHandle.getFileHandle(newName); })
+          .then(function(nh2){ f.handle = nh2; done(); });
+      });
+    }).catch(function(e){ toast('Не удалось переименовать: ' + e.message, true); });
+  }
+}
+
+function updateCounts(){
+  SECTIONS.forEach(function(sec){
+    var withFiles = sec.cards.filter(function(c){ return (FILES[c.id] || []).length; }).length;
+    var el = $('#cnt_' + sec.id);
+    el.textContent = withFiles + '/' + sec.cards.length;
+    el.className = 'cnt' + (withFiles === sec.cards.length ? ' done' : '');
+  });
+}
+
+/* ---------- сохранение из буфера ---------- */
+function toPngBlob(blob){
+  if (blob.type === 'image/png') return Promise.resolve(blob);
+  return createImageBitmap(blob).then(function(bmp){
+    var cv = document.createElement('canvas');
+    cv.width = bmp.width; cv.height = bmp.height;
+    cv.getContext('2d').drawImage(bmp, 0, 0);
+    return new Promise(function(res){ cv.toBlob(res, 'image/png'); });
+  });
+}
+
+function saveBlob(blob){
+  toPngBlob(blob).then(function(png){
+    var cardId = ACTIVE ? ACTIVE.cardId : 'unsorted';
+    var vIdx = ACTIVE ? ACTIVE.vIdx : 0;
+    if (!ACTIVE) toast('Активный промпт не выбран — сохраняю как unsorted_*', true);
+    if (!CARD_INDEX[cardId] && cardId !== 'unsorted') cardId = 'unsorted';
+    var name = cardId === 'unsorted'
+      ? 'unsorted_v1_' + String(Date.now() % 100000).padStart(5, '0') + '.png'
+      : nextName(cardId, vIdx);
+    if (!dirHandle){
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(png); a.download = name; a.click();
+      toast('Папка не выбрана — скачано в Загрузки: ' + name, true);
+      return;
+    }
+    dirHandle.getFileHandle(name, { create: true }).then(function(h){
+      return h.createWritable().then(function(w){ return w.write(png).then(function(){ return w.close(); }); })
+        .then(function(){ return dirHandle.getFileHandle(name); })
+        .then(function(h2){
+          if (CARD_INDEX[cardId]){
+            (FILES[cardId] = FILES[cardId] || []).push({ name: name, handle: h2, pick: false });
+            renderGallery(cardId); updateCounts();
+            if (ACTIVE) setActive(ACTIVE.cardId, ACTIVE.vIdx); /* обновить имя следующего файла в баре */
+            var cardEl = $('#card_' + cardId);
+            if (cardEl) cardEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          }
+          toast('Сохранено: ' + name);
+        });
+    }).catch(function(e){ toast('Ошибка записи: ' + e.message, true); });
+  }).catch(function(e){ toast('Не удалось обработать изображение: ' + e.message, true); });
+}
+
+document.addEventListener('paste', function(e){
+  var items = (e.clipboardData || {}).items || [];
+  for (var i = 0; i < items.length; i++){
+    if (items[i].type.indexOf('image/') === 0){
+      e.preventDefault();
+      saveBlob(items[i].getAsFile());
+      return;
+    }
+  }
+});
+
+$('#btnPaste').addEventListener('click', function(){
+  if (!navigator.clipboard || !navigator.clipboard.read){
+    toast('Чтение буфера недоступно — просто нажми Cmd+V на странице', true);
+    return;
+  }
+  navigator.clipboard.read().then(function(cbItems){
+    for (var i = 0; i < cbItems.length; i++){
+      var it = cbItems[i];
+      var t = it.types.find(function(tt){ return tt.indexOf('image/') === 0; });
+      if (t) return it.getType(t).then(saveBlob);
+    }
+    toast('В буфере нет изображения — скопируй картинку из Gemini (ПКМ → «Копировать изображение»)', true);
+  }).catch(function(){ toast('Буфер не отдал изображение — нажми Cmd+V на странице', true); });
+});
+
+/* ---------- поиск ---------- */
+$('#q').addEventListener('input', function(){
+  var q = this.value.trim().toLowerCase();
+  SECTIONS.forEach(function(sec){
+    var vis = 0;
+    sec.cards.forEach(function(card){
+      var hay = (card.name + ' ' + card.id + ' ' + card.desc + ' ' +
+        card.variants.map(function(v){ return v.prompt; }).join(' ')).toLowerCase();
+      var show = !q || hay.indexOf(q) >= 0;
+      $('#card_' + card.id).classList.toggle('hidden', !show);
+      if (show) vis++;
+    });
+    $('#' + sec.id).classList.toggle('hidden', !vis);
+  });
+});
+
+/* ---------- лайтбокс ---------- */
+$('#lightbox').addEventListener('click', function(){ this.classList.remove('on'); });
+
+/* ---------- старт ---------- */
+render();
+$('#btnDir').onclick = pickDir;
+try {
+  var a = JSON.parse(localStorage.getItem('artgen-active'));
+  if (a && CARD_INDEX[a.cardId]) setActive(a.cardId, a.vIdx);
+} catch (e) {}
+restoreDir();
+})();
+</script>
+</body>
+</html>

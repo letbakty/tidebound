@@ -9,3 +9,10 @@ godot/build/
 # ОС
 .DS_Store
 Thumbs.db
+
+# Сырые генерации Retro Diffusion. В игру идёт только art-rd/processed/ —
+# постобработанные файлы, из которых tools/gen_tiles.gd и gen_palette.gd
+# собирают атлас и палитру. Верхний уровень — промежуточный вывод модели,
+# включая отбракованные варианты.
+/art-rd/*
+!/art-rd/processed/
