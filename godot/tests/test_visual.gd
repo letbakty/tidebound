@@ -8,6 +8,9 @@ extends RefCounted
 const SHADER_DIR: String = "res://assets/shaders/"
 const WORLD_SCENE: String = "res://game/world.tscn"
 const ATLAS: String = "res://assets/sprites/ui_atlas.png"
+## Атлас тайлов мира. Имя файла осталось от заглушек: на него ссылается
+## data/tilesets/placeholder.tres, а data/ правит другой агент (см. SOURCES.csv).
+const TILES: String = "res://assets/sprites/placeholder_tiles.png"
 
 ## Шейдеры, которым время нужно (остальным — нет, и это не дефект).
 const ANIMATED: Array[String] = ["water", "rain", "vignette", "wet_tiles"]
@@ -96,6 +99,116 @@ static func test_parallax_is_not_on_canvas_layer(t: TestCtx) -> void:
 		t.check_eq(m.get_string(2), ".",
 			"%s должен быть прямым потомком мира" % m.get_string(1))
 	t.check_eq(found, 3, "три слоя параллакса из промпта")
+
+## ⚠️ Дефект, который стоил всему миру 40% яркости и жил незамеченным.
+##
+## В canvas_item-шейдере встроенный COLOR на входе в fragment() — это УЖЕ
+## texture(TEXTURE, UV) * modulate (док Godot 4.7). Строка `COLOR = tex * COLOR`
+## в wet_tiles возводила цвет тайла в КВАДРАТ: #c9a15e приезжал на экран как
+## #9e6623. На одноцветных заглушках это читалось как «атмосферно темно», и
+## увидеть это можно было только замером пикселя финального кадра.
+##
+## Поэтому проверка грепом, а не глазами: сравнивать скриншоты некому.
+## Если однажды понадобится СДВИНУТЫЙ UV (искажение), исключение вносится сюда
+## осознанно — вместе с объяснением, почему двойного умножения там нет.
+static func test_shaders_do_not_resample_own_texture(t: TestCtx) -> void:
+	for name: String in ALL_SHADERS:
+		var src: String = FileAccess.get_file_as_string(SHADER_DIR + name + ".gdshader")
+		for line: String in src.split("\n"):
+			var code: String = line.split("//")[0]
+			t.check(not code.contains("texture(TEXTURE"),
+				"%s: COLOR уже равен texture(TEXTURE, UV) * modulate — "
+				% name + "повторная выборка возводит цвет в квадрат (%s)"
+				% line.strip_edges())
+
+# --- Тайлсет мира (этап 18: арт вместо заглушек) --------------------------
+
+## Атлас тайлов: шесть слотов 32×32 в ряд. Размер и порядок — контракт с
+## game/world.gd (T_CLIFF=0 … кромка=5) и data/tilesets/placeholder.tres.
+## Сборщик — tools/gen_tiles.gd; руками файл не правится.
+static func test_tile_atlas_geometry(t: TestCtx) -> void:
+	var gen: GDScript = load("res://tools/gen_tiles.gd") as GDScript
+	var slots: Array = gen.get("SLOTS") as Array
+	t.check_eq(slots.size(), 6, "шесть слотов, как ждёт тайлсет")
+	t.check_eq(int(gen.get("TILE")), WorldGeo.TILE, "тайл 32×32 из WorldGeo")
+	var tex: Texture2D = load(TILES) as Texture2D
+	t.check(tex != null, "атлас тайлов загружается")
+	if tex == null:
+		return
+	t.check_eq(tex.get_height(), WorldGeo.TILE, "высота атласа — один тайл")
+	t.check_eq(tex.get_width(), WorldGeo.TILE * slots.size(),
+		"ширина атласа = число слотов")
+	# Порядок слотов и константы world.gd обязаны совпадать: перепутанная
+	# колонка даёт руины на верхнем ярусе и молчит.
+	t.check_eq(int(slots[WorldView.T_CLIFF]["name"] == "cliff"), 1, "слот 0 — утёс")
+	t.check_eq(int(slots[WorldView.T_SAND]["name"] == "sand"), 1, "слот 1 — песок")
+	t.check_eq(int(slots[WorldView.T_RUINS]["name"] == "ruins"), 1, "слот 2 — руины")
+	t.check_eq(int(slots[WorldView.T_LADDER]["name"] == "ladder"), 1, "слот 3 — лестница")
+	t.check_eq(int(slots[WorldView.T_BACK]["name"] == "back"), 1, "слот 4 — стенка")
+
+## Пиксель-арт: только a=0 или a=255 и только цвета палитры. Полупрозрачность
+## и «лишний» оттенок — это всегда след ресайза или антиалиасинга кисти
+## (research/29 §3.3), и в игре они видны как мыло по кромке тайла.
+##
+## Проверяются ТОЛЬКО слоты, за которыми уже стоит арт: слоты-заглушки залиты
+## программными оттенками и законно вне палитры. Порог «сколько чужого можно»
+## был бы вечнозелёным враньём — как только слот получает арт, он обязан быть
+## чистым целиком.
+static func test_tile_atlas_is_clean_pixel_art(t: TestCtx) -> void:
+	var img: Image = (load(TILES) as Texture2D).get_image()
+	if img == null:
+		t.check(false, "атлас тайлов не читается как Image")
+		return
+	var allowed: Dictionary[String, bool] = _palette_hexes()
+	t.check_eq(allowed.size(), 32, "палитра art/tidebound.gpl прочиталась")
+	var gen: GDScript = load("res://tools/gen_tiles.gd") as GDScript
+	var slots: Array = gen.get("SLOTS") as Array
+	var tile: int = int(gen.get("TILE"))
+	var with_art: int = 0
+	for i: int in slots.size():
+		var slot: Dictionary = slots[i]
+		if str(slot["src"]).is_empty():
+			continue
+		with_art += 1
+		var semi: int = 0
+		var strays: Dictionary[String, bool] = {}
+		for y: int in tile:
+			for x: int in tile:
+				var c: Color = img.get_pixel(i * tile + x, y)
+				if c.a < 0.004:
+					continue
+				if c.a < 0.996:
+					semi += 1
+					continue
+				var hex: String = "%02x%02x%02x" % [int(c.r8), int(c.g8), int(c.b8)]
+				if not allowed.has(hex):
+					strays[hex] = true
+		t.check_eq(semi, 0, "слот %s: полупрозрачных пикселей нет" % str(slot["name"]))
+		t.check(strays.is_empty(), "слот %s (%s): цвета вне палитры — %s"
+			% [str(slot["name"]), str(slot["src"]), ", ".join(strays.keys())])
+	t.check(with_art > 0, "хотя бы один слот уже на настоящем арте")
+
+## Палитра проекта — art/tidebound.gpl рядом с проектом (не в res://: в билд
+## ей не надо). Собирает tools/gen_palette.gd из отобранного арта.
+static func _palette_hexes() -> Dictionary[String, bool]:
+	var out: Dictionary[String, bool] = {}
+	var path: String = ProjectSettings.globalize_path("res://../art/tidebound.gpl")
+	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return out
+	while not f.eof_reached():
+		var line: String = f.get_line().strip_edges()
+		if line.is_empty() or line.begins_with("#") or line.begins_with("GIMP") \
+				or line.begins_with("Name:") or line.begins_with("Columns:"):
+			continue
+		var parts: PackedStringArray = line.split("\t", false)
+		if parts.is_empty():
+			continue
+		var rgb: PackedStringArray = parts[0].split(" ", false)
+		if rgb.size() < 3:
+			continue
+		out["%02x%02x%02x" % [int(rgb[0]), int(rgb[1]), int(rgb[2])]] = true
+	return out
 
 ## Мокрые тайлы — материалом на Ground: без него правило docs/00 §5 не видно
 ## в картинке вообще.

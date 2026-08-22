@@ -243,3 +243,14 @@ sim_time={
 "type": "float",
 "value": 0.0
 }
+
+[importer_defaults]
+
+; Пиксель-арт: без сжатия, без мип-мапов, без «Detect 3D». Здесь, а не в
+; каждом .import руками: иначе следующий добавленный PNG приедет с VRAM-сжатием
+; и мылом, и заметят это через десять файлов (prompts/ART-integration §2 п.1).
+texture={
+"compress/mode": 0,
+"detect_3d/compress_to": 0,
+"mipmaps/generate": false
+}

@@ -24,8 +24,15 @@ const COLORS: Array[Color] = [
 	Color("2d6b7a"),   # 5 кромка (запас под этап 18)
 ]
 
+## ⚠️ С этапа 18 PNG атласа собирает tools/gen_tiles.gd из отобранного арта
+## (art-rd/processed/*_pick). Здесь остался только тайлсет: запустить этот
+## генератор без флага значило бы затереть арт шестью квадратами.
+## Заглушки нужны разве что для «чистого» проекта — тогда: `-- stub`.
 func _initialize() -> void:
-	_write_png()
+	if OS.get_cmdline_user_args().has("stub"):
+		_write_png()
+	elif not ResourceLoader.exists(OUT_PNG):
+		push_warning("gen_placeholder_tileset: атласа нет; собери tools/gen_tiles.gd")
 	var tex: Texture2D = load(OUT_PNG) as Texture2D
 	if tex == null:
 		print("PNG записан. Теперь: godot --headless --import --quit, затем повтори запуск.")

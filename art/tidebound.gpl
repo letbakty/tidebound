@@ -1,0 +1,41 @@
+GIMP Palette
+Name: Tidebound 32
+Columns: 8
+# АВТОСБОРКА: godot --headless -s res://tools/gen_palette.gd
+# Источник — art-rd/processed/*_pick.png, ТОЛЬКО отобранные файлы.
+# Это источник правды по цвету (research/29 §3.1): HEX руками
+# в ui/theme/tokens.gd не копировать.
+# Порядок: холод (ниже яруса 0) -> тепло (выше) -> нейтраль.
+#
+ 15  29  38	deep_water
+154 171 176	fog
+ 10  18  22	deep_ink
+ 42  69  80	shoal
+ 40  44  52	shadow
+ 45 107 122	surf
+100 117 124	rust_cold
+ 85 112 122	wet_stone
+ 51  86  92	kelp_shadow
+ 70  76  84	metal
+ 22  38  46	silt_dark
+ 61  98 112	water_shallow
+ 30  52  61	silt
+ 26  58  74	water_cold
+ 14  26  32	abyss
+ 61 107  84	weed_dark
+ 20  40  47	trench
+122 168  94	weed
+ 88  68  52	wood_dark
+150  88  54	rust_warm
+212  85  58	fire
+166 142 106	sand_shadow
+201 161  94	sand
+120  96  72	wood
+138 116  66	brass_dark
+232 168  90	ember
+232 193 112	sand_lit
+200 178 140	linen
+240 214 170	lamp
+216 212 196	bone
+150 160 164	stone_pale
+232 239 240	foam

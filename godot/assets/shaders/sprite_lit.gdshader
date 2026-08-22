@@ -21,5 +21,8 @@ void fragment() {
 	// Снап освещения и теней на пиксельную сетку мира.
 	LIGHT_VERTEX.xy = floor(LIGHT_VERTEX.xy / u_light_px) * u_light_px;
 	SHADOW_VERTEX = floor(SHADOW_VERTEX / u_light_px) * u_light_px;
-	COLOR = texture(TEXTURE, UV) * COLOR;
+	// ⚠️ COLOR трогать не надо: на входе он УЖЕ texture(TEXTURE, UV) * modulate.
+	// Строка `COLOR = texture(TEXTURE, UV) * COLOR` возводила спрайт в квадрат —
+	// та же ошибка, что жила в wet_tiles. Здесь она ещё не выстрелила только
+	// потому, что материал пока никому не назначен.
 }

@@ -1,0 +1,18 @@
+# Происхождение арта TIDEBOUND. Нужен для формы раскрытия AI-контента в Steam
+# и для титров (prompts/ART-integration §5). Строка добавляется В МОМЕНТ
+# интеграции ассета в игру, а не «потом перед релизом»: восстанавливать это
+# за неделю до отправки — ад (research/29 §6.2).
+#
+# slot   — куда встал ассет (слот атласа / имя ноды / def_id)
+# source — исходный файл в art-rd/processed (только *_pick, §0 промпта)
+# tool   — чем сгенерировано
+# style  — пресет модели
+# date   — дата интеграции в игру (не генерации)
+file,slot,source,tool,style,date,note
+assets/sprites/placeholder_tiles.png,0 cliff,tile_dry_v1_04_pick.png,Retro Diffusion (MCP rd_generate),rd_tile__single_tile,2026-08-22,сухой камень верхних ярусов; отобран из четырёх по шву и спокойствию при ×3
+assets/sprites/placeholder_tiles.png,1 sand,,программная заглушка,tools/gen_tiles.gd,2026-08-22,ждёт tile_mud/tile_wet
+assets/sprites/placeholder_tiles.png,2 ruins,,программная заглушка,tools/gen_tiles.gd,2026-08-22,ждёт tile_ruin
+assets/sprites/placeholder_tiles.png,3 ladder,,программная заглушка,tools/gen_tiles.gd,2026-08-22,ждёт bld_ladder_wood
+assets/sprites/placeholder_tiles.png,4 back,,программная заглушка,tools/gen_tiles.gd,2026-08-22,задняя стенка ниши; отдельного арта нет
+assets/sprites/placeholder_tiles.png,5 water_edge,,программная заглушка,tools/gen_tiles.gd,2026-08-22,ждёт tile_edge
+art/tidebound.gpl,палитра,108 файлов *_pick,tools/gen_palette.gd,,2026-08-22,32 цвета собраны ИЗ арта; источник правды по цвету

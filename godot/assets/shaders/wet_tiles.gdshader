@@ -31,7 +31,12 @@ void vertex() {
 }
 
 void fragment() {
-	vec4 tex = texture(TEXTURE, UV);
+	// ⚠️ COLOR на входе — это УЖЕ texture(TEXTURE, UV) * modulate (док Godot 4.7,
+	// canvas_item, встроенные fragment). Здесь стояло `texture(TEXTURE, UV)` и
+	// в конце `COLOR = tex * COLOR` — то есть цвет тайла возводился в КВАДРАТ:
+	// #c9a15e приезжал на экран как #9e6623, весь Ground был на 40% темнее и
+	// заметно кислотнее. На однотонных заглушках это читалось как «атмосферно».
+	vec4 tex = COLOR;
 
 	float wet = smoothstep(u_wet_world_y - u_edge_px, u_wet_world_y + u_edge_px, v_world_y);
 	wet *= u_wet_amount;
@@ -49,5 +54,5 @@ void fragment() {
 		tex.rgb = col;
 	}
 
-	COLOR = tex * COLOR;
+	COLOR = tex;
 }
