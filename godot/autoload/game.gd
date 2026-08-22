@@ -80,7 +80,11 @@ func cliff_def() -> CliffDef:
 
 ## Забег всегда стартует с разблокировками Журнала: sim их не читает,
 ## Game передаёт копию (docs/02 §1).
-func cmd_new_run(seed_value: int = 0) -> void:
+##
+## ⚠️ start_speed выставляется ДО раздачи стартовых событий: первый Спад даёт
+## драфт, драфт ставит автопаузу, и «включить» скорость после этого значило бы
+## молча её снять — окно выбора висело бы над идущей игрой (аудит B1.4).
+func cmd_new_run(seed_value: int = 0, start_speed: int = 1) -> void:
 	world = SimWorld.new(OS.is_debug_build())
 	world.new_run(seed_value, cliff_def(), Meta.unlocked.duplicate())
 	SaveService.delete_run()
@@ -88,8 +92,8 @@ func cmd_new_run(seed_value: int = 0) -> void:
 	_error_count = 0
 	_pause_depth = 0
 	ui_state = {"banners": [], "hints": []}
+	cmd_set_speed(clampi(start_speed, 0, 3))
 	_flush_events()
-	cmd_set_speed(1)
 
 ## Досрочный уход: судно вызывается на следующий цикл, очки ×0.75.
 func cmd_leave_early() -> void:
@@ -526,6 +530,8 @@ func query_unlocked_buildings() -> Array[String]:
 	var out: Array[String] = []
 	for bid: String in DB.building_ids():
 		var d: BuildingDef = DB.building(bid)
+		if not d.buildable:
+			continue                      # стартовая постройка без цены (C2.4)
 		if d.unlock_id.is_empty() or (world != null and world.unlocked.has(d.unlock_id)):
 			out.append(bid)
 	return out

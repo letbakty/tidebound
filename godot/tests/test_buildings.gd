@@ -426,3 +426,30 @@ static func test_planned_is_not_activated_by_repair(t: TestCtx) -> void:
 		int(SimTypes.BuildState.PLANNED), "план остался планом")
 	t.check_eq(w.terrain.find_path(top, deep).size(), 0,
 		"бесплатного ребра в графе не появилось")
+
+## C2.4: у Дождесборника нет цены (docs/00 §8: «стартовый, 1 шт»), поэтому
+## план достраивался за один тик из ничего — бесконечная бесплатная вода.
+static func test_raincatcher_is_not_buildable(t: TestCtx) -> void:
+	var w: SimWorld = _world(41)
+	t.check(not DB.building("raincatcher").buildable,
+		"Дождесборник помечен как нестроящийся")
+	t.check_eq(w.buildings.place_error("raincatcher", _cell_on(5, 6, 1), w),
+		"ERR_NOT_BUILDABLE", "поставить второй нельзя")
+	t.check_eq(w.buildings.place("raincatcher", _cell_on(5, 6, 1), w), -1,
+		"и place его не ставит")
+	t.check(w.buildings.place("raincatcher", _cell_on(5, 6, 1), w, true) > 0,
+		"но стартовая расстановка (instant) его ставит")
+	var count: int = 0
+	for id: int in w.buildings.order:
+		if str(w.buildings.buildings[id]["def_id"]) == "raincatcher":
+			count += 1
+	t.check_eq(count, 2, "лишним оказался только тот, что поставили руками")
+
+## Обратная сторона того же правила: у всего, что СТРОИТСЯ, цена обязана быть
+## ненулевой — иначе постройка снова достраивается за один тик из воздуха.
+static func test_buildable_defs_have_cost(t: TestCtx) -> void:
+	for bid: String in DB.building_ids():
+		var d: BuildingDef = DB.building(bid)
+		if not d.buildable:
+			continue
+		t.check(d.cost_units() > 0, "у постройки '%s' есть цена" % bid)

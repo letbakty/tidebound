@@ -10,3 +10,4 @@ size = Vector2i(2, 1)
 min_mark = 4
 storm_breaks = true
 special = "raincatcher"
+buildable = false

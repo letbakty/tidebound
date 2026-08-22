@@ -44,6 +44,8 @@ func place_error(def_id: String, cell: Vector2i, w: SimWorld) -> String:
 	var d: BuildingDef = DB.building(def_id)
 	if d == null:
 		return "ERR_OCCUPIED"
+	if not d.buildable:
+		return "ERR_NOT_BUILDABLE"
 	if not d.unlock_id.is_empty() and not w.unlocked.has(d.unlock_id):
 		return "ERR_LOCKED"
 	# Лестница живёт не на сетке, а на ребре графа: у неё своя проверка.
@@ -73,9 +75,12 @@ func can_place(def_id: String, cell: Vector2i, w: SimWorld) -> bool:
 	return place_error(def_id, cell, w).is_empty()
 
 ## Возвращает id постройки или −1. instant=true ставит сразу ACTIVE —
-## так размещаются стартовые постройки забега.
+## так размещаются стартовые постройки забега и мизансцены тестов. Это же
+## единственный путь для нестроящихся дефов (Дождесборник): игроку они
+## недоступны, а на старте обязаны стоять (C2.4).
 func place(def_id: String, cell: Vector2i, w: SimWorld, instant: bool = false) -> int:
-	if not can_place(def_id, cell, w):
+	var err: String = place_error(def_id, cell, w)
+	if not err.is_empty() and not (instant and err == "ERR_NOT_BUILDABLE"):
 		return -1
 	var d: BuildingDef = DB.building(def_id)
 	var id: int = _next_id
