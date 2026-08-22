@@ -393,3 +393,39 @@ static func test_production_survives_save(t: TestCtx) -> void:
 		t.run_ticks(restored, 1)
 	t.check_eq(TestCtx.state_hash(w), TestCtx.state_hash(restored),
 		"после загрузки мир со станциями продолжается идентично")
+
+# --- C2.8: подвоз по ВСЕМ рецептам станции ---------------------------------
+
+## Разблокировка u_gear не должна ухудшать цепочку. Подвоз брал первый рецепт
+## станции по алфавиту ("ropery_gear" < "ropery_rope") и заказывал 1 волокно
+## под снаряжение; тросу нужно 2, троса нет — значит нет и снаряжения, а
+## Канатная стоит вечно.
+static func test_ropery_still_makes_rope_with_gear_unlocked(t: TestCtx) -> void:
+	var w: SimWorld = _world(4243)
+	w.unlocked.append("u_gear")
+	_station(w, "ropery", 3, 4)
+	w.storage.store(0, StackUtil.make("fiber", 8, false))
+	w.policies.set_value(SimTypes.Policy.SUPPLY, 3)
+	w.jobs.mark_dirty()
+	var ticks: int = 0
+	while ticks < 40000 and int(w.storage.totals().get("rope", 0)) < 1:
+		t.run_ticks(w, 1)
+		ticks += 1
+	t.check(int(w.storage.totals().get("rope", 0)) >= 1,
+		"Канатная сделала трос за %d тиков при открытом u_gear" % ticks)
+
+## Та же дыра с другой стороны: подвоз смотрел только на рецепты «под агента»,
+## поэтому пассивные станции не заказывали вход вообще — Сушила ждали
+## водоросли, которые им никто не вёз, и цепочка волокна не заводилась.
+static func test_dryer_orders_its_own_kelp(t: TestCtx) -> void:
+	var w: SimWorld = _world(4244)
+	_station(w, "dryer", 3, 4)
+	w.storage.store(0, StackUtil.make("kelp", 9, false))
+	w.policies.set_value(SimTypes.Policy.SUPPLY, 3)
+	w.jobs.mark_dirty()
+	var ticks: int = 0
+	while ticks < 40000 and int(w.storage.totals().get("fiber", 0)) < 1:
+		t.run_ticks(w, 1)
+		ticks += 1
+	t.check(int(w.storage.totals().get("fiber", 0)) >= 1,
+		"Сушила сами привезли водоросли и дали волокно за %d тиков" % ticks)

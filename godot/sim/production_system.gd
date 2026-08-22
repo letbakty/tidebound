@@ -53,32 +53,56 @@ func tick(w: SimWorld) -> void:
 			continue
 		_request_inputs(b, w)
 
-## Подвоз входов активного рецепта. Дедупликация — через pending_jobs,
-## тот же механизм, что у стройки.
+## Подвоз входов по ВСЕМ доступным рецептам станции. Дедупликация — через
+## pending_jobs, тот же механизм, что у стройки: заказ каждого следующего
+## рецепта уже видит то, что едет по предыдущему.
+##
+## Один рецепт (первый по алфавиту) брать нельзя (C2.8): у Канатной
+## "ropery_gear" < "ropery_rope", и после разблокировки u_gear станция
+## заказывала 1 волокно под снаряжение — тросу нужно 2, троса нет, значит
+## нет и снаряжения: разблокировка НАВСЕГДА останавливала станцию.
+## Пассивные рецепты (Сушила: 3 водоросли → волокно) тоже здесь: их вход
+## не заказывал никто, и цепочка волокна не заводилась вовсе.
 func _request_inputs(b: Dictionary, w: SimWorld) -> void:
-	var rid: String = pick_recipe(b, w, true)
-	if rid.is_empty():
-		return
-	var r: RecipeDef = DB.recipe(rid)
-	if r.inputs.is_empty():
+	var recipes: Array[String] = available_recipes(b, w)
+	if recipes.is_empty():
 		return
 	b["pending_jobs"] = MaterialRequester.prune(b["pending_jobs"] as Array[int], w)
-	var have: Dictionary[String, int] = {}
-	for k: String in r.inputs:
-		have[k] = BuildingSystem.buffer_count(b, k, _dry_only(k, r))
-	var need: Dictionary[String, int] = MaterialRequester.missing(
-		r.inputs, have, b["pending_jobs"] as Array[int], w)
-	for k2: String in need:
-		if int(need[k2]) <= 0:
+	for rid: String in recipes:
+		var r: RecipeDef = DB.recipe(rid)
+		if r.inputs.is_empty():
 			continue
-		var src: Dictionary = MaterialRequester.source_for_dry(k2, w, _dry_only(k2, r))
-		if src.is_empty():
+		var have: Dictionary[String, int] = {}
+		for k: String in r.inputs:
+			have[k] = BuildingSystem.buffer_count(b, k, _dry_only(k, r))
+		var need: Dictionary[String, int] = MaterialRequester.missing(
+			r.inputs, have, b["pending_jobs"] as Array[int], w)
+		for k2: String in need:
+			if int(need[k2]) <= 0:
+				continue
+			var src: Dictionary = MaterialRequester.source_for_dry(k2, w, _dry_only(k2, r))
+			if src.is_empty():
+				continue
+			var jid: int = w.jobs.request_haul(src,
+				{"kind": "building", "id": int(b["id"]), "cell": b["cell"]},
+				k2, int(need[k2]), w)
+			if jid != -1:
+				(b["pending_jobs"] as Array[int]).append(jid)
+
+## Все рецепты станции, разрешённые прямо сейчас — и под агента, и пассивные.
+## Порядок — по id (recipes_for отсортирован): подвоз обязан быть
+## детерминированным.
+static func available_recipes(b: Dictionary, w: SimWorld) -> Array[String]:
+	var out: Array[String] = []
+	var d: BuildingDef = DB.building(str(b["def_id"]))
+	if d == null:
+		return out
+	for rid: String in recipes_for(d.special):
+		var r: RecipeDef = DB.recipe(rid)
+		if not r.unlock_id.is_empty() and not w.unlocked.has(r.unlock_id):
 			continue
-		var jid: int = w.jobs.request_haul(src,
-			{"kind": "building", "id": int(b["id"]), "cell": b["cell"]},
-			k2, int(need[k2]), w)
-		if jid != -1:
-			(b["pending_jobs"] as Array[int]).append(jid)
+		out.append(rid)
+	return out
 
 ## Правило «только сухое» выводится из данных, а не из хардкода id: мокнет
 ## то, у чего flood_rule == WET, и только Сушила ждут именно мокрое.
