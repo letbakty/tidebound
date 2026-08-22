@@ -669,3 +669,38 @@ static func test_rest_ends_with_high_water(t: TestCtx) -> void:
 	t_tick(w)
 	t.check(rester.state != SimTypes.AgentState.REST,
 		"на Спаде отдых прерван, а не тянется полфазы")
+
+## R1: голодный ныряет за едой. Склад под водой всё равно «рекламировал» еду,
+## и агент на Высокой воде шёл к нему через DROWNING.
+static func test_no_eating_from_flooded_storage(t: TestCtx) -> void:
+	var w: SimWorld = _world(107)
+	var sid: int = w.storage.add_storage(Vector2i(20, Balance.mark_to_floor_cell_y(-2)))
+	w.storage.store(sid, StackUtil.make("rations", 5, false))
+	var a: SimAgent = w.agents.agents[0]
+	a.needs["satiety"] = 0
+	# Сухо: склад кормит.
+	w.tide.level_override = -6.0
+	t_tick(w)
+	var jid: int = _eat_job_for(w, sid)
+	t.check(jid >= 0, "сухой склад предлагает еду")
+	if jid < 0:
+		return
+	t.check(w.jobs.applies_to(a, w.jobs.jobs[jid], w), "и голодный за ней идёт")
+
+	# Накрыло водой: за этой едой не идёт никто.
+	w.tide.level_override = 1.0
+	t_tick(w)
+	t.check(not w.jobs.applies_to(a, w.jobs.jobs[jid], w),
+		"за едой на затопленный склад голодный не ныряет")
+	# И заново такая задача не порождается.
+	w.jobs.mark_dirty()
+	t_tick(w)
+	t.check_eq(_eat_job_for(w, sid), -1, "затопленный склад еду не рекламирует")
+
+## id задачи «поесть» на указанном складе, или −1.
+static func _eat_job_for(w: SimWorld, sid: int) -> int:
+	for id: int in w.jobs.order:
+		var j: Dictionary = w.jobs.jobs[id]
+		if str(j["kind"]) == "eat" and int(j["target_id"]) == sid:
+			return id
+	return -1

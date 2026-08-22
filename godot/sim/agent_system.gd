@@ -447,6 +447,10 @@ func _nearest_storage(a: SimAgent, w: SimWorld) -> int:
 	for s: Dictionary in w.storage.storages:
 		if (s["stacks"] as Array).size() >= int(s["capacity"]):
 			continue
+		# Нырять с грузом на затопленный склад — та же смерть, что и за едой
+		# (R1). Некуда сдавать — агент подождёт наверху с котомкой.
+		if w.terrain.is_flooded(s["cell"] as Vector2i, w.tide.level):
+			continue
 		var pid: int = w.terrain.platform_at(s["cell"] as Vector2i)
 		if pid < 0:
 			continue

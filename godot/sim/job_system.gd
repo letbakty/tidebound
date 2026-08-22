@@ -205,6 +205,10 @@ func _generate_needs(w: SimWorld) -> void:
 		var sid: int = int(s["id"])
 		if w.storage.count_in(sid, "rations") <= 0 and w.storage.count_in(sid, "catch") <= 0:
 			continue
+		# Затопленный склад еду не рекламирует: голодный шёл к нему прямо
+		# на Высокой воде и тонул по дороге (R1).
+		if not _is_dry(s["cell"] as Vector2i, w):
+			continue
 		if _has_job_for("eat", sid):
 			continue
 		var j: Dictionary = _make_job(SimTypes.JobClass.EAT, "eat", s["cell"] as Vector2i, w)
@@ -271,7 +275,9 @@ func _still_valid(j: Dictionary, w: SimWorld) -> bool:
 				and _is_dry(j["cell"] as Vector2i, w)
 		"eat":
 			var sid: int = int(j["target_id"])
-			return w.storage.storage_index(sid) >= 0
+			# И на полпути тоже: вода поднимается, пока агент идёт.
+			return w.storage.storage_index(sid) >= 0 \
+				and _is_dry(j["cell"] as Vector2i, w)
 		"rest":
 			return true
 		"build":
@@ -386,7 +392,11 @@ func applies_to(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
 		return false
 	match kind:
 		"eat":
-			return int(a.needs["satiety"]) < Balance.EAT_WANT_MILLI
+			# Пул пересобирается по событиям, а вода поднимается непрерывно:
+			# сухость склада проверяем в момент выбора, а не только при
+			# генерации задачи (R1).
+			return int(a.needs["satiety"]) < Balance.EAT_WANT_MILLI \
+				and _is_dry(j["cell"] as Vector2i, w)
 		"rest":
 			# Бодряк: «не нуждается в отдыхе первые 4 цикла» (docs/00 §6.4).
 			if float(w.clock.cycle) <= a.modifier("no_rest_cycles", 0.0):
