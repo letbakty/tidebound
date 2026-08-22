@@ -385,8 +385,11 @@ func from_dict(d: Dictionary, cliff: CliffDef = null) -> void:
 	crisis.from_dict(d.get("crisis", {}) as Dictionary)
 	run_state.from_dict(d.get("run_state", {}) as Dictionary)
 	unlocked = run_state.unlocks.duplicate()
-	refresh_cycle_effects()
+	# Порядок обязателен: refresh_cycle_effects читает is_storm. Пока он шёл
+	# первым, восстановленный phase_scale затирался единицей, и «Продолжить»
+	# на 10-м цикле давало полный отлив вместо укороченного штормом (C1.2).
 	is_storm = crisis.is_active(SimTypes.CrisisType.STORM)
+	refresh_cycle_effects()
 	refresh_heat_sources()
 	policies.from_dict(d.get("policies", {}) as Dictionary)
 	events_out.clear()

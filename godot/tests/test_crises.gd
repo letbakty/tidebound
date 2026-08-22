@@ -477,3 +477,28 @@ static func test_determinism_with_crises(t: TestCtx) -> void:
 			return
 	t.check_eq(TestCtx.state_hash(a), TestCtx.state_hash(b),
 		"15 000 тиков с кризисами: состояния совпадают")
+
+## C1.2: сейв на штормовом цикле обязан пережить load вместе с укороченным
+## отливом. Автосейв идёт на границе цикла — значит сейв 10-го цикла ВСЕГДА
+## штормовой, и «Продолжить» на самом сложном цикле давал полный отлив.
+static func test_storm_cycle_survives_save(t: TestCtx) -> void:
+	var w: SimWorld = _world(2025)
+	_ladders_down_to(w, -4)
+	_until(t, w, 10, SimTypes.Phase.EBB, 20)
+	t.check(w.crisis.is_active(SimTypes.CrisisType.STORM), "10-й цикл — штормовой")
+	var low_len: int = w.clock.phase_len(SimTypes.Phase.LOW)
+	t.check_eq(low_len, int(round(float(Balance.PHASE_TICKS[SimTypes.Phase.LOW])
+		* Balance.STORM_LOW_SCALE)), "шторм укоротил отлив на 30%")
+
+	var text: String = JSON.stringify(w.to_dict(), "", true, true)
+	var restored: SimWorld = SimWorld.new()
+	restored.from_dict(JSON.parse_string(text) as Dictionary, _cliff())
+	t.check_eq(restored.clock.phase_len(SimTypes.Phase.LOW), low_len,
+		"после загрузки отлив всё ещё укорочен")
+	t.check_eq(JSON.stringify(restored.to_dict(), "", true, true), text,
+		"штормовой цикл переживает JSON побайтово")
+	for i: int in 3000:
+		t.run_ticks(w, 1)
+		t.run_ticks(restored, 1)
+	t.check_eq(TestCtx.state_hash(w), TestCtx.state_hash(restored),
+		"и продолжается идентично")
