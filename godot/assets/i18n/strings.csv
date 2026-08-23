@@ -438,7 +438,7 @@ SET_VOL_AMBIENT,Окружение,Ambience
 SET_VOL_HINT,Громкость в децибелах,Volume in decibels
 SET_HAPTICS,Вибрация,Haptics
 SET_HAPTICS_HINT,Отклик на важные события,Feedback on important events
-SET_INPUT_NOTE,"Схема управления и ремап клавиш появятся здесь; пока — текущие назначения","Control schemes and remapping land here; for now, the current bindings"
+SET_INPUT_NOTE,"Нажмите кнопку в строке и нажмите новую клавишу. У действия три слота: две клавиши и кнопка геймпада — они правятся раздельно. Esc отменяет назначение.","Click a cell in a row, then press the new key. Each action has three slots — two keys and a gamepad button — remapped separately. Esc cancels."
 ACT_PAN,Панорама,Pan
 ACT_RECALL,Отзыв,Recall
 ACT_POLICIES,Политики,Policies
@@ -482,16 +482,6 @@ ACT_SPEED_2,Скорость x2,Speed x2
 ACT_SPEED_3,Скорость x3,Speed x3
 ACT_PAUSE_MENU,Пауза,Pause
 ACT_BUILD_RADIAL,Радиал стройки,Build radial
-HUD_KEY_SPACE,Space,Space
-HUD_KEY_B,B,B
-HUD_KEY_P,P,P
-HUD_KEY_M,M,M
-HUD_KEY_ESC,Esc,Esc
-HUD_PAD_B,B,B
-HUD_PAD_Y,Y,Y
-HUD_PAD_LB,LB,LB
-HUD_PAD_X,X,X
-HUD_PAD_START,Start,Start
 HUD_LEGEND_TITLE,Шкала прилива,Tide gauge
 HUD_LEGEND_LEVEL,"► — уровень воды сейчас","► — water level right now"
 HUD_LEGEND_MARKS,"Риски слева — отметки ярусов, подписаны через одну","Ticks on the left are tier marks, labelled every other one"
@@ -502,3 +492,34 @@ HUD_LEGEND_SPRING,"^ сизигия — вода выше обычного","^ s
 HUD_LEGEND_STORM,"! шторм — волны бьют по нижним ярусам","! storm — waves hit the lower tiers"
 HUD_LEGEND_VISIT,"* приход — в отмели кто-то есть","* visit — something is out on the flat"
 HUD_LEGEND_QUIET,"- цикл без объявленного кризиса","- a cycle with no announced crisis"
+SET_ACTION,Действие,Action
+SET_SLOT_KEY_1,Клавиша,Key
+SET_SLOT_KEY_2,Ещё клавиша,Alt key
+SET_SLOT_PAD,Геймпад,Gamepad
+SET_PRESS_KEY_PAD,Нажмите кнопку геймпада,Press a gamepad button
+SET_KEY_RESERVED,"Эта кнопка занята интерфейсом: без неё не выйти из меню","That button belongs to the menu: without it there is no way back"
+SET_KEY_REFUSED,"Так не получится: слот принимает только своё устройство","No luck: the slot takes only its own device"
+SET_RESET_ROW,Сброс,Reset
+SET_RESET_ROW_TIP,Вернуть этой строке умолчание,Reset this row to default
+SET_PADS,Геймпады:,Gamepads:
+SET_PADS_NONE,Геймпад не найден,No gamepad detected
+SET_SCHEME,Схема,Scheme
+SET_SCHEME_HINT,"«Авто» переключает подсказки по последнему нажатию. Закрепите схему, если подключены и клавиатура, и геймпад — иначе подсказки будут прыгать.","Auto follows your last input. Pin a scheme when both a keyboard and a gamepad are attached, or the hints keep flipping."
+SCHEME_AUTO,Авто,Auto
+SCHEME_MOUSE,Мышь и клавиатура,Mouse and keyboard
+SCHEME_PAD,Геймпад,Gamepad
+SCHEME_TOUCH,Касание,Touch
+SET_CAM_SENS,Чувствительность камеры,Camera sensitivity
+SET_CAM_SENS_HINT,"Скорость панорамы клавишами, драгом и виртуальным курсором геймпада.","Speed of panning by keys, by dragging, and of the gamepad cursor."
+SET_DEADZONE,Мёртвая зона стика,Stick dead zone
+SET_DEADZONE_HINT,"Поднимите, если курсор ползёт сам: у изношенных стиков есть дрейф.","Raise it if the cursor drifts on its own: worn sticks do that."
+SET_PRESET,Раскладка,Layout
+SET_PRESET_HINT,"Готовая раскладка клавиш. Правка любой строки делает её своей; геймпад раскладки не трогают.","A ready-made key layout. Editing any row makes it custom; layouts leave the gamepad alone."
+PRESET_DEFAULT,По умолчанию,Default
+PRESET_ARROWS,Стрелки,Arrows
+PRESET_ONE_HAND,Одна рука,One hand
+PRESET_CUSTOM,Своя,Custom
+ACT_OVERLAY_MARKS,Отметки ярусов,Tier marks
+ACT_OVERLAY_FLOOD,Зона затопления,Flood zone
+ACT_OVERLAY_JOBS,Кто чем занят,Who does what
+ACT_CURSOR_TAP,Тап курсором,Cursor tap

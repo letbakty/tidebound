@@ -78,6 +78,7 @@ func _drive() -> void:
 	await _step_mouse_build()
 	await _step_mouse_radial_frees_hud()
 	await _step_mouse_agent_card()
+	await _step_input_tab()
 	if _full:
 		await _step_full_run()
 	_finish()
@@ -602,11 +603,20 @@ func _panel_node(panels: PanelHost, panel_name: String) -> Control:
 func _to_window(viewport_pos: Vector2) -> Vector2:
 	return _tree.root.get_final_transform() * viewport_pos
 
-## Наведение. warp_mouse двигает системный курсор, событие движения нужно и
-## GUI (ховер), и мировому SubViewport: призрак стройки берёт позицию оттуда.
+## Наведение. Событие движения нужно и GUI (ховер), и мировому SubViewport:
+## призрак стройки берёт позицию оттуда.
+##
+## ⚠️ Порядок важен: сначала системный курсор, потом НАШЕ событие движения.
+## В настоящем окне warp_mouse двигает курсор ОС, и она присылает своё событие
+## следом — прилетая после нашего, оно уводило призрак к прежней точке и
+## отменяло удержание ПКМ (сдвиг больше MOVE_TOLERANCE_PX): радиал то
+## открывался, то нет. Даём системному событию приземлиться и перекрываем его
+## своим. В headless warp_mouse — пустышка, но позиция курсора там и не нужна.
 func _move_mouse(pos: Vector2) -> void:
 	var at: Vector2 = _to_window(pos)
 	Input.warp_mouse(at)
+	await _tree.process_frame
+	await _tree.process_frame
 	var mm: InputEventMouseMotion = InputEventMouseMotion.new()
 	mm.position = at
 	mm.global_position = at
@@ -737,6 +747,51 @@ func _is_world_point(at: Vector2, view: Vector2) -> bool:
 		return false
 	return at.x < view.x - float(UITokens.DEADZONE_PX) \
 		or at.y < view.y - float(UITokens.DEADZONE_PX)
+
+## Вкладка «Управление» в живом дереве: строки ремапа собраны, подписи читаемы,
+## список устройств честен. Ремап через перезапуск проверяет tools/remapcheck.sh —
+## одним процессом этот стык не берётся.
+func _step_input_tab() -> void:
+	_step("вкладка «Управление»")
+	_router.open_settings_from(ScreenRouter.Screen.GAME)
+	await _tree.process_frame
+	var screen: SettingsScreen = _router.screen_node(
+		ScreenRouter.Screen.SETTINGS) as SettingsScreen
+	if not _check(screen != null, "экран настроек собран"):
+		return
+	var tabs: TabContainer = screen.get("_tabs") as TabContainer
+	tabs.current_tab = 3
+	await _tree.process_frame
+
+	var rows: Dictionary = screen.get("_bind_rows") as Dictionary
+	_check_eq(rows.size(), Settings.REMAPPABLE.size(),
+		"строка на каждое переназначаемое действие")
+	var recall_row: Array = rows.get("recall", [] as Array) as Array
+	if _check(recall_row.size() == InputBindings.SLOT_COUNT,
+			"у действия три слота: две клавиши и геймпад"):
+		# ⚠️ Подпись обязана быть человеческой: as_text() давал «Space - Physical»
+		# и «Joypad Button 1 (Right Action, Sony Circle, Xbox B, Nintendo A)».
+		_check_text((recall_row[0] as Button).text, "Space", "первый слот «Отзыва»")
+		_check_text((recall_row[2] as Button).text, "B", "слот геймпада «Отзыва»")
+
+	var pads: Label = screen.find_child("Pads", true, false) as Label
+	if _check(pads != null, "список устройств на месте"):
+		_check(not pads.text.strip_edges().is_empty(),
+			"и он не пустое место, а строка: «%s»" % pads.text)
+	# Подключение на ходу: экран обязан быть подписан на сигнал, а не читать
+	# список один раз при заходе.
+	_check(Input.joy_connection_changed.is_connected(
+		Callable(screen, "_on_joy_changed")),
+		"экран слушает подключение геймпада")
+
+	_router.goto(ScreenRouter.Screen.GAME)
+	await _tree.process_frame
+
+## Подпись слота: сравниваем без учёта регистра и лишних пробелов — точную
+## строку клавиши отдаёт движок.
+func _check_text(got: String, want: String, what: String) -> void:
+	_check(got.strip_edges() == want,
+		"%s подписан как «%s» (получили «%s»)" % [what, want, got])
 
 ## Крутит симуляцию кусками, пока не откроется модальное окно. Куски мелкие:
 ## между ними проверяется состояние роутера.

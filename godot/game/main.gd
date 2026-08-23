@@ -78,7 +78,6 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_restretch_layer_roots)
 	# Доступность (кегль, пресет для дальтоников, контраст) меняет саму тему.
 	Settings.theme_changed.connect(_rebuild_theme)
-	Settings.capture_defaults()
 	# Забег начинает игрок из меню: автостарта больше нет (docs/03 §2).
 	router.goto(ScreenRouter.Screen.BOOT)
 

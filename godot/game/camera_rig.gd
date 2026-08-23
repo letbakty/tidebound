@@ -18,6 +18,8 @@ extends Camera2D
 const ZOOM_FACTORS: Array[int] = [2, 3, 4]
 const ZOOM_TWEEN_SEC: float = 0.15
 const FOCUS_TWEEN_SEC: float = 0.35
+## Базовая скорость панорамы; итоговую даёт ползунок чувствительности
+## (docs/03 §3.6) — умножаем, а не подменяем: база остаётся в одном месте.
 const PAN_SPEED_PX: float = 220.0
 ## Скорость таскания правой кнопкой: 1.0 = мир едет ровно за курсором.
 const DRAG_GAIN: float = 1.0
@@ -43,6 +45,11 @@ func _ready() -> void:
 	ignore_rotation = true
 	make_current()
 
+## Множитель из настроек. Один на панораму с клавиш, панораму драгом и
+## виртуальный курсор геймпада: игрок воспринимает их как одну «скорость».
+func _sensitivity() -> float:
+	return Settings.camera_sensitivity
+
 func _process(delta: float) -> void:
 	if not is_visible_in_tree():
 		return                          # мир скрыт экраном (аудит B1.5)
@@ -50,7 +57,7 @@ func _process(delta: float) -> void:
 	if dir != Vector2.ZERO:
 		_kill_zoom_tween()
 		_kill_focus_tween()
-		_virtual_pos += dir * PAN_SPEED_PX * delta / zoom.x
+		_virtual_pos += dir * PAN_SPEED_PX * _sensitivity() * delta / zoom.x
 		_commit()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -66,7 +73,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	var mm: InputEventMouseMotion = event as InputEventMouseMotion
 	if mm != null and _dragging:
 		_kill_focus_tween()
-		_virtual_pos -= mm.relative * DRAG_GAIN / zoom.x
+		_virtual_pos -= mm.relative * DRAG_GAIN * _sensitivity() / zoom.x
 		_commit()
 
 ## Плавный центр камеры на точке мира. Зовёт HUD по тапу на чипе агента или
@@ -113,7 +120,7 @@ func zoom_out() -> void:
 func pan_by(screen_delta: Vector2) -> void:
 	_kill_focus_tween()
 	_kill_zoom_tween()
-	_virtual_pos -= screen_delta * DRAG_GAIN / zoom.x
+	_virtual_pos -= screen_delta * DRAG_GAIN * _sensitivity() / zoom.x
 	_commit()
 
 func zoom_factor() -> int:

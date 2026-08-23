@@ -10,15 +10,26 @@ var _tabs: TabContainer = null
 var _tab_keys: Array[String] = ["SET_TAB_GAME", "SET_TAB_SCREEN", "SET_TAB_SOUND",
 	"SET_TAB_INPUT", "SET_TAB_ACCESS"]
 var _confirm: ConfirmDialog = null
-var _bind_rows: Dictionary[String, PixelButton] = {}
+## Действие -> три кнопки слотов (клавиша, вторая клавиша, геймпад).
+var _bind_rows: Dictionary[String, Array] = {}
 var _capture_note: Label = null
 ## Действие, для которого ждём нажатие ("" — не ждём).
 var _capturing: String = ""
+## Какой слот этого действия правим (InputBindings.Slot).
+var _capture_slot: int = 0
+## Список подключённых геймпадов: обновляется по сигналу, а не при заходе.
+var _pads_label: Label = null
+var _preset_pick: OptionButton = null
 
 func _ready() -> void:
 	super()
 	set_title("MENU_SETTINGS")
 	_build_settings()
+	# Геймпад, подключённый при открытом окне, обязан появиться в списке сам.
+	Input.joy_connection_changed.connect(_on_joy_changed)
+
+func _on_joy_changed(_device: int, _connected: bool) -> void:
+	_refresh_pads()
 
 func _build_settings() -> void:
 	_tabs = TabContainer.new()
@@ -192,37 +203,102 @@ func _build_sound_tab() -> Control:
 		func(v: float) -> void:
 			Settings.ambient_db = v
 			Settings.apply()), "SET_VOL_HINT")
-	# Вибрация есть только на телефоне — на ПК строку не показываем вовсе.
-	if OS.has_feature("mobile"):
+	# Вибрация есть и у геймпада на ПК: доки Godot прямо просят давать ползунок
+	# отключения — «vibration can be uncomfortable for certain players».
+	# Скрываем строку только там, где вибрировать нечему.
+	if OS.has_feature("mobile") or not Input.get_connected_joypads().is_empty():
 		_row(box, "SET_HAPTICS", _check(Settings.haptics, func(on: bool) -> void:
 			Settings.haptics = on
 			Settings.mark_dirty()), "SET_HAPTICS_HINT")
 	return box.get_parent() as Control
 
-## Ремап всех игровых действий с подсветкой конфликтов (промпт 16 п.6).
-## Служебные действия (ui_*, дебаг) не переназначаются: их ремап ломает
-## навигацию геймпадом, а это прямой отказ в Steam Deck Verified.
+## Вкладка «Управление» (docs/03 §3.6): схема · ремап списком с подсветкой
+## конфликтов · чувствительность камеры · сброс к умолчаниям.
+##
+## Служебные действия (ui_*, дебаг, режим съёмки) не переназначаются: их ремап
+## ломает навигацию геймпадом, а это прямой отказ в Steam Deck Verified. В
+## проверке конфликтов они всё равно участвуют — см. Settings.conflicts().
 func _build_input_tab() -> Control:
 	var box: VBoxContainer = _tab("Input")
 	var note: Label = Label.new()
 	UILayout.wrap(note, 520.0)
 	note.text = "SET_INPUT_NOTE"
 	box.add_child(note)
+
+	# Подключённые устройства — сверху: игрок с неработающим геймпадом первым
+	# делом смотрит, видит ли его игра вообще.
+	_pads_label = Label.new()
+	_pads_label.name = "Pads"
+	_pads_label.theme_type_variation = &"LabelSmall"
+	_pads_label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	UILayout.wrap(_pads_label, 520.0)
+	box.add_child(_pads_label)
+	_refresh_pads()
+
+	_row(box, "SET_SCHEME", _options(["SCHEME_AUTO", "SCHEME_MOUSE", "SCHEME_PAD",
+		"SCHEME_TOUCH"], int(Settings.input_scheme), func(i: int) -> void:
+			Settings.set_input_scheme(i)), "SET_SCHEME_HINT")
+	_row(box, "SET_CAM_SENS", _slider(Settings.camera_sensitivity,
+		Settings.CAM_SENS_MIN, Settings.CAM_SENS_MAX, 0.1, func(v: float) -> void:
+			Settings.camera_sensitivity = v
+			Settings.mark_dirty()), "SET_CAM_SENS_HINT")
+	_row(box, "SET_DEADZONE", _slider(Settings.stick_deadzone,
+		Settings.DEADZONE_MIN, Settings.DEADZONE_MAX, 0.05, func(v: float) -> void:
+			Settings.stick_deadzone = v
+			Settings.mark_dirty()), "SET_DEADZONE_HINT")
+	# Профили ВМЕСТЕ с полной свободой — требование Game Accessibility
+	# Guidelines. «Своя» не выбирается: она появляется сама, как только игрок
+	# правит строку.
+	_preset_pick = _options(["PRESET_DEFAULT", "PRESET_ARROWS", "PRESET_ONE_HAND",
+		"PRESET_CUSTOM"], Settings.current_preset(), func(i: int) -> void:
+			if i == int(Settings.Preset.CUSTOM):
+				return
+			Settings.apply_preset(i)
+			_refresh_bindings())
+	_row(box, "SET_PRESET", _preset_pick, "SET_PRESET_HINT")
+
+	var head: HBoxContainer = HBoxContainer.new()
+	box.add_child(head)
+	var head_action: Label = Label.new()
+	head_action.theme_type_variation = &"LabelSmall"
+	head_action.text = "SET_ACTION"
+	head_action.custom_minimum_size = Vector2(180.0, 0.0)
+	head.add_child(head_action)
+	for key: String in InputBindings.SLOT_KEYS:
+		var h: Label = Label.new()
+		h.theme_type_variation = &"LabelSmall"
+		h.text = key
+		h.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(h)
+
 	_bind_rows.clear()
 	for action: String in Settings.REMAPPABLE:
 		var row: HBoxContainer = HBoxContainer.new()
 		box.add_child(row)
 		var label: Label = Label.new()
 		label.text = "ACT_%s" % action.to_upper()
-		label.custom_minimum_size = Vector2(220.0, 0.0)
+		label.custom_minimum_size = Vector2(180.0, 0.0)
 		row.add_child(label)
-		var button: PixelButton = PixelButton.new()
-		button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.text = _action_keys(action)
-		button.pressed.connect(func() -> void: _start_capture(action))
-		row.add_child(button)
-		_bind_rows[action] = button
+		# Три кнопки вместо одной сплошной: назначение клавиши больше не имеет
+		# права стереть кнопку геймпада на том же действии.
+		var buttons: Array = []
+		for slot: int in InputBindings.SLOT_COUNT:
+			var button: PixelButton = PixelButton.new()
+			button.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			button.pressed.connect(func() -> void: _start_capture(action, slot))
+			row.add_child(button)
+			buttons.append(button)
+		_bind_rows[action] = buttons
+		# Сброс ОДНОЙ строки: раньше единственная кнопка сбрасывала весь список.
+		var one: PixelButton = PixelButton.new()
+		one.setup("SET_RESET_ROW", PixelButton.Variant.GHOST)
+		one.tooltip_text = "SET_RESET_ROW_TIP"
+		one.pressed.connect(func() -> void:
+			Settings.reset_action(action)
+			_refresh_bindings())
+		row.add_child(one)
+
 	var reset: PixelButton = PixelButton.new()
 	reset.setup("SET_RESET_KEYS", PixelButton.Variant.GHOST)
 	reset.pressed.connect(func() -> void:
@@ -237,31 +313,55 @@ func _build_input_tab() -> Control:
 	_refresh_bindings()
 	return box.get_parent() as Control
 
-## Ждём следующего нажатия клавиши или кнопки геймпада.
-func _start_capture(action: String) -> void:
+## Список геймпадов. Пусто — честная строка «геймпад не найден», а не пустое
+## место: игрок должен видеть разницу между «не поддерживаем» и «не вижу».
+func _refresh_pads() -> void:
+	if _pads_label == null:
+		return
+	var names: PackedStringArray = []
+	for device: int in Input.get_connected_joypads():
+		names.append("%d: %s" % [device, Input.get_joy_name(device)])
+	_pads_label.text = tr("SET_PADS_NONE") if names.is_empty() \
+		else "%s %s" % [tr("SET_PADS"), ", ".join(names)]
+
+## Ждём следующего нажатия — и принимаем только событие ТОГО устройства, чей
+## слот правим: кнопка геймпада не должна попадать в клавиатурный слот.
+func _start_capture(action: String, slot: int) -> void:
 	_capturing = action
+	_capture_slot = slot
 	_capture_note.visible = true
-	_capture_note.text = tr("SET_PRESS_KEY")
+	_capture_note.text = tr("SET_PRESS_KEY_PAD" if slot == int(InputBindings.Slot.PAD)
+		else "SET_PRESS_KEY")
 
 func _unhandled_input(event: InputEvent) -> void:
 	if _capturing.is_empty() or not visible:
 		return
 	# Esc и «назад» на геймпаде отменяют захват, а не назначаются на действие:
-	# без выхода игрок был обязан назначить хоть что-то (аудит B5).
+	# без выхода игрок был обязан назначить хоть что-то (аудит B5). Это же и
+	# защита от «запереть себя»: выход в меню занять нечем.
 	if event.is_action_pressed("ui_cancel"):
 		_cancel_capture()
 		get_viewport().set_input_as_handled()
 		return
-	var ok: bool = event is InputEventKey and (event as InputEventKey).pressed
-	ok = ok or (event is InputEventJoypadButton
-		and (event as InputEventJoypadButton).pressed)
-	if not ok:
+	var key: InputEventKey = event as InputEventKey
+	var pad: InputEventJoypadButton = event as InputEventJoypadButton
+	var want_pad: bool = _capture_slot == int(InputBindings.Slot.PAD)
+	var event_ok: bool = (pad != null and pad.pressed) if want_pad \
+		else (key != null and key.pressed)
+	if not event_ok:
 		return
-	Settings.rebind(_capturing, event)
+	get_viewport().set_input_as_handled()
+	# Служебную кнопку занимать нельзя: без «принять» и «отмена» игрок остаётся
+	# без навигации по меню. Своё умолчание вернуть можно всегда.
+	if Settings.is_reserved_event(_capturing, event):
+		_capture_note.text = tr("SET_KEY_RESERVED")
+		return
+	if not Settings.set_slot(_capturing, _capture_slot, event):
+		_capture_note.text = tr("SET_KEY_REFUSED")
+		return
 	_capturing = ""
 	_capture_note.visible = false
 	_refresh_bindings()
-	get_viewport().set_input_as_handled()
 
 func _cancel_capture() -> void:
 	_capturing = ""
@@ -272,18 +372,14 @@ func _cancel_capture() -> void:
 func _refresh_bindings() -> void:
 	var bad: Dictionary = Settings.conflicts()
 	for action: String in _bind_rows:
-		var button: PixelButton = _bind_rows[action]
-		button.text = _action_keys(action)
-		button.variant = PixelButton.Variant.DANGER if bad.has(action) \
-			else PixelButton.Variant.NORMAL
-
-static func _action_keys(action: String) -> String:
-	if not InputMap.has_action(action):
-		return "—"
-	var parts: Array[String] = []
-	for e: InputEvent in InputMap.action_get_events(action):
-		parts.append(e.as_text())
-	return ", ".join(parts)
+		var buttons: Array = _bind_rows[action]
+		for slot: int in buttons.size():
+			var button: PixelButton = buttons[slot] as PixelButton
+			button.text = InputBindings.slot_label(action, slot)
+			button.variant = PixelButton.Variant.DANGER if bad.has(action) \
+				else PixelButton.Variant.NORMAL
+	if _preset_pick != null:
+		_preset_pick.selected = Settings.current_preset()
 
 func _build_access_tab() -> Control:
 	var box: VBoxContainer = _tab("Access")

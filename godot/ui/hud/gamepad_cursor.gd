@@ -8,6 +8,10 @@ extends Control
 
 signal tapped(screen_pos: Vector2)
 
+## База скорости и мёртвой зоны; поверх — ползунки из настроек (docs/03 §3.6).
+## Мёртвая зона настраивается не для красоты: у изношенных геймпадов дрейф
+## стика делает виртуальный курсор неуправляемым, и это самая частая жалоба
+## на курсоры такого рода.
 const SPEED_PX: float = 720.0
 const DEAD_ZONE: float = 0.2
 const SIZE_PX: float = 18.0
@@ -36,9 +40,9 @@ func _process(delta: float) -> void:
 		return
 	var v: Vector2 = Input.get_vector("cursor_left", "cursor_right",
 		"cursor_up", "cursor_down")
-	if v.length() < DEAD_ZONE:
+	if v.length() < Settings.stick_deadzone:
 		return
-	_pos += v * SPEED_PX * delta
+	_pos += v * SPEED_PX * Settings.camera_sensitivity * delta
 	# Целые пиксели: дробная позиция курсора в пиксель-арте «кипит».
 	_pos = _pos.clamp(Vector2.ZERO, get_viewport_rect().size).round()
 	queue_redraw()

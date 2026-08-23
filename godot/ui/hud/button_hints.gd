@@ -4,13 +4,20 @@ extends PanelContainer
 ## Переключаются по последнему вводу и не мигают от дрейфа стика — фильтр
 ## живёт в InputService (research/20 §5).
 
-## Действие → как называется на клавиатуре и на геймпаде.
+## Какие действия показываем и как они называются словами. САМА клавиша здесь
+## не хранится: подпись берётся из InputMap через общий хелпер
+## (ui/input_bindings.gd), тот же, которым пользуется вкладка настроек.
+##
+## ⚠️ Раньше подписи были константами (HUD_KEY_SPACE, HUD_PAD_B), и после
+## ремапа полоса внизу экрана продолжала показывать старые клавиши. Это ещё и
+## прямое требование Steam Deck Verified: экранные глифы обязаны соответствовать
+## активному устройству и текущей раскладке (research/32 §4.1).
 const HINTS: Array[Array] = [
-	["ACT_RECALL", "HUD_KEY_SPACE", "HUD_PAD_B"],
-	["ACT_BUILD", "HUD_KEY_B", "HUD_PAD_Y"],
-	["ACT_POLICIES", "HUD_KEY_P", "HUD_PAD_LB"],
-	["ACT_BEACON", "HUD_KEY_M", "HUD_PAD_X"],
-	["ACT_PAUSE", "HUD_KEY_ESC", "HUD_PAD_START"],
+	["recall", "ACT_RECALL"],
+	["build_radial", "ACT_BUILD"],
+	["policies", "ACT_POLICIES"],
+	["beacon", "ACT_BEACON"],
+	["pause_menu", "ACT_PAUSE"],
 ]
 
 var _rows: HBoxContainer = null
@@ -22,6 +29,8 @@ func _ready() -> void:
 	_rows = HBoxContainer.new()
 	_rows.name = "Rows"
 	add_child(_rows)
+	# Ремап обязан быть виден сразу же, а не после перезапуска.
+	Settings.bindings_changed.connect(_refresh)
 	_refresh()
 
 ## device — InputService.Device.
@@ -44,10 +53,13 @@ func _refresh() -> void:
 	visible = _device != int(InputService.Device.TOUCH)
 	if not visible:
 		return
+	var pad: bool = _device == int(InputService.Device.PAD)
 	for row: Array in HINTS:
 		var label: Label = Label.new()
 		label.theme_type_variation = &"LabelSmall"
 		label.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-		var key_index: int = 2 if _device == int(InputService.Device.PAD) else 1
-		label.text = "%s %s" % [tr(str(row[key_index])), tr(str(row[0]))]
+		# Подпись клавиши не переводится — это глиф на железе; переводится
+		# только название действия.
+		label.text = "%s %s" % [InputBindings.action_label(str(row[0]), pad),
+			tr(str(row[1]))]
 		_rows.add_child(label)

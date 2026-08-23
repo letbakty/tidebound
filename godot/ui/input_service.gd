@@ -38,6 +38,32 @@ var _lp_time: float = 0.0
 var _pinch_ref: float = -1.0
 var _edge_start: Vector2 = Vector2.INF
 
+func _ready() -> void:
+	# Игрок мог закрепить схему ещё в меню — применяем её, не дожидаясь ввода.
+	Settings.input_scheme_changed.connect(_apply_scheme)
+	_apply_scheme()
+
+## Закреплённая схема выключает автоопределение целиком (docs/03 §3.6): на
+## Steam Deck подключённая клавиатура заставляла подсказки прыгать между
+## раскладками посреди забега.
+func _apply_scheme() -> void:
+	var forced: int = _forced_device()
+	if forced < 0 or forced == int(device):
+		return
+	device = forced as Device
+	device_changed.emit(forced)
+
+## Устройство, закреплённое настройкой. −1 — «авто», определяем по событиям.
+func _forced_device() -> int:
+	match Settings.input_scheme:
+		Settings.Scheme.MOUSE:
+			return int(Device.KEYBOARD)   # мышь и клавиатура — одна схема
+		Settings.Scheme.PAD:
+			return int(Device.PAD)
+		Settings.Scheme.TOUCH:
+			return int(Device.TOUCH)
+	return -1
+
 func _process(delta: float) -> void:
 	if _lp_index == -1:
 		return
@@ -158,6 +184,8 @@ func _is_right_edge(p: Vector2) -> bool:
 # --- Активное устройство ввода (для подсказок кнопок в HUD) ----------------
 
 func _track_device(e: InputEvent) -> void:
+	if _forced_device() >= 0:
+		return                                # схему закрепил игрок
 	var d: Device = device
 	if e is InputEventJoypadButton:
 		d = Device.PAD

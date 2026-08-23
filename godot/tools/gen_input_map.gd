@@ -5,6 +5,13 @@ extends SceneTree
 ##
 ## physical_keycode, а не keycode: иначе WASD не работает на кириллической
 ## раскладке — клавиша "W" отдаёт "ц". См. research/10 §5.
+##
+## ⚠️ У ВСЕХ событий геймпада device = −1 («любое устройство»). Умолчание — 0,
+## а InputMap сравнивает device точно: с ним игрок со вторым контроллером, с
+## подключённым рулём или просто переподключивший геймпад получал индекс 1 —
+## и игра переставала видеть геймпад целиком. Клавиатуре и мыши −1 не ставить:
+## у них свои пространства устройств, и −1 там значит «эмулированное событие»
+## (см. ui/input_bindings.gd, PAD_DEVICE_ALL).
 
 const ACTIONS: Dictionary = {
 	"pan_left":      [KEY_A, KEY_LEFT],
@@ -44,6 +51,11 @@ const PAD_AXES: Dictionary = {
 ## который ходит по кнопкам интерфейса.
 const PAD_TAP: Array[int] = [JOY_BUTTON_A]
 
+## «Любой геймпад». Дублировать константу из ui/input_bindings.gd приходится:
+## генератор запускается через -s и классов проекта в момент компиляции ещё
+## не видит.
+const PAD_DEVICE_ALL: int = -1
+
 const PADS: Dictionary = {
 	"recall":       [JOY_BUTTON_B],
 	"build_radial": [JOY_BUTTON_Y],
@@ -62,6 +74,7 @@ func _initialize() -> void:
 		var m := InputEventJoypadMotion.new()
 		m.axis = int(pair[0]) as JoyAxis
 		m.axis_value = float(pair[1])
+		m.device = PAD_DEVICE_ALL
 		axis_events.append(m)
 		ProjectSettings.set_setting("input/" + axis_action,
 			{"deadzone": 0.25, "events": axis_events})
@@ -69,6 +82,7 @@ func _initialize() -> void:
 	for tap_btn: int in PAD_TAP:
 		var tap := InputEventJoypadButton.new()
 		tap.button_index = tap_btn
+		tap.device = PAD_DEVICE_ALL
 		tap_events.append(tap)
 	ProjectSettings.set_setting("input/cursor_tap",
 		{"deadzone": 0.5, "events": tap_events})
@@ -81,6 +95,7 @@ func _initialize() -> void:
 		for btn: int in PADS.get(action, [] as Array):
 			var j := InputEventJoypadButton.new()
 			j.button_index = btn
+			j.device = PAD_DEVICE_ALL
 			events.append(j)
 		ProjectSettings.set_setting("input/" + action, {"deadzone": 0.5, "events": events})
 	var err: int = ProjectSettings.save()
