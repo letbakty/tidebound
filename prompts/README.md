@@ -61,7 +61,8 @@
 | **1** | `ART-integration.md` | `assets/`, `game/*_view.gd` | ✅ с обоими FIX |
 | **2** | `BALANCE-pass.md` | числа в `balance.gd`, `data/` | после FIX-sim |
 | **2** | `20-steam-release.md` | `autoload/`, `project.godot`, титры | ✅ с балансом |
-| **3** | `EXPANSION-01.md` | только данные | после баланса |
+| **3** | `CONTENT-wave-1.md` | `sim/balance.gd`, `data/cliffs`, `data/cards`, `data/buildings`, `sim/storage_system.gd` | ❌ после `BALANCE-pass` |
+| ~~**3**~~ | ~~`EXPANSION-01.md`~~ — §1 заменён `CONTENT-wave-1.md` | только данные | после баланса |
 
 Пять блокеров из аудита: зависание на 5-м тосте · чёрный экран на старте · агент-зомби после Отзыва · итог цикла проглатывается драфтом с зависшей паузой · симуляция тикает под меню.
 
