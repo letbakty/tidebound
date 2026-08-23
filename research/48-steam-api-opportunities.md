@@ -60,15 +60,50 @@
 
 Иконок Valve даёт около 50 штук с префиксом `steam_`, плюс числовые `steam_0`…`steam_99` и возможность загрузить свои.
 
-**GodotSteam:** `add_instantaneous_timeline_event`, `add_range_timeline_event`. ⚠️ `setTimelineGameMode` **удалён в SDK 1.61** — не использовать примеры старше этого.
+**Сверено по заголовкам SDK 1.65** (`public/steam/isteamtimeline.h`, интерфейс `STEAMTIMELINE_INTERFACE_V004`) — веб-источники по этой теме врут, ниже факты из кода:
 
-**Цена:** подписка на уже существующие сигналы плюс таблица «событие → иконка, приоритет». Логика в `platform.gd`, `sim/` не трогается.
+```
+SetTimelineGameMode( ETimelineGameMode )          // Playing / Staging / Menus / LoadingScreen
+AddInstantaneousTimelineEvent( title, description, icon, iconPriority,
+                               startOffsetSeconds, clipPriority ) -> handle
+AddRangeTimelineEvent( ... , duration, clipPriority ) -> handle
+StartRangeTimelineEvent / UpdateRangeTimelineEvent / EndRangeTimelineEvent
+RemoveTimelineEvent( handle )
+SetTimelineTooltip( description, timeDelta ) / ClearTimelineTooltip
+OpenOverlayToTimelineEvent( handle )
+```
+
+⚠️ **Поправка к более раннему утверждению:** `SetTimelineGameMode` **не удалён** — он есть в 1.65 и нужен, чтобы Steam отличал игру от меню и загрузки. Утверждение об удалении в 1.61 взято из веб-пересказа и оказалось неверным.
+
+Приоритеты клипа: `None` (1) · `Standard` (2) · `Featured` (3).
+
+### Game Phases — забег как единица записи
+
+Отдельный механизм того же интерфейса, которого нет ни в одном обзоре:
+
+```
+StartGamePhase() / EndGamePhase()
+SetGamePhaseID( phaseID )
+AddGamePhaseTag( tagName, tagIcon, tagGroup, priority )
+SetGamePhaseAttribute( attributeGroup, attributeValue, priority )
+DoesGamePhaseRecordingExist( phaseID ) / OpenOverlayToGamePhase( phaseID )
+```
+
+Фаза группирует кусок записи и вешает на него **теги и атрибуты**, которые Steam показывает игроку в оверлее.
+
+Для нас это ложится один в один: **фаза = забег**. `phaseID` — сид. Теги — выбранные карты вылазки. Атрибуты — утёс, число циклов, исход, финальные очки. Игрок открывает запись и видит не безымянный кусок, а «сид 4242 · 12 циклов · судно · 41 очко», и может перейти прямо к нему.
+
+Это сильнее отдельных событий: события помечают секунды, фазы дают структуру всей записи. Приоритет управляет тем, что покажут первым при нехватке места.
+
+**Цена:** подписка на уже существующие сигналы плюс таблица «событие → иконка, приоритет». Логика в `platform.gd`, `sim/` не трогается. Для фаз — `run_started` / `run_ended`, данные уже есть в отчёте забега.
 
 ---
 
 ## 3. Aggregated Stats — телеметрия без сервера
 
 **Как работает.** Стат помечается «aggregated» в админке Steamworks → Steam копит глобальную сумму по всем игрокам → игра запрашивает `RequestGlobalStats(days)` и читает `GetGlobalStat`, а историю по дням — `GetGlobalStatHistory`.
+
+Сверено по `isteamuserstats.h` (SDK 1.65): `RequestGlobalStats( int nHistoryDays )`, `GetGlobalStat` в двух вариантах — `int64` и `double`, `GetGlobalStatHistory` тоже в двух. Плюс рядом `RequestGlobalAchievementPercentages()` — процент игроков, открывших каждое достижение: даровой индикатор того, до какого места доходит средний игрок.
 
 **Что это даёт нам.** `BRIEF-next.md` тема 37 ставила задачу «телеметрия без своего сервера». Steam закрывает её наполовину бесплатно.
 
@@ -90,7 +125,7 @@ relics_found · deepest_mark_reached · cards_picked_<id>
 
 ## 4. Лидерборды: соревнование и данные одним механизмом
 
-**Ключевой факт:** к каждой записи прикрепляется **до 64 значений int32**. Это не «очки и всё» — это место под весь профиль забега: цикл выхода, выжившие, глубина, потери по причинам, выбранные карты, использованные разблокировки.
+**Ключевой факт:** к каждой записи прикрепляется **до 64 значений int32** (`k_cLeaderboardDetailsMax = 64`, подтверждено по `isteamuserstats.h` в SDK 1.65; имя лидерборда — до 128 символов). Это не «очки и всё» — это место под весь профиль забега: цикл выхода, выжившие, глубина, потери по причинам, выбранные карты, использованные разблокировки.
 
 То есть один механизм даёт сразу и таблицу рекордов, и **распределения** для балансировки, которых не дают агрегаты.
 
@@ -156,4 +191,34 @@ Workshop и UGC (моды в «не входит никогда») · всё с�
 - [Enhanced Rich Presence](https://partner.steamgames.com/doc/features/enhancedrichpresence)
 - [GodotSteam](https://godotsteam.com/) — changelog, поддержка SDK 1.61+
 
-⚠️ **Не подтверждено:** полный список методов Timeline в GodotSteam (страница классов отдаёт 403 на автоматический запрос) — сверить по документации вручную перед реализацией. Наличие `add_instantaneous_timeline_event` и `add_range_timeline_event` подтверждено, удаление `setTimelineGameMode` в SDK 1.61 — тоже.
+## 8. GodotSteam: покрытие, лицензия, куда слать патчи
+
+**Сверено по исходникам** (клон ветки `gdextension` с Codeberg, сопоставление с `steam_api.json` из SDK 1.65):
+
+| | |
+|---|---|
+| Методов в SDK | **921** в 34 интерфейсах |
+| Забиндено в GodotSteam | **742** — около **81%** |
+| `ISteamTimeline` | **18/18 — полностью**, включая Game Phases и `setTimelineGameMode` |
+| `ISteamUserStats` | глобальные статы и лидерборды на месте |
+| `ISteamScreenshots` | 9/9 |
+| `ISteamUGC` | 95/99 |
+
+**Не покрыто то, чего нам и не надо:** `ISteamClient` (1/33 — низкоуровневый доступ к пайпам), колбэк-интерфейсы матчмейкинга (`ISteamMatchmaking*Response`, 0%), `ISteamParentalSettings`, `ISteamMusic` (1/9), `ISteamNetworkingFakeUDPPort`. Ни одно из этого в соло-игре не нужно.
+
+**Вывод:** всё, что перечислено в этом файле как возможность, **уже обёрнуто**. Оговорку из ранней версии («Timeline может быть обёрнут не целиком, тогда Game Phases отложить») снимаем — обёрнут целиком.
+
+### Лицензия и участие
+
+- **Лицензия MIT** (`license.md`, «GP Garcia, Chris Ridenour, and Contributors») — использовать и модифицировать можно свободно.
+- ⚠️ **Репозиторий на GitHub архивирован** (июль 2026, 3737 звёзд, 0 открытых issue). Разработка переехала на **[codeberg.org/godotsteam/godotsteam](https://codeberg.org/godotsteam/godotsteam)**: 24 открытых issue, обновление 19.08.2026, pull requests включены. Идти с патчем на GitHub бессмысленно — там архив.
+- Веток `main`/`master` нет, ветки по типам сборки: `gdextension`, `godot4`, `godot3`, `gdnative`, `*-plugin`. Для нас — **`gdextension`**.
+- **SDK в репозиторий не входит** — в `godotsteam/sdk/` лежит файл-заглушка «Include Steam SDK here». Наш `vendor/steamworks-headers/` (SDK 1.65) закрывает это, но для сборки понадобятся ещё и бинарники из оригинального архива (`redistributable_bin/`).
+
+**Нужно ли нам что-то туда слать.** По текущему плану — нет: всё нужное обёрнуто. Патч понадобится, только если в новом SDK появится метод, который нам нужен раньше, чем его добавят мейнтейнеры. Тогда путь такой: форк на Codeberg → ветка от `gdextension` → правка в `godotsteam.cpp` (биндинг + метод) и `godotsteam.h` → pull request. Формат виден по соседним методам: `ClassDB::bind_method(D_METHOD("имяКамелКейсом", "аргументы"), &Steam::метод)`.
+
+---
+
+✅ **Проверено по исходникам.** Локальная копия **Steamworks SDK 1.65** (`steamworks_sdk_165.zip`) — все сигнатуры Timeline, Game Phases, глобальных статов и лимитов лидерборда взяты из заголовков `public/steam/*.h`, а не из веб-пересказов. Один из таких пересказов уже оказался неверным (про удаление `SetTimelineGameMode`), поэтому **сверяться нужно с заголовками**.
+
+⚠️ Остаётся непроверенным одно: какие из этих методов уже обёрнуты в **GodotSteam**. Заголовки SDK говорят, что API есть; наличие биндинга проверить по changelog GodotSteam перед реализацией. Если Timeline не обёрнут целиком — Game Phases можно отложить, события важнее.

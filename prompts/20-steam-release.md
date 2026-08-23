@@ -2,7 +2,8 @@
 
 **Модель:** Opus 5 или Fable 5.
 **Когда:** после `FIX-audit-*`, параллельно балансу. Три дыры, которых **нет ни в одном промпте**, и все три задним числом закрываются дороже.
-**Читать:** `research/27-steam-integration.md` (весь) и **`research/48-steam-api-opportunities.md`** (что можно сверх базы); `research/36-*` и `research/38-*` если созданы; `audit/01-minuses.md` A2.
+**Читать:** `research/27-steam-integration.md` (весь) и **`research/48-steam-api-opportunities.md`** (что можно сверх базы).
+⚠️ **Сигнатуры и лимиты сверяй по `vendor/steamworks-headers/`** — там локальные заголовки SDK 1.65 и `steam_api.json`. Веб-документация по Steam API врёт: источник уже подвёл однажды, заявив об удалении `SetTimelineGameMode`, которого в 1.65 никто не удалял. Также: `research/36-*` и `research/38-*` если созданы; `audit/01-minuses.md` A2.
 
 ---
 

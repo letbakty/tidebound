@@ -149,6 +149,38 @@ signal ui_panel_opened(panel_name: String)
 signal ui_panel_closed(panel_name: String)
 ```
 
+#### Отчёт забега `run_ended(report)` — контракт, а не свободный словарь
+
+Отчёт собирает `RunState._final_report`. Его читают экран итогов, Журнал
+(`Meta.record_run`), soak-CSV и — после этапа 20 — таблица достижений Steam:
+предикаты достижений обязаны быть чистыми функциями от этого словаря
+(research/27 §2.3), поэтому Steam не протекает ни в `sim/`, ни в UI.
+
+| Ключ | Тип | Что значит |
+|---|---|---|
+| `end` | int | `SimTypes.RunEnd` |
+| `early` | bool | ушли досрочно (`end` при этом всё равно `SHIP`) |
+| `cycles` | int | прожито циклов |
+| `seed` | int | сид забега |
+| `score` / `raw_score` | int | итог с множителем исхода и без него |
+| `breakdown` | Dictionary | строки разбивки; их сумма и есть `raw_score` |
+| `deaths` | Array[Dictionary] | эпитафии: имя, причина, био, черты, цикл |
+| `dead` / `drowned` | int | погибших всего и утонувших (`RunState.CAUSE_DROWN`) |
+| `alive` | int | живых **на момент снимка очков**, а не на конец забега |
+| `relics` | int | реликвий вывезено |
+| `produced` | Dictionary[String, int] | произведено станциями за забег |
+| `cards_picked` | Array[String] | карты вылазки в порядке выбора |
+| `deepest_mark` | int | самая низкая отметка, где побывал агент |
+| `crises_survived` | Array[int] | типы кризисов, дожитых до конца цикла |
+| `storms_survived` | int | из них штормов |
+| `buildings_built` / `buildings_lost` | int | достроено колонией / сорвано штормом |
+
+⚠️ **Новое поле заводится здесь и сразу.** После релиза добавление поля —
+это правка `sim`, сейва и миграции сейвов одновременно (REL-09): счётчики
+живут в `RunState` и попадают в `run_state.to_dict()`. Обратная совместимость
+держится на `d.get(ключ, значение_по_умолчанию)` в `from_dict`, а не на смене
+`save_version`: смена мажора отвергает сейв целиком.
+
 ### 3.3 Команды игрока (autoload/game.gd) — единственный вход в sim
 ```gdscript
 func cmd_new_run(seed_value: int = 0) -> void
