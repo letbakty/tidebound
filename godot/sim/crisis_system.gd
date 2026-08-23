@@ -130,7 +130,7 @@ func _storm_peak(w: SimWorld) -> void:
 			continue
 		var mark: float = w.agents.agent_mark_f(a, w)
 		if mark < float(Balance.STORM_DEATH_MARK):
-			w.agents.kill(a, "storm", w)
+			w.agents.kill(a, RunState.CAUSE_STORM, w)
 			_storm_deaths += 1
 		elif mark <= float(Balance.STORM_WET_MARK_HI):
 			a.wet = true
@@ -401,6 +401,10 @@ func on_cycle_ended(w: SimWorld) -> Dictionary:
 		for a: SimAgent in w.agents.agents:
 			if a.is_alive():
 				a.change_need("mood", Balance.MOOD_STORM_SURVIVED_MILLI)
+	# Цикл дожит до конца — значит кризисы этого цикла пережиты: при вайпе
+	# забег заканчивается раньше границы, и сюда управление не доходит.
+	for type: int in active:
+		w.run_state.note_crisis_survived(type)
 	var report: Dictionary = {
 		"crises": active.duplicate(),
 		"damage": _damage_cycle,

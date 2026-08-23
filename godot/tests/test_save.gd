@@ -165,6 +165,174 @@ static func test_score_snapshot_taken_at_high_peak(t: TestCtx) -> void:
 	t.check(not Balance.is_mark_flooded(3, level_at_arrival),
 		"а поднятое на +3 спасено")
 
+# --- Поля отчёта забега (REL-09) ------------------------------------------
+
+## Достижения Steam — чистые предикаты по отчёту (research/27 §2.3). Забытое
+## поле проявится не падением, а тем, что достижение не выдастся ни одному
+## игроку, поэтому проверяем сам НАБОР ключей, а не только их значения.
+const REPORT_KEYS: Array[String] = [
+	"end", "cycles", "seed", "score", "raw_score", "breakdown", "early",
+	"deaths", "relics",
+	"alive", "dead", "drowned", "produced", "cards_picked", "deepest_mark",
+	"crises_survived", "storms_survived", "buildings_built", "buildings_lost",
+]
+
+static func test_report_has_all_achievement_fields(t: TestCtx) -> void:
+	var w: SimWorld = _world(4242)
+	var report: Dictionary = _run_to_end(t, w)
+	t.check(not report.is_empty(), "забег завершился")
+	for k: String in REPORT_KEYS:
+		t.check(report.has(k), "в отчёте есть поле '%s'" % k)
+
+## Поле, которое есть, но считает не то, — хуже отсутствующего: оно молча
+## врёт достижению. Сверяем числа отчёта с тем, что реально произошло.
+static func test_report_numbers_match_the_run(t: TestCtx) -> void:
+	var w: SimWorld = _world(4242)
+	var died: int = 0
+	var drowned: int = 0
+	var picked: int = 0
+	var report: Dictionary = {}
+	for i: int in Balance.TICKS_PER_CYCLE * 20:
+		w.tick()
+		for e: SimEvent in w.events_out:
+			if e.type == "agent_died":
+				died += 1
+				if str(e.data.get("cause", "")) == RunState.CAUSE_DROWN:
+					drowned += 1
+			elif e.type == "card_picked":
+				picked += 1
+			elif e.type == "run_ended":
+				report = e.data["report"] as Dictionary
+		w.events_out.clear()
+		if not report.is_empty():
+			break
+	t.check(not report.is_empty(), "забег завершился")
+	t.check_eq(int(report["dead"]), died, "погибших столько же, сколько событий смерти")
+	t.check_eq(int(report["drowned"]), drowned, "и утонувших")
+	t.check_eq(int(report["dead"]), (report["deaths"] as Array).size(),
+		"счётчик погибших сходится с эпитафиями")
+	t.check_eq((report["cards_picked"] as Array).size(), picked,
+		"карт в отчёте столько же, сколько выбрано за забег")
+	# Живые в отчёте — те же, за кого начислена строка очков: оба числа сняты
+	# в один момент (пик Высокой воды), иначе экран итогов противоречит сам себе.
+	t.check_eq(int(report["alive"]) * Balance.POINTS_PER_SURVIVOR,
+		int((report["breakdown"] as Dictionary).get("survivors", -1)),
+		"живые сходятся с очками за выживших")
+	var storms: int = 0
+	for c: Variant in report["crises_survived"] as Array:
+		if int(c) == int(SimTypes.CrisisType.STORM):
+			storms += 1
+	t.check_eq(int(report["storms_survived"]), storms,
+		"штормы — это подсчёт по списку пережитых кризисов, а не второй счётчик")
+	t.check(int(report["deepest_mark"]) <= -1,
+		"колония спускалась ниже нуля (%d)" % int(report["deepest_mark"]))
+	t.check(int(report["deepest_mark"]) >= Balance.BOTTOM_MARK, "и не глубже дна")
+	t.check(not (report["produced"] as Dictionary).is_empty(),
+		"за забег что-то произведено")
+
+## Производство копится за ЗАБЕГ, а не за цикл. Проверяется вайпом: он
+## случается в середине цикла, и цикловой счётчик к этому моменту уже обнулён
+## границей — сумма за забег обязана уцелеть.
+static func test_produced_survives_wipe_mid_cycle(t: TestCtx) -> void:
+	var w: SimWorld = _world(43)
+	_until_cycle(t, w, 3)
+	var before: Dictionary = w.run_state.produced.duplicate()
+	t.check(not before.is_empty(), "дождесборник за два цикла что-то дал")
+	for a: SimAgent in w.agents.agents:
+		w.agents.kill(a, RunState.CAUSE_DROWN, w)
+	w.tick()
+	var report: Dictionary = {}
+	for e: SimEvent in w.events_out:
+		if e.type == "run_ended":
+			report = e.data["report"] as Dictionary
+	t.check(not report.is_empty(), "забег кончился вайпом")
+	t.check_eq(report["produced"], before, "произведённое за забег не потерялось")
+	t.check_eq(int(report["drowned"]), Balance.START_AGENTS,
+		"все утонувшие записаны причиной, а не одним числом смертей")
+	t.check_eq(int(report["alive"]), 0, "живых не осталось")
+
+## Счётчик построек отвечает за то, что колония ВОЗВЕЛА: стартовые постройки
+## и завершённый ремонт проходят через тот же переход в ACTIVE, и попасть
+## в него не должны.
+static func test_buildings_built_and_lost_counted(t: TestCtx) -> void:
+	var w: SimWorld = _world(47)
+	t.check_eq(w.run_state.buildings_built, 0,
+		"стартовые постройки в счётчик не идут")
+	var cell: Vector2i = Vector2i(4, Balance.mark_to_floor_cell_y(3) - 2)
+	var id: int = w.buildings.place("dryer", cell, w)
+	t.check(id > 0, "сушила поставлена в план")
+	var d: BuildingDef = DB.building("dryer")
+	for k: String in d.cost:
+		w.buildings.deliver(id, StackUtil.make(k, int(d.cost[k]), false), w)
+	w.buildings.tick(w)                  # план с материалами уходит в стройку
+	var done: bool = false
+	for i: int in 5000:
+		if w.buildings.advance_construction(id, 1, w):
+			done = true
+			break
+	t.check(done, "и достроена")
+	t.check_eq(w.run_state.buildings_built, 1, "достроенное засчитано")
+	t.check_eq(w.run_state.buildings_lost, 0, "и ничего пока не потеряно")
+	# Сушилу срывает штормом на любой отметке (docs/00 §9.4) — это потеря.
+	w.buildings.on_storm(w)
+	t.check(not w.buildings.buildings.has(id), "шторм сорвал сушилу")
+	t.check_eq(w.run_state.buildings_lost, 1, "и она записана в потери")
+
+## Снос — решение игрока, а не беда забега: в потери он не идёт.
+static func test_demolish_is_not_a_loss(t: TestCtx) -> void:
+	var w: SimWorld = _world(53)
+	var id: int = w.buildings.place("hearth",
+		Vector2i(8, Balance.mark_to_floor_cell_y(3) - 1), w, true)
+	t.check(id > 0, "очаг стоит")
+	t.check(w.buildings.demolish(id, w), "и снесён")
+	t.check_eq(w.run_state.buildings_lost, 0, "снос — не потеря")
+
+# --- Счётчики забега в сейве ----------------------------------------------
+
+static func test_run_stats_survive_save(t: TestCtx) -> void:
+	var w: SimWorld = _world(4242)
+	_until_cycle(t, w, 4)
+	# Тест на пустых счётчиках не проверяет ничего.
+	t.check(not w.run_state.cards_picked.is_empty(), "карты за три цикла выбраны")
+	t.check(not w.run_state.produced.is_empty(), "и что-то произведено")
+	t.check(w.run_state.deepest_mark < Balance.TOP_MARK, "колония спускалась")
+
+	var text: String = JSON.stringify(w.to_dict(), "", true, true)
+	var back: SimWorld = SimWorld.new()
+	back.from_dict(JSON.parse_string(text) as Dictionary, _cliff())
+	t.check_eq(JSON.stringify(back.to_dict(), "", true, true), text,
+		"счётчики забега переживают JSON побайтово")
+	t.check_eq(back.run_state.produced, w.run_state.produced, "произведённое")
+	t.check_eq(back.run_state.cards_picked, w.run_state.cards_picked, "выбранные карты")
+	t.check_eq(back.run_state.crises_survived, w.run_state.crises_survived,
+		"пережитые кризисы")
+	t.check_eq(back.run_state.deepest_mark, w.run_state.deepest_mark, "глубина")
+	t.check_eq(back.run_state.buildings_built, w.run_state.buildings_built, "построено")
+	t.check_eq(back.run_state.buildings_lost, w.run_state.buildings_lost, "потеряно")
+	t.check_eq(back.run_state.alive_snapshot, w.run_state.alive_snapshot,
+		"снимок живых")
+
+## Поля добавлены БЕЗ смены save_version: сейв, записанный до REL-09, обязан
+## открыться с нулевыми счётчиками, а не быть отвергнутым целиком.
+static func test_save_without_stats_still_loads(t: TestCtx) -> void:
+	var w: SimWorld = _world(59)
+	t.run_ticks(w, 600)
+	var d: Dictionary = w.to_dict()
+	var rs: Dictionary = d["run_state"] as Dictionary
+	for k: String in ["produced", "cards_picked", "crises_survived",
+			"buildings_built", "buildings_lost", "deepest_mark", "alive_snapshot"]:
+		rs.erase(k)
+	var back: SimWorld = SimWorld.new()
+	back.from_dict(d, _cliff())
+	t.check(back.run_state.produced.is_empty(), "произведённое обнулилось")
+	t.check(back.run_state.cards_picked.is_empty(), "и список карт")
+	t.check_eq(back.run_state.deepest_mark, Balance.TOP_MARK,
+		"глубина — потолок: никто ещё никуда не спускался")
+	t.check_eq(back.run_state.alive_snapshot, -1, "снимка живых не было")
+	t.check_eq(back.clock.cycle, w.clock.cycle, "а остальной сейв цел")
+	t.check_eq(back.run_state.deaths.size(), w.run_state.deaths.size(),
+		"и эпитафии на месте")
+
 # --- Очки -----------------------------------------------------------------
 
 ## Затопленный в момент судна склад не даёт очков — это спроектированное

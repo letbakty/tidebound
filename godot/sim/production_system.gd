@@ -241,6 +241,9 @@ func _consume_and_output(b: Dictionary, r: RecipeDef, w: SimWorld) -> void:
 ## годности — и он идёт в отчёт цикла как произведённое.
 func _produce(b: Dictionary, item_id: String, n: int, w: SimWorld) -> void:
 	_produced_cycle[item_id] = int(_produced_cycle.get(item_id, 0)) + n
+	# Забег копится отдельно от цикла: цикловой счётчик обнуляется на границе,
+	# а вайп случается в середине цикла — сумму за забег иначе теряли бы.
+	w.run_state.note_produced(item_id, n)
 	_deposit(b, StackUtil.make(item_id, n, false), w)
 
 ## Кладёт ГОТОВЫЙ стак на ближайший склад, не трогая его свойств; если складов

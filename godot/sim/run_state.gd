@@ -24,7 +24,37 @@ var score_snapshot: Dictionary = {}
 ## Эпитафии погибших — для Журнала.
 var deaths: Array[Dictionary] = []
 
+## Счётчики забега для отчёта run_ended (REL-09, research/27 §2.3). Собраны
+## в одном месте намеренно: по ним строятся достижения Steam, экран итогов
+## и баланс-CSV, а каждое поле, добавленное ПОСЛЕ релиза, — правка sim, сейва
+## и миграции сейвов сразу. Пока сейвов у игроков нет, весь набор стоит
+## одного коммита.
+##
+## Произведено станциями за ВЕСЬ забег: ProductionSystem копит своё за цикл
+## и обнуляет на границе. Добыча из депозитов сюда не идёт — это «сделано»,
+## а не «поднято».
+var produced: Dictionary[String, int] = {}
+## Карты вылазки в порядке выбора, по одной на цикл.
+var cards_picked: Array[String] = []
+## Типы кризисов (SimTypes.CrisisType), дожившие с колонией до конца цикла.
+var crises_survived: Array[int] = []
+## Достроено колонией (стартовые постройки не в счёт) и потеряно навсегда.
+## Снос игроком — не потеря: это его решение, а не беда забега.
+var buildings_built: int = 0
+var buildings_lost: int = 0
+## Самая низкая отметка, где побывал хоть один агент. Отметки растут вверх,
+## поэтому глубина — это минимум; TOP_MARK значит «никто не спускался».
+var deepest_mark: int = Balance.TOP_MARK
+## Живые на МОМЕНТ снимка очков, а не на конец забега: между пиком Высокой
+## воды и границей фазы кто-то ещё может утонуть, и тогда «живых» в отчёте
+## стало бы меньше, чем оплачено строкой survivors. −1 = снимка не было.
+var alive_snapshot: int = -1
+
 const UNLOCK_DRAFT_PLUS: String = "u_draft_plus"
+## Причины гибели: их читает и отчёт (drowned), и Журнал. Строкой в двух
+## местах — верный способ разойтись на опечатке.
+const CAUSE_DROWN: String = "drown"
+const CAUSE_STORM: String = "storm"
 const DRAFT_SIZE: int = 3
 const DRAFT_SIZE_PLUS: int = 4
 
@@ -42,6 +72,13 @@ func new_run(unlock_list: Array[String]) -> void:
 	ship_arrived = false
 	score_snapshot.clear()
 	deaths.clear()
+	produced.clear()
+	cards_picked.clear()
+	crises_survived.clear()
+	buildings_built = 0
+	buildings_lost = 0
+	deepest_mark = Balance.TOP_MARK
+	alive_snapshot = -1
 	_pending.clear()
 
 func has_unlock(id: String) -> bool:
@@ -76,6 +113,7 @@ func pick_card(card_id: String, w: SimWorld) -> bool:
 		return false
 	drafted_this_cycle = true
 	active_card = card_id
+	cards_picked.append(card_id)
 	_apply(card_id, w)
 	_pending.append(SimEvent.make("card_picked", {"card": card_id}))
 	return true
@@ -158,6 +196,64 @@ func note_death(a: SimAgent, cause: String, cycle: int) -> void:
 	deaths.append({"name": a.agent_name, "cause": cause, "bio": a.bio_key,
 		"traits": traits, "cycle": cycle})
 
+# --- Счётчики забега ------------------------------------------------------
+
+## Станция выдала предмет (ProductionSystem._produce).
+func note_produced(item_id: String, n: int) -> void:
+	produced[item_id] = int(produced.get(item_id, 0)) + n
+
+## Колония достроила постройку (BuildingSystem.advance_construction).
+func note_building_built() -> void:
+	buildings_built += 1
+
+## Постройку уничтожило миром — сушилу сорвало штормом (BuildingSystem).
+func note_building_lost() -> void:
+	buildings_lost += 1
+
+## Цикл с кризисом дожит до конца (CrisisSystem.on_cycle_ended). Вайп сюда
+## не попадает: забег заканчивается раньше, чем цикл.
+func note_crisis_survived(type: int) -> void:
+	crises_survived.append(type)
+
+## Глубина снимается каждый тик, а не по состоянию на конец забега: агент
+## успевает спуститься и вернуться внутри одного отлива, и к финалу от этого
+## похода не остаётся следов.
+func _note_marks(w: SimWorld) -> void:
+	for a: SimAgent in w.agents.agents:
+		if not a.is_alive():
+			continue
+		var m: int = int(floor(w.agents.agent_mark_f(a, w)))
+		if m < deepest_mark:
+			deepest_mark = m
+
+## Утонувшие считаются из эпитафий, а не своим счётчиком: причина уже
+## записана в deaths, а два источника одних и тех же чисел разъезжаются.
+func _deaths_with_cause(cause: String) -> int:
+	var n: int = 0
+	for d: Dictionary in deaths:
+		if str(d["cause"]) == cause:
+			n += 1
+	return n
+
+## Порядок ключей в сейве обязан быть стабильным: хеш состояния (golden-тест,
+## TEST-05) считается по JSON, и порядок вставки в словарь сдвигал бы его
+## без единой правки правил.
+func produced_sorted() -> Dictionary:
+	var out: Dictionary = {}
+	var keys: Array[String] = []
+	keys.assign(produced.keys())
+	keys.sort()
+	for k: String in keys:
+		out[k] = int(produced[k])
+	return out
+
+func _crises_count(type: int) -> int:
+	var n: int = 0
+	for c: int in crises_survived:
+		if c == type:
+			n += 1
+	return n
+
 ## Проверяется каждый тик: вайп немедленный, судно — на пике Высокой воды.
 ##
 ## ⚠️ Зовётся из SimWorld.tick ПОСЛЕ tide.update — иначе снимок очков считался
@@ -165,6 +261,7 @@ func note_death(a: SimAgent, cause: String, cycle: int) -> void:
 func tick(w: SimWorld) -> void:
 	if finished:
 		return
+	_note_marks(w)
 	if w.agents.alive_count() == 0:
 		_finish(SimTypes.RunEnd.WIPE, w)
 		return
@@ -191,6 +288,7 @@ func _arrive(w: SimWorld) -> void:
 		return
 	ship_arrived = true
 	score_snapshot = compute_score(w)
+	alive_snapshot = w.agents.alive_count()
 	_pending.append(SimEvent.make("ship_arrived", {}))
 
 func _finish(kind: SimTypes.RunEnd, w: SimWorld) -> void:
@@ -200,6 +298,8 @@ func _finish(kind: SimTypes.RunEnd, w: SimWorld) -> void:
 	end_kind = kind
 	if score_snapshot.is_empty():
 		score_snapshot = compute_score(w)
+	if alive_snapshot < 0:
+		alive_snapshot = w.agents.alive_count()
 	var report: Dictionary = _final_report(w)
 	_pending.append(SimEvent.make("run_ended", {"report": report}))
 
@@ -252,6 +352,18 @@ func _final_report(w: SimWorld) -> Dictionary:
 		"score": total, "raw_score": raw, "breakdown": breakdown,
 		"early": leaving_early, "deaths": deaths.duplicate(true),
 		"relics": int(score_snapshot.get("relics", 0)) / Balance.POINTS_PER_RELIC_BONUS,
+		# REL-09. Ниже — поля, по которым считаются достижения Steam
+		# (research/27 §2.3): предикаты читают отчёт и ничего больше.
+		"alive": alive_snapshot,
+		"dead": deaths.size(),
+		"drowned": _deaths_with_cause(CAUSE_DROWN),
+		"produced": produced_sorted(),
+		"cards_picked": cards_picked.duplicate(),
+		"deepest_mark": deepest_mark,
+		"crises_survived": crises_survived.duplicate(),
+		"storms_survived": _crises_count(int(SimTypes.CrisisType.STORM)),
+		"buildings_built": buildings_built,
+		"buildings_lost": buildings_lost,
 	}
 
 func drain_events() -> Array[SimEvent]:
@@ -272,6 +384,13 @@ func to_dict() -> Dictionary:
 		"ship_arrived": ship_arrived,
 		"score_snapshot": score_snapshot.duplicate(),
 		"deaths": deaths.duplicate(true),
+		"produced": produced_sorted(),
+		"cards_picked": cards_picked.duplicate(),
+		"crises_survived": crises_survived.duplicate(),
+		"buildings_built": buildings_built,
+		"buildings_lost": buildings_lost,
+		"deepest_mark": deepest_mark,
+		"alive_snapshot": alive_snapshot,
 	}
 
 func from_dict(d: Dictionary) -> void:
@@ -300,4 +419,20 @@ func from_dict(d: Dictionary) -> void:
 		deaths.append({"name": str(dd["name"]), "cause": str(dd["cause"]),
 			"bio": str(dd.get("bio", "")), "traits": tr,
 			"cycle": int(dd.get("cycle", 0))})
+	# Отсутствующие ключи — это сейв, записанный до REL-09: он честно грузится
+	# с нулевыми счётчиками, потому что менять save_version ради добавленных
+	# полей значило бы выбросить сейв целиком.
+	produced.clear()
+	for pk: Variant in d.get("produced", {}) as Dictionary:
+		produced[str(pk)] = int((d["produced"] as Dictionary)[pk])
+	cards_picked.clear()
+	for cv: Variant in d.get("cards_picked", []) as Array:
+		cards_picked.append(str(cv))
+	crises_survived.clear()
+	for xv: Variant in d.get("crises_survived", []) as Array:
+		crises_survived.append(int(xv))
+	buildings_built = int(d.get("buildings_built", 0))
+	buildings_lost = int(d.get("buildings_lost", 0))
+	deepest_mark = int(d.get("deepest_mark", Balance.TOP_MARK))
+	alive_snapshot = int(d.get("alive_snapshot", -1))
 	_pending.clear()

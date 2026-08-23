@@ -20,6 +20,18 @@ const EMIT_EPS: float = 0.01
 ## мокрые тайлы без единой правки sim (research/03 §1).
 var last_high_level: float = Balance.HIGH_LEVEL
 
+## Уровень, С КОТОРОГО начинается Спад текущего цикла.
+##
+## ⚠️ Отдельное поле, а не `high_plateau`. Сизигия подменяет плато в
+## `crisis.on_cycle_started`, то есть на первом тике Спада, — и Спад начинал
+## лить воду с +2, которых предыдущая Высокая вода никогда не достигала.
+## Получался мгновенный подъём на два яруса в один тик: отметки 0 и +1 уходили
+## под воду на двенадцать секунд, и агент, спускавшийся по домашней лестнице,
+## тонул без единого предупреждения. Все смерти обоих замеров 22.08 — ровно
+## этот скачок (docs/balance.md, итерация 0). Спека (docs/00 §5) обещает
+## сизигией поднятое плато ВЫСОКОЙ воды, а не поднятый старт Спада.
+var ebb_from: float = Balance.HIGH_LEVEL
+
 var _ticks_since_emit: int = 0
 var _last_emitted: float = Balance.HIGH_LEVEL
 
@@ -51,7 +63,7 @@ func _level_for(clock: SimClock) -> float:
 	var p: float = clock.phase_progress()
 	match clock.phase:
 		SimTypes.Phase.EBB:
-			return lerpf(high_plateau, low_plateau, smoothstep(0.0, 1.0, p))
+			return lerpf(ebb_from, low_plateau, smoothstep(0.0, 1.0, p))
 		SimTypes.Phase.LOW:
 			return low_plateau
 		SimTypes.Phase.SIGNAL:
@@ -70,10 +82,15 @@ func _level_for(clock: SimClock) -> float:
 
 ## Сбрасывает уровень к началу забега/цикла без эмиссии события.
 ## Вызывается на границе цикла: «докуда дошла вода» считается за цикл.
+## Здесь же запоминается точка старта Спада — ДО того, как кризисы подменят
+## плато: SimWorld зовёт нас раньше `crisis.on_cycle_started`, и это
+## единственный момент, когда `level` ещё равен воде прошлого цикла.
 func reset_cycle_high() -> void:
 	last_high_level = level
+	ebb_from = level
 
 func reset(clock: SimClock) -> void:
+	ebb_from = Balance.HIGH_LEVEL
 	level = Balance.quant(_level_for(clock))
 	last_high_level = level
 	_last_emitted = level
@@ -85,6 +102,7 @@ func to_dict() -> Dictionary:
 		"last_high": last_high_level,
 		"low_plateau": low_plateau,
 		"high_plateau": high_plateau,
+		"ebb_from": ebb_from,
 		"ticks_since_emit": _ticks_since_emit,
 		"last_emitted": _last_emitted,
 	}
@@ -94,5 +112,6 @@ func from_dict(d: Dictionary) -> void:
 	last_high_level = float(d.get("last_high", level))
 	low_plateau = float(d.get("low_plateau", Balance.LOW_LEVEL))
 	high_plateau = float(d.get("high_plateau", Balance.HIGH_LEVEL))
+	ebb_from = float(d.get("ebb_from", high_plateau))
 	_ticks_since_emit = int(d.get("ticks_since_emit", 0))
 	_last_emitted = float(d.get("last_emitted", level))

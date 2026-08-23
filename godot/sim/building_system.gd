@@ -354,6 +354,9 @@ func advance_construction(building_id: int, ticks: int, w: SimWorld) -> bool:
 	for k: String in d.cost:
 		buffer_take(b, k, int(d.cost[k]), false)
 	_set_state(b, SimTypes.BuildState.ACTIVE, w)
+	# Считаем здесь, а не в _on_became_active: тот же переход делают стартовые
+	# постройки (place instant) и завершённый ремонт, и они не «построены».
+	w.run_state.note_building_built()
 	return true
 
 static func _build_ticks(d: BuildingDef) -> int:
@@ -496,6 +499,7 @@ func on_storm(w: SimWorld) -> void:
 			continue
 		if d.storm_always:
 			_destroy(b, w, 0)             # сушила срывает в ноль, без возврата
+			w.run_state.note_building_lost()
 			continue
 		b["hp"] = int(b["hp"]) - 1
 		if int(b["hp"]) > 0:

@@ -11,6 +11,8 @@ const ATLAS: String = "res://assets/sprites/ui_atlas.png"
 ## Атлас тайлов мира. Имя файла осталось от заглушек: на него ссылается
 ## data/tilesets/placeholder.tres, а data/ правит другой агент (см. SOURCES.csv).
 const TILES: String = "res://assets/sprites/placeholder_tiles.png"
+## Файлы, которые собираются из токенов темы, а не из арта.
+const SKIN_FILES: PackedStringArray = ["ui_atlas.png"]
 
 ## Шейдеры, которым время нужно (остальным — нет, и это не дефект).
 const ANIMATED: Array[String] = ["water", "rain", "vignette", "wet_tiles"]
@@ -237,32 +239,59 @@ static func test_light_budget_caps_at_max(t: TestCtx) -> void:
 ## Кадр выбирается по сим-времени: на паузе агент замирает, на ×3 перебирает
 ## ногами втрое быстрее — и то и другое бесплатно.
 static func test_agent_frames(t: TestCtx) -> void:
-	t.check_eq(AgentView.frame_for(SimTypes.AgentState.IDLE, false, 3.7), 0,
-		"стоящий агент — первый кадр")
+	t.check_eq(AgentView.cell_for(SimTypes.AgentState.IDLE, false, false, 3.7),
+		Vector2i(0, AgentView.Row.IDLE), "стоящий налегке — ряд ожидания")
 	var seen: Dictionary[int, bool] = {}
-	for i: int in 24:
-		var f: int = AgentView.frame_for(SimTypes.AgentState.GOTO, true, float(i) * 0.1)
-		t.check(f >= 0 and f < 4, "ходьба живёт в кадрах 0..3")
-		seen[f] = true
-	t.check_eq(seen.size(), 4, "за цикл проходят все четыре кадра ходьбы")
+	for i: int in 32:
+		var c: Vector2i = AgentView.cell_for(SimTypes.AgentState.GOTO, true,
+			false, float(i) * 0.05)
+		t.check_eq(c.y, int(AgentView.Row.WALK), "ходьба живёт в своём ряду")
+		t.check(c.x >= 0 and c.x < AgentView.COLS, "кадр внутри листа")
+		seen[c.x] = true
+	t.check_eq(seen.size(), AgentView.COLS, "за цикл проходят все кадры ходьбы")
+	# Груз виден позой, а не значком: ходьба туда-обратно с котомкой — главный
+	# смысл всей колонии, и она обязана читаться на 16 пикселях.
+	t.check_eq(AgentView.cell_for(SimTypes.AgentState.GOTO, true, true, 0.3).y,
+		int(AgentView.Row.CARRY), "с грузом — ряд переноски")
+	t.check_eq(AgentView.cell_for(SimTypes.AgentState.GOTO, false, true, 0.3).y,
+		int(AgentView.Row.CARRY),
+		"остановился с грузом — груз никуда не делся")
 	for st: int in [SimTypes.AgentState.WORK, SimTypes.AgentState.GATHER]:
-		var f2: int = AgentView.frame_for(st, false, 0.0)
-		t.check(f2 >= 4 and f2 < 6, "работа живёт в кадрах 4..5")
+		t.check_eq(AgentView.cell_for(st, false, false, 0.0).y,
+			int(AgentView.Row.WORK), "работа живёт в своём ряду")
+	t.check_eq(AgentView.cell_for(SimTypes.AgentState.DROWNING, false, false, 0.0).y,
+		int(AgentView.Row.DROWN), "тонущий — свой ряд")
+	t.check_eq(AgentView.cell_for(SimTypes.AgentState.PANIC, true, false, 0.0).y,
+		int(AgentView.Row.PANIC), "паника перебивает ходьбу")
 	# Одно и то же время — один и тот же кадр: анимация не зависит от кадров
 	# рендера, иначе на паузе спрайт продолжал бы шагать.
-	t.check_eq(AgentView.frame_for(SimTypes.AgentState.GOTO, true, 1.234),
-		AgentView.frame_for(SimTypes.AgentState.GOTO, true, 1.234),
+	t.check_eq(AgentView.cell_for(SimTypes.AgentState.GOTO, true, false, 1.234),
+		AgentView.cell_for(SimTypes.AgentState.GOTO, true, false, 1.234),
 		"кадр — функция сим-времени, а не счётчика кадров")
 
-## Лист спрайтов на месте и нужной ширины: иначе region_rect молча уедет
+## Лист спрайтов на месте и нужного размера: иначе region_rect молча уедет
 ## за край и агенты станут прозрачными.
 static func test_agent_sheet_size(t: TestCtx) -> void:
+	var gen: GDScript = load("res://tools/gen_agent.gd") as GDScript
+	var rows: Array = gen.get("ROWS") as Array
+	t.check_eq(int(gen.get("COLS")), AgentView.COLS, "столбцов поровну")
+	t.check_eq(Vector2i(gen.get("CELL")), Vector2i(AgentView.W, AgentView.H),
+		"размер кадра тот же")
+	# Ряд листа — это состояние агента. Перепутанный порядок дал бы тонущего
+	# вместо идущего и не уронил бы ничего.
+	var names: Array = AgentView.Row.keys()
+	t.check_eq(rows.size(), names.size(), "рядов столько же, сколько состояний")
+	for i: int in mini(rows.size(), names.size()):
+		t.check_eq(str((rows[i] as Dictionary)["name"]).to_upper(),
+			str(names[i]), "ряд %d — то же состояние" % i)
 	var tex: Texture2D = load("res://assets/sprites/agent.png") as Texture2D
 	t.check(tex != null, "лист агента загружается")
 	if tex == null:
 		return
-	t.check_eq(tex.get_height(), AgentView.H, "высота кадра")
-	t.check_eq(tex.get_width(), AgentView.W * 6, "шесть кадров в ряд")
+	t.check_eq(tex.get_width(), AgentView.W * AgentView.COLS, "ширина листа")
+	t.check_eq(tex.get_height(), AgentView.H * names.size(), "высота листа")
+	var dead: Texture2D = load(AgentView.DEAD_SPRITE) as Texture2D
+	t.check(dead != null, "лежащий агент на месте")
 
 # --- Атлас интерфейса -----------------------------------------------------
 
@@ -350,3 +379,160 @@ static func _layer_of(scene_src: String, node_name: String) -> int:
 	re.compile(r"layer = (\d+)")
 	var m: RegExMatch = re.search(scene_src.substr(idx, 120))
 	return int(m.get_string(1)) if m != null else -1
+
+# --- Настоящий арт: контракты сборщиков (этап 18, ART-integration) ---------
+
+## Спрайт постройки обязан совпадать с её size из дефа. Постройка «на клетку
+## шире» наезжает на соседнюю и молчит: ни один тест мира этого не заметит,
+## потому что логика размещения считает по дефу, а видит игрок спрайт.
+static func test_building_art_matches_defs(t: TestCtx) -> void:
+	var gen: GDScript = load("res://tools/gen_building_art.gd") as GDScript
+	var table: Dictionary = gen.get("BUILDINGS") as Dictionary
+	var ids: Array[String] = DB.building_ids()
+	t.check_eq(table.size(), ids.size(), "в таблице арта столько же построек, сколько дефов")
+	for id: String in ids:
+		t.check(table.has(id), "для %s есть строка в gen_building_art" % id)
+		if not table.has(id):
+			continue
+		var def: BuildingDef = DB.building(id)
+		t.check_eq(Vector2i((table[id] as Dictionary)["cells"]), def.size,
+			"%s: размер в клетках совпадает с дефом" % id)
+		var tex: Texture2D = load("res://assets/sprites/buildings/%s.png" % id) as Texture2D
+		t.check(tex != null, "%s: спрайт на месте" % id)
+		if tex == null:
+			continue
+		t.check_eq(tex.get_size(), Vector2(def.size) * float(WorldGeo.TILE),
+			"%s: спрайт ровно на свои клетки" % id)
+
+## Порядок кадров в атласах иконок — это АЛФАВИТ id, и считают его двое:
+## сборщик и интерфейс. Разъезд показывает не ту иконку и ничего не роняет.
+static func test_icon_atlases_match_defs(t: TestCtx) -> void:
+	var items: GDScript = load("res://tools/gen_item_icons.gd") as GDScript
+	var item_ids: Array[String] = DB.item_ids()
+	t.check_eq((items.get("ITEMS") as Dictionary).keys().size(), item_ids.size(),
+		"иконка есть у каждого предмета")
+	for id: String in item_ids:
+		t.check((items.get("ITEMS") as Dictionary).has(id), "иконка предмета %s" % id)
+	t.check_eq(items.call("order"), item_ids, "порядок предметов — тот же алфавит")
+	var atlas: Texture2D = load(IconStub.ITEM_ATLAS) as Texture2D
+	t.check(atlas != null, "атлас предметов на месте")
+	if atlas != null:
+		t.check_eq(atlas.get_width(), IconStub.ITEM_CELL * item_ids.size(),
+			"ширина атласа предметов = число предметов")
+		t.check_eq(atlas.get_height(), IconStub.ITEM_CELL, "высота — одна клетка")
+	var blds: GDScript = load("res://tools/gen_building_art.gd") as GDScript
+	t.check_eq(blds.call("icon_order"), DB.building_ids(),
+		"порядок построек — тот же алфавит")
+	var batlas: Texture2D = load(IconStub.BUILDING_ATLAS) as Texture2D
+	t.check(batlas != null, "атлас построек на месте")
+	if batlas != null:
+		t.check_eq(batlas.get_width(),
+			IconStub.BUILDING_CELL * DB.building_ids().size(),
+			"ширина атласа построек = число построек")
+
+## Лист существа: ряд = состояние. Перепутанный порядок дал бы грызущее
+## существо там, где оно плывёт, и не уронил бы ничего.
+static func test_creature_sheet(t: TestCtx) -> void:
+	var gen: GDScript = load("res://tools/gen_creature.gd") as GDScript
+	var rows: Array = gen.get("ROWS") as Array
+	var names: Array = CreatureView.Row.keys()
+	t.check_eq(int(gen.get("COLS")), CreatureView.COLS, "столбцов поровну")
+	t.check_eq(rows.size(), names.size(), "рядов столько же, сколько состояний")
+	for i: int in mini(rows.size(), names.size()):
+		t.check_eq(str((rows[i] as Dictionary)["name"]).to_upper(), str(names[i]),
+			"ряд %d — то же состояние" % i)
+	var tex: Texture2D = load(CreatureView.SHEET) as Texture2D
+	t.check(tex != null, "лист существа загружается")
+	if tex != null:
+		t.check_eq(tex.get_width(), CreatureView.W * CreatureView.COLS, "ширина листа")
+		t.check_eq(tex.get_height(), CreatureView.H * names.size(), "высота листа")
+
+## Parallax2D повторяет слой ровно на repeat_size. Не равен ширине текстуры —
+## значит шов при повторе, и виден он только в движении, на панораме.
+static func test_parallax_repeat_matches_texture(t: TestCtx) -> void:
+	var src: String = FileAccess.get_file_as_string(WORLD_SCENE)
+	var re: RegEx = RegEx.new()
+	re.compile(r'\[node name="(\w+)" type="Parallax2D"[^\]]*\]\n(?:[^\[]*?)repeat_size = Vector2\((\d+), \d+\)')
+	var found: int = 0
+	for m: RegExMatch in re.search_all(src):
+		found += 1
+		var node: String = m.get_string(1)
+		var want: int = int(m.get_string(2))
+		var tex_re: RegEx = RegEx.new()
+		tex_re.compile(r'parent="%s"\]\ntexture = ExtResource\("([^"]+)"\)' % node)
+		var tm: RegExMatch = tex_re.search(src)
+		t.check(tm != null, "%s: у слоя есть спрайт с текстурой" % node)
+		if tm == null:
+			continue
+		var path_re: RegEx = RegEx.new()
+		path_re.compile(r'path="([^"]+)" id="%s"' % tm.get_string(1))
+		var pm: RegExMatch = path_re.search(src)
+		t.check(pm != null, "%s: текстура слоя разрешается в файл" % node)
+		if pm == null:
+			continue
+		var tex: Texture2D = load(pm.get_string(1)) as Texture2D
+		t.check(tex != null, "%s: текстура грузится" % node)
+		if tex == null:
+			continue
+		t.check_eq(tex.get_width(), want,
+			"%s: repeat_size = ширине текстуры, иначе шов" % node)
+	t.check_eq(found, 3, "у всех трёх слоёв задан repeat_size")
+
+## Весь арт в игре — из 32 цветов палитры и без полупрозрачных краёв.
+##
+## ⚠️ Единственная проверка, которая ловит «ассет пришёл мимо конвейера»:
+## лишний оттенок от ресайза и антиалиасинг кисти в игре не видно, пока
+## кто-нибудь не посмотрит на палитру рядом. Считаем нарушения на файл, а не
+## на пиксель: 700 тысяч провалов в отчёте не помогут никому.
+static func test_sprites_are_in_palette(t: TestCtx) -> void:
+	var pal: Dictionary[int, bool] = {}
+	for line: String in FileAccess.get_file_as_string(
+			"res://../art/tidebound.gpl").split("\n"):
+		var s: String = line.strip_edges()
+		if s.is_empty() or not s[0].is_valid_int():
+			continue
+		var p: PackedStringArray = s.split("\t")[0].split(" ", false)
+		if p.size() >= 3:
+			pal[Color8(int(p[0]), int(p[1]), int(p[2])).to_rgba32()] = true
+	t.check_eq(pal.size(), 32, "в палитре ровно 32 цвета")
+	for path: String in _pngs("res://assets/sprites/"):
+		# ui_atlas.png собирается не из арта, а из токенов темы
+		# (tools/gen_ui_atlas.gd): скин интерфейса живёт в своих 16 цветах, и
+		# палитра мира на него не распространяется.
+		if path.get_file() in SKIN_FILES:
+			continue
+		var tex: Texture2D = load(path) as Texture2D
+		if tex == null:
+			continue
+		var img: Image = tex.get_image()
+		var outside: int = 0
+		var semi: int = 0
+		for y: int in img.get_height():
+			for x: int in img.get_width():
+				var c: Color = img.get_pixel(x, y)
+				if c.a < 0.004:
+					continue
+				if c.a < 0.996:
+					semi += 1
+					continue
+				if not pal.has(Color(c.r, c.g, c.b, 1.0).to_rgba32()):
+					outside += 1
+		t.check_eq(outside, 0, "%s: цвета вне палитры" % path.get_file())
+		t.check_eq(semi, 0, "%s: полупрозрачные пиксели" % path.get_file())
+
+static func _pngs(dir_path: String) -> Array[String]:
+	var out: Array[String] = []
+	var dir: DirAccess = DirAccess.open(dir_path)
+	if dir == null:
+		return out
+	dir.list_dir_begin()
+	var name: String = dir.get_next()
+	while name != "":
+		if dir.current_is_dir():
+			out.append_array(_pngs(dir_path.path_join(name) + "/"))
+		elif name.ends_with(".png"):
+			out.append(dir_path.path_join(name))
+		name = dir.get_next()
+	dir.list_dir_end()
+	out.sort()
+	return out

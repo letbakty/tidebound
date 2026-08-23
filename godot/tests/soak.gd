@@ -37,7 +37,8 @@ func _initialize() -> void:
 		quit(2)
 		return
 
-	var rows: Array[String] = ["seed,cycles,end,score,raw,alive,deaths,drowned,relics,ticks,ms"]
+	var rows: Array[String] = ["seed,cycles,end,score,raw,alive,deaths,drowned," \
+		+ "relics,built,lost,storms,deepest,produced,ticks,ms"]
 	var failures: int = 0
 	var before: Dictionary = _memory_snapshot()
 	var total_ms: int = 0
@@ -50,10 +51,12 @@ func _initialize() -> void:
 		total_ms += ms
 		if not bool(row["ok"]):
 			failures += 1
-		rows.append("%d,%d,%s,%d,%d,%d,%d,%d,%d,%d,%d" % [seed_value,
+		rows.append("%d,%d,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d" % [seed_value,
 			int(row["cycles"]), str(row["end"]), int(row["score"]), int(row["raw"]),
 			int(row["alive"]), int(row["deaths"]), int(row["drowned"]),
-			int(row["relics"]), int(row["ticks"]), ms])
+			int(row["relics"]), int(row["built"]), int(row["lost"]),
+			int(row["storms"]), int(row["deepest"]), int(row["produced"]),
+			int(row["ticks"]), ms])
 		print("  сид %d: %s, циклов %d, очков %d, выжило %d, погибло %d (%d мс)" % [
 			seed_value, str(row["end"]), int(row["cycles"]), int(row["score"]),
 			int(row["alive"]), int(row["deaths"]), ms])
@@ -76,15 +79,12 @@ func _run_one(seed_value: int, cliff: CliffDef) -> Dictionary:
 	w.new_run(seed_value, cliff)
 	w.events_out.clear()
 	var ticks: int = 0
-	var drowned: int = 0
 	var report: Dictionary = {}
 	while ticks < MAX_TICKS:
 		w.tick()
 		ticks += 1
 		for e: SimEvent in w.events_out:
-			if e.type == "agent_died" and str(e.data.get("cause", "")) == "drown":
-				drowned += 1
-			elif e.type == "run_ended":
+			if e.type == "run_ended":
 				report = e.data["report"] as Dictionary
 		w.events_out.clear()
 		if not report.is_empty():
@@ -92,18 +92,34 @@ func _run_one(seed_value: int, cliff: CliffDef) -> Dictionary:
 	var ok: bool = not report.is_empty()
 	if not ok:
 		push_error("soak: забег %d не завершился за %d тиков" % [seed_value, MAX_TICKS])
+	# Все числа — ИЗ ОТЧЁТА (REL-09), а не пересчитанные тут по событиям:
+	# второй источник тех же величин расходится с первым молча, и CSV начинает
+	# врать ровно там, где по нему правят баланс.
 	return {
 		"ok": ok,
 		"cycles": int(report.get("cycles", w.clock.cycle)),
 		"end": _end_name(int(report.get("end", -1))),
 		"score": int(report.get("score", 0)),
 		"raw": int(report.get("raw_score", 0)),
-		"alive": w.agents.alive_count(),
-		"deaths": (report.get("deaths", []) as Array).size(),
-		"drowned": drowned,
+		"alive": int(report.get("alive", 0)),
+		"deaths": int(report.get("dead", 0)),
+		"drowned": int(report.get("drowned", 0)),
 		"relics": int(report.get("relics", 0)),
+		"built": int(report.get("buildings_built", 0)),
+		"lost": int(report.get("buildings_lost", 0)),
+		"storms": int(report.get("storms_survived", 0)),
+		"deepest": int(report.get("deepest_mark", Balance.TOP_MARK)),
+		"produced": _sum(report.get("produced", {}) as Dictionary),
 		"ticks": ticks,
 	}
+
+## Произведено всего, одним числом: CSV читают глазами и грузят в таблицу,
+## и разбивка по предметам туда не влезает.
+static func _sum(d: Dictionary) -> int:
+	var n: int = 0
+	for k: Variant in d:
+		n += int(d[k])
+	return n
 
 static func _end_name(kind: int) -> String:
 	match kind:

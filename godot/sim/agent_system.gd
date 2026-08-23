@@ -182,9 +182,17 @@ func _check_drowning(a: SimAgent, w: SimWorld) -> bool:
 	# Резервацию рвём ДО смены состояния: тонущий работу не доделает, а задача
 	# с мёртвым владельцем висит в пуле до конца забега (C1.1).
 	w.jobs.release(a)
+	var was_drowning: bool = a.state == SimTypes.AgentState.DROWNING
 	_set_state(a, SimTypes.AgentState.DROWNING, w)
+	# ⚠️ Цель переставляем НА ВХОДЕ в утопление. Без этого `_do_return` ниже
+	# видит уже заполненный goto_platform (рабочая точка, то есть НИЖНЯЯ) и
+	# честно ведёт агента туда: трасса показывала спуск с отметки 1.5 до 0
+	# за все пять секунд запаса. «Продолжает выбираться наверх» было
+	# комментарием, а не поведением (balance.md, итерация 0).
+	if not was_drowning:
+		_set_return_target(a, w)
 	if a.submerged_ticks >= _drown_limit(a, w):
-		_kill(a, "drown", w)
+		_kill(a, RunState.CAUSE_DROWN, w)
 		return true
 	# Тонущий не стоит на месте: продолжает выбираться наверх.
 	_do_return(a, w)
