@@ -18,8 +18,8 @@ Columns: 8
  51  86  92	kelp_shadow
  70  76  84	metal
  22  38  46	silt_dark
- 61  98 112	water_shallow
  30  52  61	silt
+ 61  98 112	water_shallow
  26  58  74	water_cold
  14  26  32	abyss
  61 107  84	weed_dark
@@ -27,10 +27,10 @@ Columns: 8
 122 168  94	weed
  88  68  52	wood_dark
 150  88  54	rust_warm
-212  85  58	fire
 166 142 106	sand_shadow
-201 161  94	sand
+212  85  58	fire
 120  96  72	wood
+201 161  94	sand
 138 116  66	brass_dark
 232 168  90	ember
 232 193 112	sand_lit

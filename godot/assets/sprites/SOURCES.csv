@@ -3,16 +3,113 @@
 # интеграции ассета в игру, а не «потом перед релизом»: восстанавливать это
 # за неделю до отправки — ад (research/29 §6.2).
 #
-# slot   — куда встал ассет (слот атласа / имя ноды / def_id)
+# slot   — куда встал ассет (слот атласа / ряд листа / def_id)
 # source — исходный файл в art-rd/processed (только *_pick, §0 промпта)
 # tool   — чем сгенерировано
-# style  — пресет модели
+# style  — пресет модели; точный промпт и сид — в artgen/index.html
 # date   — дата интеграции в игру (не генерации)
+#
+# ⚠️ Ни один PNG в assets/sprites не кладётся руками: всё собирают
+# tools/gen_tiles.gd, gen_agent.gd, gen_creature.gd, gen_building_art.gd,
+# gen_item_icons.gd и gen_decor.gd. Правка «на месте» переживёт ровно до
+# следующего прогона сборщика.
+#
+# СЧЁТ: отобранных файлов 135 (108 из генерации + 27 дописаны суффиксом _pick
+# этим проходом: анимации агента и существа, иконки построек, помост).
+# В игре стоят 79. Остальные 56 — ВАРИАНТЫ того же ассета (другой тайл того же
+# семейства, вторая серия иконок, другая версия постройки): «108 файлов» это
+# 108 кандидатов на ~53 позиции, а не 108 позиций.
+#
+# НЕ ВЗЯТО в игру и почему:
+#   amb_gull_v1_0{1;2;4}  — генерация не дала силуэта: 62 из 64 пикселей это
+#                           фон; чайку надо перегенерировать
+#   tile_trans_v3_01      — лист переходов между семействами; ему нужны
+#                           alternative-тайлы в data/tilesets (владелец data/)
+#   tile_mud_v1_0*        — семейство без слота: слотов в атласе шесть, и все
+#                           заняты (контракт с data/tilesets/placeholder.tres)
+#   icon_*_v1_02          — вторая серия иконок, запас
+#   agent_design_v1_0*    — варианты внешности агента: пригодятся, когда
+#                           колонисты станут различаться (backlog)
 file,slot,source,tool,style,date,note
 assets/sprites/placeholder_tiles.png,0 cliff,tile_dry_v1_04_pick.png,Retro Diffusion (MCP rd_generate),rd_tile__single_tile,2026-08-22,сухой камень верхних ярусов; отобран из четырёх по шву и спокойствию при ×3
-assets/sprites/placeholder_tiles.png,1 sand,,программная заглушка,tools/gen_tiles.gd,2026-08-22,ждёт tile_mud/tile_wet
-assets/sprites/placeholder_tiles.png,2 ruins,,программная заглушка,tools/gen_tiles.gd,2026-08-22,ждёт tile_ruin
-assets/sprites/placeholder_tiles.png,3 ladder,,программная заглушка,tools/gen_tiles.gd,2026-08-22,ждёт bld_ladder_wood
-assets/sprites/placeholder_tiles.png,4 back,,программная заглушка,tools/gen_tiles.gd,2026-08-22,задняя стенка ниши; отдельного арта нет
-assets/sprites/placeholder_tiles.png,5 water_edge,,программная заглушка,tools/gen_tiles.gd,2026-08-22,ждёт tile_edge
-art/tidebound.gpl,палитра,108 файлов *_pick,tools/gen_palette.gd,,2026-08-22,32 цвета собраны ИЗ арта; источник правды по цвету
+assets/sprites/placeholder_tiles.png,1 sand,tile_wet_v1_04_pick.png,Retro Diffusion (MCP rd_generate),rd_tile__single_tile,2026-08-22,мокрый камень ниже линии прилива; слот назван sand со времён заглушек
+assets/sprites/placeholder_tiles.png,2 ruins,tile_ruin_v1_04_pick.png,Retro Diffusion (MCP rd_generate),rd_tile__single_tile,2026-08-22,руины затонувшего города; выбран за наименее заметный повтор на большой стене
+assets/sprites/placeholder_tiles.png,3 ladder,bld_ladder_wood_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,полоса с одной перекладиной; повторена с шагом 16 (tools/gen_tiles.gd)
+assets/sprites/placeholder_tiles.png,4 back,tile_dry_v1_04_pick.png,Retro Diffusion (MCP rd_generate),rd_tile__single_tile,2026-08-22,задняя стенка ниши: тот же камень; затемнён к палитре ×0.42
+assets/sprites/placeholder_tiles.png,5 water_edge,tile_edge_v2_02_pick.png,Retro Diffusion (MCP rd_generate),rd_tile__single_tile,2026-08-22,слот заполнен; в мире его пока никто не рисует (нужны альтернативы в data/)
+assets/sprites/agent.png,0 idle,agent_design_v3_03_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,кромка 1 px из палитры добавлена сборщиком: без неё силуэт пропадает на охряном камне
+assets/sprites/agent.png,1 walk,agent_walk_v2_01_pick.png,Retro Diffusion (MCP rd_generate),rd_animation__four_angle_walking,2026-08-22,кромка 1 px из палитры добавлена сборщиком: без неё силуэт пропадает на охряном камне
+assets/sprites/agent.png,2 carry,agent_carry_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_advanced_animation__custom_action,2026-08-22,кромка 1 px из палитры добавлена сборщиком: без неё силуэт пропадает на охряном камне
+assets/sprites/agent.png,3 work,agent_work_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_advanced_animation__custom_action,2026-08-22,кромка 1 px из палитры добавлена сборщиком: без неё силуэт пропадает на охряном камне
+assets/sprites/agent.png,4 drown,agent_drown_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_advanced_animation__custom_action,2026-08-22,кромка 1 px из палитры добавлена сборщиком: без неё силуэт пропадает на охряном камне
+assets/sprites/agent.png,5 panic,agent_panic_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_advanced_animation__custom_action,2026-08-22,кромка 1 px из палитры добавлена сборщиком: без неё силуэт пропадает на охряном камне
+assets/sprites/agent_dead.png,—,agent_dead_v1_03_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,лежащее тело 24×16; отдельный файл: в клетку листа не влезает
+assets/sprites/creature.png,0 idle,creature_design_v2_03_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,
+assets/sprites/creature.png,1 move,creature_move_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_advanced_animation__custom_action,2026-08-22,
+assets/sprites/creature.png,2 gnaw,creature_gnaw_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_advanced_animation__custom_action,2026-08-22,
+assets/sprites/creature.png,3 swim,creature_swim_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_animation__small_sprites,2026-08-22,плавание пришло сеткой 32×32: взяты первые 8 кадров; вписаны в 32×24
+assets/sprites/buildings/bunk.png,—,bld_bunk_v1_02_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/bunk.tres
+assets/sprites/buildings/condenser.png,—,bld_condenser_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/condenser.tres
+assets/sprites/buildings/dryer.png,—,bld_dryer_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/dryer.tres
+assets/sprites/buildings/evaporator.png,—,bld_evaporator_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/evaporator.tres
+assets/sprites/buildings/forge.png,—,bld_forge_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/forge.tres
+assets/sprites/buildings/hearth.png,—,bld_hearth_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/hearth.tres
+assets/sprites/buildings/ladder_steel.png,—,bld_ladder_steel_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/ladder_steel.tres
+assets/sprites/buildings/ladder_wood.png,—,bld_ladder_wood_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/ladder_wood.tres
+assets/sprites/buildings/lantern.png,—,bld_lantern_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/lantern.tres
+assets/sprites/buildings/platform.png,—,bld_platform_v2_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/platform.tres
+assets/sprites/buildings/raincatcher.png,—,bld_raincatcher_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/raincatcher.tres
+assets/sprites/buildings/ropery.png,—,bld_ropery_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/ropery.tres
+assets/sprites/buildings/saltery.png,—,bld_saltery_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/saltery.tres
+assets/sprites/buildings/sluice.png,—,bld_sluice_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/sluice.tres
+assets/sprites/buildings/storage.png,—,bld_storage_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/storage.tres
+assets/sprites/buildings/winch.png,—,bld_winch_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/winch.tres
+assets/sprites/buildings/workbench.png,—,bld_workbench_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,размер сверен с data/buildings/workbench.tres
+assets/sprites/building_icons.png,0 bunk,iconb_bunk_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,1 condenser,iconb_condenser_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,2 dryer,iconb_dryer_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,3 evaporator,iconb_evaporator_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,4 forge,iconb_forge_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,5 hearth,iconb_hearth_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,6 ladder_steel,iconb_ladder_steel_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,7 ladder_wood,iconb_ladder_wood_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,8 lantern,iconb_lantern_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,9 platform,iconb_platform_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,10 raincatcher,iconb_raincatcher_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,11 ropery,iconb_ropery_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,12 saltery,iconb_saltery_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,13 sluice,iconb_sluice_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,14 storage,iconb_storage_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,15 winch,iconb_winch_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/building_icons.png,16 workbench,iconb_workbench_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,вписана в 24×24 прозрачным полем; пропорции постройки сохранены
+assets/sprites/item_icons.png,0 catch,icon_catch_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_mini__skill_icon,2026-08-22,вторая серия v1_02 осталась запасной: набор должен выглядеть одной рукой
+assets/sprites/item_icons.png,1 driftwood,icon_driftwood_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_mini__skill_icon,2026-08-22,вторая серия v1_02 осталась запасной: набор должен выглядеть одной рукой
+assets/sprites/item_icons.png,2 fiber,icon_fiber_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_mini__skill_icon,2026-08-22,вторая серия v1_02 осталась запасной: набор должен выглядеть одной рукой
+assets/sprites/item_icons.png,3 freshwater,icon_freshwater_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_mini__skill_icon,2026-08-22,вторая серия v1_02 осталась запасной: набор должен выглядеть одной рукой
+assets/sprites/item_icons.png,4 gear,icon_gear_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_mini__skill_icon,2026-08-22,вторая серия v1_02 осталась запасной: набор должен выглядеть одной рукой
+assets/sprites/item_icons.png,5 ingot,icon_ingot_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_mini__skill_icon,2026-08-22,вторая серия v1_02 осталась запасной: набор должен выглядеть одной рукой
+assets/sprites/item_icons.png,6 kelp,icon_kelp_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_mini__skill_icon,2026-08-22,вторая серия v1_02 осталась запасной: набор должен выглядеть одной рукой
+assets/sprites/item_icons.png,7 part,icon_part_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_mini__skill_icon,2026-08-22,вторая серия v1_02 осталась запасной: набор должен выглядеть одной рукой
+assets/sprites/item_icons.png,8 rations,icon_rations_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_mini__skill_icon,2026-08-22,вторая серия v1_02 осталась запасной: набор должен выглядеть одной рукой
+assets/sprites/item_icons.png,9 relic,icon_relic_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_mini__skill_icon,2026-08-22,вторая серия v1_02 осталась запасной: набор должен выглядеть одной рукой
+assets/sprites/item_icons.png,10 rope,icon_rope_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_mini__skill_icon,2026-08-22,вторая серия v1_02 осталась запасной: набор должен выглядеть одной рукой
+assets/sprites/item_icons.png,11 salt,icon_salt_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_mini__skill_icon,2026-08-22,вторая серия v1_02 осталась запасной: набор должен выглядеть одной рукой
+assets/sprites/item_icons.png,12 scrap,icon_scrap_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_mini__skill_icon,2026-08-22,вторая серия v1_02 осталась запасной: набор должен выглядеть одной рукой
+assets/sprites/parallax_far.png,—,par_shore_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_plus__environment,2026-08-22,продлён вниз ровным цветом нижней строки до 1280 px: под горизонтом иначе пустота
+assets/sprites/parallax_clouds.png,—,par_clouds_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_plus__environment,2026-08-22,
+assets/sprites/parallax_mist.png,—,amb_fog_v1_02_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__texture,2026-08-22,фон deep_ink выбит в прозрачность: слой шёл непрозрачным холстом
+assets/sprites/menu_bg.png,—,menu_bg_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_plus__environment,2026-08-22,масштабируется только целым числом с обрезкой по краям
+assets/sprites/beacon.png,—,beacon_v1_02_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,
+assets/sprites/fx_splash.png,—,fx_splash_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_animation__vfx,2026-08-22,9 кадров 32×32; всплеск на приход воды на ярус
+assets/sprites/fx_ripple.png,—,fx_ripple_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_animation__vfx,2026-08-22,16 кадров 32×32; рябь кромки
+assets/sprites/portraits.png,0,amb_portraits_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,портрет закреплён за агентом его номером
+assets/sprites/portraits.png,1,amb_portraits_v1_02_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,портрет закреплён за агентом его номером
+assets/sprites/portraits.png,2,amb_portraits_v1_03_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,портрет закреплён за агентом его номером
+assets/sprites/portraits.png,3,amb_portraits_v1_04_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,портрет закреплён за агентом его номером
+assets/sprites/portraits.png,4,amb_portraits_v1_05_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,портрет закреплён за агентом его номером
+assets/sprites/portraits.png,5,amb_portraits_v1_06_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,портрет закреплён за агентом его номером
+assets/sprites/portraits.png,6,amb_portraits_v1_07_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,портрет закреплён за агентом его номером
+assets/sprites/portraits.png,7,amb_portraits_v1_08_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,портрет закреплён за агентом его номером
+assets/sprites/buoys.png,0,amb_buoy_v1_01_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,v1_03 не взят: приехал с непрозрачной подложкой
+assets/sprites/buoys.png,1,amb_buoy_v1_04_pick.png,Retro Diffusion (MCP rd_generate),rd_fast__low_res,2026-08-22,v1_03 не взят: приехал с непрозрачной подложкой
+art/tidebound.gpl,палитра,135 файлов *_pick,tools/gen_palette.gd,,2026-08-22,32 цвета собраны ИЗ арта; источник правды по цвету
