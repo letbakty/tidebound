@@ -91,8 +91,10 @@ static func test_surrender(t: TestCtx) -> void:
 	w.apply_command({"kind": "surrender"})
 	w.tick()
 	t.check(w.run_state.finished, "сдача заканчивает забег немедленно")
-	t.check_eq(int(w.run_state.end_kind), int(SimTypes.RunEnd.WIPE),
-		"и засчитывается как гибель")
+	# Свой исход, а не WIPE: игрок ушёл с шестью живыми, и звать это гибелью
+	# нельзя (docs/00 §11.2, исход 4). Множитель при этом тот же, что у гибели.
+	t.check_eq(int(w.run_state.end_kind), int(SimTypes.RunEnd.SURRENDER),
+		"и засчитывается отдельным исходом «забег брошен»")
 
 # --- Досрочный уход -------------------------------------------------------
 

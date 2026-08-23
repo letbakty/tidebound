@@ -854,8 +854,14 @@ func _apply_mood_aura() -> void:
 
 ## Пополнение колонии: шанс 25% при среднем Духе > 60, не чаще раза в 2 цикла
 ## и не выше лимита (docs/00 §6.1). Возвращает id новичка или −1.
+##
+## ⚠️ Новичок не приходит на КРАЮ (NEWCOMER_MIN_ALIVE): приток людей помогает
+## растущей колонии и не воскрешает умирающую. Без этого условия механика
+## работала тем сильнее, чем хуже дела, и делала поражение недостижимым —
+## 0 вайпов на 100 забегов (docs/balance.md, итерация 1).
 func _try_newcomer(w: SimWorld) -> int:
-	if alive_count() == 0 or alive_count() >= Balance.MAX_AGENTS:
+	if alive_count() < Balance.NEWCOMER_MIN_ALIVE \
+			or alive_count() >= Balance.MAX_AGENTS:
 		return -1
 	if w.clock.cycle - _last_newcomer_cycle < Balance.NEWCOMER_COOLDOWN_CYCLES:
 		return -1

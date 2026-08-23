@@ -151,6 +151,10 @@ func _spawn_panels() -> void:
 
 	hud.agent_card_requested.connect(func(id: int) -> void:
 		panels.open(PANEL_AGENT, {"id": id}))
+	# Кнопка «Политики» из верхней строки — тот же тумблер, что клавиша P
+	# и свайп от правого края.
+	hud.policies_requested.connect(func() -> void:
+		panels.open(PANEL_POLICIES))
 
 ## Экраны живут на своём слое и переключаются видимостью (research/22 §1).
 func _spawn_screens() -> void:
@@ -224,9 +228,21 @@ func _spawn_screens() -> void:
 	hints = HintCard.new()
 	hints.name = "HintCard"
 	attach_ui(hud_layer, hints)
+	# Карточка-урок — под верхней строкой, ровно как банер кризиса: наверху
+	# она накрывает чипы колонистов и кнопку политик, на которую сама же
+	# и показывает в первом уроке.
+	hud.top_bar.resized.connect(_place_hint_card)
+	_place_hint_card()
 	var save_mark: SaveIndicator = SaveIndicator.new()
 	save_mark.name = "SaveIndicator"
 	attach_ui(hud_layer, save_mark)
+
+## Верхняя кромка карточки-урока в координатах слоя HUD.
+func _place_hint_card() -> void:
+	if hints == null or hud == null or hud.top_bar == null:
+		return
+	hints.set_top_offset(hud.top_bar.global_position.y - hud.global_position.y
+		+ hud.top_bar.size.y + float(UITokens.SPACE_3))
 
 func _spawn_modals() -> void:
 	var draft: DraftPanel = DraftPanel.new()

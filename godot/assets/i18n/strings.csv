@@ -220,6 +220,7 @@ TOAST_SPOILED,Испортилось: {n},Spoiled: {n}
 TOAST_SHIP,Судно у берега,The ship is here
 TOAST_RECALL,Отзыв объявлен,Recall issued
 TOAST_RECALL_HARD,Жёсткий отзыв: груз брошен,Hard recall: cargo dropped
+TOAST_COLONY_EDGE,"Колония на грани: осталось {n} человека. Ещё одна смерть — и забег кончится на границе цикла","The colony is on the edge: {n} people left. One more death and the run ends at the cycle boundary"
 CAUSE_DROWN,утонул,drowned
 CAUSE_STORM,шторм,storm
 CAUSE_UNKNOWN,неизвестно,unknown
@@ -351,9 +352,13 @@ SUMMARY_SEED_TIP,Тап копирует сид,Tap to copy the seed
 RUN_END_SHIP,Судно пришло,The ship has come
 RUN_END_WIPE,Колония погибла,The colony is gone
 RUN_END_EARLY,Ушли досрочно,Left early
+RUN_END_SURRENDER,Забег брошен,Run abandoned
 RUN_CYCLES,Прожито циклов: {n} из {total},Cycles lived: {n} of {total}
 RUN_TOTAL,Итого {n},Total {n}
 RUN_GAIN,"В Журнал ушло {n} очков. Всего накоплено {points}; по карману разблокировок: {next}","{n} points went to the Journal. {points} saved in total; unlocks you can afford: {next}"
+RUN_NEXT_NOW,"«{name}» уже по карману — {cost} очков","You can already afford {name} — {cost} points"
+RUN_NEXT_LEFT,"До «{name}» осталось {n} очков","{n} points to go until {name}"
+RUN_NEXT_ALL,Все разблокировки открыты,Every unlock is open
 RUN_SURVIVORS,Выжившие,Survivors
 RUN_FALLEN,Павшие,The fallen
 RUN_NOBODY,Никого,No one
@@ -363,13 +368,13 @@ RUN_TO_JOURNAL,В Журнал,To the Journal
 SCORE_CARGO,Груз на сухих складах,Cargo in dry storages
 SCORE_SURVIVORS,Выжившие,Survivors
 SCORE_RELICS,Реликвии,Relics
-SCORE_PENALTY,Штраф за досрочный уход,Early departure penalty
+SCORE_PENALTY,Штраф за исход забега,Outcome penalty
 PAUSE_TITLE,Пауза,Paused
 PAUSE_RESUME,Продолжить,Resume
 PAUSE_LEAVE_EARLY,Уйти досрочно (−25% очков),Leave early (−25% score)
 PAUSE_LEAVE_EARLY_CONFIRM,"Судно придёт на следующий цикл, очки уменьшатся на четверть","The ship comes next cycle; the score drops by a quarter"
-PAUSE_SURRENDER,Сдаться (забег засчитан как погибший),Give up (the run counts as lost)
-PAUSE_SURRENDER_CONFIRM,"Забег закончится сейчас и будет засчитан как погибший","The run ends now and counts as a wipe"
+PAUSE_SURRENDER,Бросить забег (30% очков),Abandon the run (30% score)
+PAUSE_SURRENDER_CONFIRM,"Забег закончится сейчас. В Журнал уйдёт 30% набранного — как при гибели колонии","The run ends now. 30% of the score goes to the Journal — the same as a wipe"
 PAUSE_TO_MENU,В главное меню,To the main menu
 PAUSE_TO_MENU_TIP,Забег сохранится автоматически,The run is saved automatically
 SAVE_DONE,Сохранено,Saved
@@ -464,6 +469,9 @@ SET_SCREEN_READER,Озвучка меню,Menu narration
 SET_SCREEN_READER_HINT,Читает названия элементов экранным диктором,Reads element names with the screen reader
 HINT_TITLE,Урок,Lesson
 HINT_OK,Понятно,Got it
+HINT_POLICIES,"Приказов нет. Ты задаёшь шесть политик — люди делают остальное. Кнопка «Политики» в строке сверху, клавиша P","There are no orders. You set six policies — people do the rest. The Policies button is in the top row, key P"
+HINT_SIGNAL,"Колокол: вода пошла вверх. «Отзыв» справа внизу возвращает людей наверх — по нему они бросают дела и лезут по лестницам","The bell: the water is rising. Recall, bottom right, brings people up — they drop everything and climb"
+HINT_HEIGHT,"Высота — это безопасность. Шкала слева показывает, где сейчас вода и когда она придёт: всё ниже уреза затопит","Height is safety. The gauge on the left shows where the water is and when it comes: everything below the line floods"
 HINT_STORM,"Шторм бьёт по всему, что ниже отметки +3. Успейте увести людей и починить постройки после","The storm hits everything below mark +3. Get people up in time and repair afterwards"
 HINT_VISIT,"Существа поднимаются со дна и грызут постройки. Фонарь отпугивает их","Creatures climb from the deep and gnaw at buildings. A lantern wards them off"
 HINT_SPRING,"В сизигию высокая вода поднимется на два яруса выше обычного — склады внизу зальёт","At a spring tide the high water rises two tiers above normal — the lower storages flood"

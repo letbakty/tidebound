@@ -183,9 +183,11 @@ func leave_early(w: SimWorld) -> bool:
 	ship_cycle = mini(w.clock.cycle + 1, Balance.CYCLES_PER_RUN)
 	return true
 
-## Немедленная сдача по решению игрока.
+## Немедленная сдача по решению игрока. Отдельный исход, а не WIPE: игрок,
+## вышедший из паузы с шестью живыми, не должен читать «Колония погибла»
+## (docs/00 §11.2, исход 4). Множитель тот же, что у гибели.
 func surrender(w: SimWorld) -> void:
-	_finish(SimTypes.RunEnd.WIPE, w)
+	_finish(SimTypes.RunEnd.SURRENDER, w)
 
 ## Эпитафия по docs/03 §3.5: имя, ЧЕРТЫ, ЦИКЛ и причина гибели. Черты и цикл
 ## заводятся здесь, а не в UI: после забега агента уже нет, а профиль без этих
@@ -254,7 +256,9 @@ func _crises_count(type: int) -> int:
 			n += 1
 	return n
 
-## Проверяется каждый тик: вайп немедленный, судно — на пике Высокой воды.
+## Проверяется каждый тик: пустая колония — немедленно, судно — на пике
+## Высокой воды. ПОРОГ живых сюда не входит: он считается только на границе
+## цикла (см. on_phase_ended).
 ##
 ## ⚠️ Зовётся из SimWorld.tick ПОСЛЕ tide.update — иначе снимок очков считался
 ## бы по уровню прошлого тика. Это и есть контракт «момента» из docs/02 §4.1.
@@ -262,6 +266,8 @@ func tick(w: SimWorld) -> void:
 	if finished:
 		return
 	_note_marks(w)
+	# Ноль живых — ждать границы нечего: восстановиться колонии уже нечем,
+	# и оставшиеся минуты цикла игрок смотрел бы на пустой утёс.
 	if w.agents.alive_count() == 0:
 		_finish(SimTypes.RunEnd.WIPE, w)
 		return
@@ -277,9 +283,16 @@ func on_phase_ended(phase: int, w: SimWorld) -> void:
 		# Страховка на случай, когда пик не наблюдался ни на одном тике
 		# (фаза короче окна подъёма): забег обязан закончиться.
 		_arrive(w)
-	if not ship_arrived:
+	if ship_arrived:
+		_finish(SimTypes.RunEnd.SHIP, w)
 		return
-	_finish(SimTypes.RunEnd.SHIP, w)
+	# Порог колонии — ПОСЛЕ судна: доплывший забег засчитывается судном, даже
+	# если до берега дошёл один человек. И только на границе цикла: смерть
+	# посреди Высокой воды не обязана обрывать цикл, а новичок приходит именно
+	# здесь, в agents.on_cycle_ended, то есть раньше этой проверки (docs/00
+	# §11.2, исход 2).
+	if w.agents.alive_count() < Balance.WIPE_THRESHOLD:
+		_finish(SimTypes.RunEnd.WIPE, w)
 
 ## Прибытие судна: снимок очков по ТЕКУЩЕМУ уровню воды. Идемпотентно.
 ## Момент выбирает вызывающий — см. docs/02 §4.1.
@@ -337,7 +350,7 @@ func _final_report(w: SimWorld) -> Dictionary:
 	for k: String in keys:
 		raw += int(breakdown[k])
 	var mult: float = 1.0
-	if end_kind == SimTypes.RunEnd.WIPE:
+	if end_kind == SimTypes.RunEnd.WIPE or end_kind == SimTypes.RunEnd.SURRENDER:
 		mult = Balance.SCORE_MULT_WIPE
 	elif leaving_early:
 		mult = Balance.SCORE_MULT_EARLY

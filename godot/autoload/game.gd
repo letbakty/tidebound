@@ -562,6 +562,44 @@ func query_unlocked_buildings() -> Array[String]:
 			out.append(bid)
 	return out
 
+## Можно ли заложить постройку ПРЯМО СЕЙЧАС: материалы на складах лежат и
+## хотя бы одна клетка утёса её примет. По этому признаку радиал стройки
+## делит список на две страницы — иначе первым слотом на первом забеге стоит
+## койка, а игрок ещё ни разу ничего не строил (docs/03 §6).
+##
+## Обход всего утёса стоит пары тысяч проверок, и это нормально: зовётся один
+## раз на открытие радиала, а не в кадре.
+func query_can_build_now(def_id: String) -> bool:
+	if world == null:
+		return false
+	var d: BuildingDef = DB.building(def_id)
+	if d == null or not d.buildable:
+		return false
+	var have: Dictionary[String, int] = world.storage.totals()
+	for k: String in d.cost:
+		if int(have.get(k, 0)) < int(d.cost[k]):
+			return false
+	return _has_build_spot(def_id, d)
+
+## Есть ли на утёсе клетка, куда постройка встаёт по всем правилам.
+##
+## ⚠️ Нижний ряд постройки лежит на клетку ВЫШЕ пола яруса: опора проверяется
+## под ним, и y = пол яруса вернул бы ERR_NO_SUPPORT на всей карте. Лестница
+## живёт не на сетке, а на ребре графа — у неё своя проверка.
+func _has_build_spot(def_id: String, d: BuildingDef) -> bool:
+	for mark: int in range(Balance.TOP_MARK, Balance.BOTTOM_MARK - 1, -1):
+		var pidx: int = world.terrain.platform_of_mark(mark)
+		if pidx < 0:
+			continue
+		var pl: Dictionary = world.terrain.platforms[pidx]
+		var y: int = Balance.mark_to_floor_cell_y(mark)
+		if d.special != "ladder":
+			y -= d.size.y
+		for x: int in range(int(pl["x0"]), int(pl["x1"]) + 1):
+			if world.buildings.place_error(def_id, Vector2i(x, y), world).is_empty():
+				return true
+	return false
+
 ## Ближайшие склады, где лежит нужный материал — для линий призрака стройки
 ## (паттерн Against the Storm).
 func query_material_sources(def_id: String) -> Array[Vector2i]:

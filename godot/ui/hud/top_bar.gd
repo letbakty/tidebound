@@ -5,6 +5,9 @@ extends PanelContainer
 
 signal agent_focus_requested(agent_id: int)
 signal agent_card_requested(agent_id: int)
+## Кнопка «Политики». Панелями владеет Main, HUD о PanelHost не знает —
+## поэтому наружу уходит сигнал, а не вызов (docs/02 §3.3).
+signal policies_requested()
 
 ## Четыре ресурса первой линии (docs/01 §2). driftwood считаем СУХОЙ:
 ## мокрое полено в очаг не пойдёт, и показывать его как топливо — обман.
@@ -54,6 +57,18 @@ func _build() -> void:
 		b.pressed.connect(func() -> void: Game.cmd_set_speed(mult))
 		row.add_child(b)
 		_speed_buttons[m] = b
+
+	# ⚠️ Единственный постоянный рычаг игры (шесть политик) до этого открывался
+	# только клавишей P и свайпом от правого края — на экране входа не было
+	# вовсе. Игрок, не нашедший панель, смотрит на скринсейвер. Кнопка стоит
+	# ЗДЕСЬ, среди постоянных команд, а не в правом низу: там мёртвая зона
+	# «Отзыва» (docs/01 §2). Подпись словом, не иконкой.
+	var policies: PixelButton = PixelButton.new()
+	policies.name = "Policies"
+	policies.setup("PANEL_POLICIES", PixelButton.Variant.GHOST)
+	policies.tooltip_text = "POLICY_HINT"
+	policies.pressed.connect(func() -> void: policies_requested.emit())
+	row.add_child(policies)
 
 	_cycle_label = Label.new()
 	_cycle_label.name = "Cycle"

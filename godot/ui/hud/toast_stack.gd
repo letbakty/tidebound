@@ -72,6 +72,22 @@ func push(type: String, text: String, tone: Toast.Tone, cell: Vector2i,
 		_box.remove_child(oldest)
 		oldest.queue_free()
 
+## Снять тост этого типа со стека, если он ещё висит. Нужен персистентным
+## тостам (life = 0): их некому убрать по таймеру, а повод показывать может
+## исчезнуть — «колония на грани» гаснет с приходом человека (docs/01 §2).
+func dismiss(type: String) -> void:
+	var group: Dictionary = _active.get(type, {})
+	if group.is_empty():
+		return
+	var node: Node = group["node"] as Node
+	_active.erase(type)
+	if not is_instance_valid(node):
+		return
+	# ⚠️ remove_child ДО queue_free — по той же причине, что и в push().
+	if node.get_parent() == _box:
+		_box.remove_child(node)
+	node.queue_free()
+
 ## Вытесненный тост нельзя оставлять в группировке: следующий тост того же
 ## типа «догруппировался» бы к ноде, которой на экране уже нет.
 func _forget(node: Node) -> void:

@@ -64,7 +64,9 @@ func _drive() -> void:
 
 	await _step_boot()
 	await _step_menu_to_game()
+	await _step_first_lesson()
 	await _step_start_draft()
+	await _step_core_lessons()
 	await _step_toast_storm()
 	await _step_cycle_and_draft()
 	await _step_menus_freeze_world()
@@ -78,9 +80,12 @@ func _drive() -> void:
 	await _step_mouse_build()
 	await _step_mouse_radial_frees_hud()
 	await _step_mouse_agent_card()
+	await _step_policies_button()
 	await _step_input_tab()
 	if _full:
 		await _step_full_run()
+	# Последним: шаг ломает колонию насмерть и забег после него не продолжить.
+	await _step_colony_wipes()
 	_finish()
 
 ## 1.2 — чёрный экран: goto(BOOT) при current == BOOT выходил «уже там»,
@@ -118,6 +123,28 @@ func _step_menu_to_game() -> void:
 	var hud_layer: CanvasLayer = _main.get("hud_layer") as CanvasLayer
 	_check(hud_layer.visible and _hud.is_visible_in_tree(), "HUD виден в игре")
 
+## Первое, что игрок обязан узнать: приказов нет, есть шесть политик. Урок
+## показывается сам, в первые секунды первого забега профиля — до этой правки
+## ни одна из семи карточек не объясняла ядро игры (RETENTION-pass §2.2).
+##
+## Проверяется только на чистом профиле (`playtest.sh fresh`): на профиле с
+## историей карточка не должна появляться вовсе, и это тоже часть контракта.
+func _step_first_lesson() -> void:
+	_step("урок про политики на первом забеге")
+	var hints: HintCard = _main.get("hints") as HintCard
+	if not _check(hints != null, "карточка-урок собрана"):
+		return
+	var card: Control = hints.get_node_or_null(^"Card") as Control
+	if not _fresh:
+		_check(not Meta.hint_shown("first_policies") or Meta.runs_played > 0,
+			"на профиле с историей урок ядра не навязывается заново")
+		return
+	_check_eq(Meta.runs_played, 0, "профиль чистый: забегов сыграно")
+	var shown: bool = await _wait(func() -> bool:
+		return Meta.hint_shown("first_policies"))
+	_check(shown, "карточка про политики показана в первом цикле")
+	_check(card != null and card.visible, "и она на экране, а не только в профиле")
+
 ## Первый Спад отдаёт драфт ещё до того, как игрок увидел экран игры: раньше
 ## это окно молча терялось (гейт «не в GAME») и карту за игрока брал
 ## auto_pick_if_needed. Теперь оно ждёт в очереди роутера (docs/03 §2, §8).
@@ -134,6 +161,52 @@ func _step_start_draft() -> void:
 	_check(Game.pause_depth() == 0,
 		"счётчик автопаузы обнулился (сейчас %d)" % Game.pause_depth())
 	_check(Game.speed > 0, "забег пошёл (speed=%d)" % Game.speed)
+
+## Ещё два урока ядра приходят по ходу первого цикла: колокол Сигнала (когда
+## «Отзыв» впервые нужен) и первый спуск ниже нуля (когда шкала слева впервые
+## что-то значит). Проверяется факт показа в профиле, а не картинка: каждая
+## промотка заканчивается rebroadcast_state, а тот шлёт run_started и прячет
+## открытую карточку — на живой скорости этого не происходит.
+func _step_core_lessons() -> void:
+	_step("уроки ядра: колокол и высота")
+	if not _fresh:
+		_check(true, "профиль с историей — уроки ядра не показываются")
+		return
+	# До фазы Сигнала: событие идёт обычным путём, phase_changed промотка
+	# не глушит (Game.NOISY_EVENTS). По дороге ловим первого, кто ушёл
+	# под ноль, — на отливе колония внизу, а к Сигналу уже поднимается.
+	var went_deep: bool = false
+	for i: int in FF_CHUNKS_PER_CYCLE:
+		if Game.world.clock.phase == SimTypes.Phase.SIGNAL:
+			break
+		Game.debug_fast_forward(FF_CHUNK)
+		await _tree.process_frame
+		await _close_modals()
+		if not went_deep:
+			went_deep = _poke_deep_agent()
+	if not _check(Game.world.clock.phase == SimTypes.Phase.SIGNAL,
+			"дошли до фазы Сигнала (сейчас %s)"
+			% SimTypes.phase_name(int(Game.world.clock.phase))):
+		return
+	_check(Meta.hint_shown("first_signal"),
+		"на колоколе показан урок про «Отзыв»")
+	if not _check(went_deep, "кто-то из колонистов спустился ниже нуля"):
+		return
+	_check(Meta.hint_shown("first_below_zero"),
+		"на спуске ниже нуля показан урок про высоту и шкалу")
+
+## Досылает agent_updated за колониста, который в симуляции ДЕЙСТВИТЕЛЬНО
+## ниже нуля. Руками — потому что промотка глушит agent_updated как частое
+## событие (Game.NOISY_EVENTS); на живой скорости его шлёт сам Game.
+func _poke_deep_agent() -> bool:
+	for a: SimAgent in Game.world.agents.agents:
+		if not a.is_alive():
+			continue
+		if Game.world.agents.agent_mark_f(a, Game.world) >= 0.0:
+			continue
+		Events.agent_updated.emit(a.id)
+		return true
+	return false
 
 ## 1.1 — зависание на пятом тосте: queue_free не убирает ноду из дерева
 ## до конца кадра, и `while get_child_count() > MAX` крутился вечно.
@@ -354,6 +427,14 @@ func _step_panels_and_radial() -> void:
 	var menu: RadialMenu = radial.get("_radial") as RadialMenu
 	if not _check(menu != null and menu.is_open(), "радиал открылся"):
 		return
+	# Первая страница радиала — только выполнимое сейчас: на первом забеге
+	# первым слотом стояла койка, которую негде поставить (RETENTION-pass §2.3).
+	var page: Array[Dictionary] = radial.call("_slots") as Array[Dictionary]
+	var first_id: String = str(page[0].get("def_id", "")) if not page.is_empty() else ""
+	if _check(not first_id.is_empty(), "в первом слоте радиала есть постройка"):
+		_check(Game.query_can_build_now(first_id),
+			"первый слот — то, что строится прямо сейчас («%s»)" % first_id)
+
 	var slot: Vector2 = menu.call("_slot_center", 0) as Vector2
 	var move: InputEventMouseMotion = InputEventMouseMotion.new()
 	move.position = slot
@@ -747,6 +828,163 @@ func _is_world_point(at: Vector2, view: Vector2) -> bool:
 		return false
 	return at.x < view.x - float(UITokens.DEADZONE_PX) \
 		or at.y < view.y - float(UITokens.DEADZONE_PX)
+
+## Единственный постоянный рычаг игры открывался только клавишей P и свайпом
+## от правого края: на экране входа не было. Кнопка обязана быть в верхней
+## строке и нажиматься НАСТОЯЩЕЙ мышью (RETENTION-pass §2.1).
+func _step_policies_button() -> void:
+	_step("кнопка «Политики» в верхней строке")
+	if not await _ensure_plain_game():
+		return
+	var button: Control = _hud.top_bar.get_node_or_null(^"Row/Policies") as Control
+	if not _check(button != null and button.is_visible_in_tree(),
+			"кнопка политик есть в TopBar и видна"):
+		return
+	var panels: PanelHost = _main.get("panels") as PanelHost
+	await _click_at(button.get_global_rect().get_center())
+	await _tree.process_frame
+	if not _check(panels.is_open("policies"),
+			"клик мышью открыл панель политик (открыто: «%s»)" % panels.current()):
+		return
+	_check_free_recall("PolicyPanel", "policies")
+	# Тумблер: второй клик закрывает. Иначе кнопка и клавиша P ведут себя
+	# по-разному, а это один и тот же вход.
+	await _click_at(button.get_global_rect().get_center())
+	await _tree.process_frame
+	_check(not panels.is_open("policies"), "повторный клик закрыл панель")
+
+## Поражение существует. Забег, в котором живых стало меньше порога, обязан
+## закончиться Итогом забега с исходом WIPE — и именно НА ГРАНИЦЕ цикла, а не
+## в тот тик, когда упал последний человек (docs/00 §11.2).
+##
+## ⚠️ Шаг последний в прогоне: он убивает колонию и играть после него нечем.
+func _step_colony_wipes() -> void:
+	_step("колония ниже порога заканчивает забег")
+	if not await _fresh_run(777001):
+		return
+	# Ровно порог: колония на грани, но ещё жива, и об этом сказано вслух.
+	await _kill_down_to(Balance.WIPE_THRESHOLD)
+	var alive_before: int = Game.query_survivors().size()
+	_check_eq(alive_before, Balance.WIPE_THRESHOLD,
+		"в колонии остался порог живых")
+	_check(_toast_visible(Hud.TOAST_COLONY_EDGE),
+		"тост «колония на грани» висит и не гаснет сам")
+	if not await _cross_cycle_edge():
+		return
+	if Game.world.run_state.finished:
+		# Кто-то из троих не пережил цикл — это тот же порог, просто раньше.
+		_check_eq(int(Game.world.run_state.end_kind), int(SimTypes.RunEnd.WIPE),
+			"колония не пережила цикл, и это поражение по порогу")
+		return
+	_check(_router.modal != ScreenRouter.Modal.RUN_SUMMARY,
+		"на пороге (%d живых) забег ещё идёт" % Game.query_survivors().size())
+
+	# Ниже порога: дух поднят вручную и кулдаун снят, то есть новичку мешает
+	# только численность (Balance.NEWCOMER_MIN_ALIVE). Строгую проверку гейта
+	# держит tests/test_run_end; здесь важно, что он работает в живой игре.
+	await _kill_down_to(Balance.WIPE_THRESHOLD - 1)
+	_cheer_up()
+	var below: int = Game.query_survivors().size()
+	_check(not Game.world.run_state.finished,
+		"смерть посреди цикла забег не обрывает")
+	if not await _cross_cycle_edge():
+		return
+	_check(Game.query_survivors().size() <= below,
+		"новичок не пришёл к колонии из %d человек (стало %d)"
+		% [below, Game.query_survivors().size()])
+	_check(Game.world.run_state.finished, "на границе цикла забег провален")
+	_check_eq(int(Game.world.run_state.end_kind), int(SimTypes.RunEnd.WIPE),
+		"исход забега — гибель колонии")
+	var seen: bool = await _wait(func() -> bool:
+		return _router.modal == ScreenRouter.Modal.RUN_SUMMARY)
+	if not _check(seen, "показан Итог забега (modal=%d)" % int(_router.modal)):
+		return
+	await _check_summary_layout()
+
+## Итог забега: поля есть, мир под ним не просвечивает, и клик в ЛЮБОЕ место
+## доводит «подъезд» чисел до конца. Последнее ловится только настоящим
+## кликом: вёрстка экрана (поля, скролл, колонка) перехватывала событие на
+## себе, и игрок, кликнувший быстро, уходил в Журнал, не увидев чисел.
+func _check_summary_layout() -> void:
+	var run: RunSummary = _router.modal_node(ScreenRouter.Modal.RUN_SUMMARY) as RunSummary
+	if not _check(run != null and run.visible, "экран итога на месте"):
+		return
+	var dim: ColorRect = run.get_node_or_null(^"Dim") as ColorRect
+	if _check(dim != null, "подложка итога собрана"):
+		_check_eq_f(dim.color.a, 1.0, "подложка плотная, мир под ней не читается")
+	var box: Control = run.get_node_or_null(^"Margin/Scroll/Row/Box") as Control
+	if _check(box != null, "колонка содержимого собрана"):
+		var top: float = box.get_global_rect().position.y - run.global_position.y
+		_check(top >= float(UITokens.SPACE_5),
+			"сверху есть поле: заголовок в %d px от края" % int(top))
+		_check(box.size.x <= RunSummary.CONTENT_MAX_PX + 1.0,
+			"колонка не шире %d px (сейчас %d)"
+			% [int(RunSummary.CONTENT_MAX_PX), int(box.size.x)])
+	# Клик мимо всех кнопок — по левому краю экрана, там только фон и поля.
+	var at: Vector2 = Vector2(float(UITokens.SPACE_2), _view_size().y * 0.5)
+	await _click_at(at)
+	await _tree.process_frame
+	_check(not bool(run.call("_counting")),
+		"клик по свободному месту довёл числа до конца")
+	_check(_router.modal == ScreenRouter.Modal.RUN_SUMMARY,
+		"и не увёл игрока с экрана раньше времени")
+
+## Свежий забег из главного меню — чтобы шаг не зависел от того, что было до.
+func _fresh_run(seed_value: int) -> bool:
+	_router.goto(ScreenRouter.Screen.MAIN_MENU)
+	await _tree.process_frame
+	var menu: MainMenu = _router.screen_node(ScreenRouter.Screen.MAIN_MENU) as MainMenu
+	menu.new_run_requested.emit(seed_value)
+	await _tree.process_frame
+	await _close_modals()
+	await _dismiss_banner()
+	return _check(_router.current == ScreenRouter.Screen.GAME and Game.world != null,
+		"новый забег запущен")
+
+## Оставляет в колонии ровно n живых. Через sim напрямую: события гибели идут
+## тем же путём, что и от воды, — HUD и роутер их не отличают.
+##
+## ⚠️ Досылаем события ОДНИМ ЖИВЫМ ТИКОМ, а не промоткой: debug_fast_forward
+## в конце зовёт rebroadcast_state, а тот шлёт run_started и стирает стек
+## тостов — ровно тот тост, который этот шаг и проверяет.
+func _kill_down_to(n: int) -> void:
+	var left: int = n
+	for a: SimAgent in Game.world.agents.agents.duplicate():
+		if not a.is_alive():
+			continue
+		if left > 0:
+			left -= 1
+			continue
+		Game.world.agents.kill(a, "test", Game.world)
+	var was: int = Game.world.clock.total_ticks()
+	Game.cmd_set_speed(3)
+	await _wait(func() -> bool: return Game.world.clock.total_ticks() > was)
+	Game.cmd_set_speed(0)
+
+## Поднимает дух выжившим: иначе «новичок не пришёл» доказывало бы гейт по
+## настроению, а не по численности.
+func _cheer_up() -> void:
+	for a: SimAgent in Game.world.agents.agents:
+		if a.is_alive():
+			a.needs["mood"] = Balance.NEED_MAX_MILLI
+	Game.world.agents.set("_last_newcomer_cycle", -99)
+
+## Промотка ровно через одну границу цикла, с обслуживанием окон как игроком.
+func _cross_cycle_edge() -> bool:
+	var was: int = Game.world.clock.cycle
+	for i: int in FF_CHUNKS_PER_CYCLE + 2:
+		if Game.world.clock.cycle > was or Game.world.run_state.finished:
+			return true
+		Game.debug_fast_forward(FF_CHUNK)
+		await _tree.process_frame
+		await _close_modals()
+	return _check(false, "граница цикла не наступила за отведённые тики")
+
+## Висит ли на стеке тост этого типа.
+func _toast_visible(type: String) -> bool:
+	var active: Dictionary = _hud.toasts.get("_active") as Dictionary
+	var group: Dictionary = active.get(type, {}) as Dictionary
+	return not group.is_empty() and is_instance_valid(group["node"] as Node)
 
 ## Вкладка «Управление» в живом дереве: строки ремапа собраны, подписи читаемы,
 ## список устройств честен. Ремап через перезапуск проверяет tools/remapcheck.sh —

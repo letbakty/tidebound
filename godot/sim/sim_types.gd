@@ -10,7 +10,10 @@ enum JobClass { GATHER, HAUL, BUILD, REPAIR, STATION, REST, EAT }
 enum Policy { GREED, CAUTION, REPAIR, BUILD, SUPPLY, REST }
 enum FloodRule { OK, WET, LOSE_HALF, DESTROY, DISABLED }
 enum CrisisType { SPRING_TIDE, STORM, VISIT }   # сизигия, шторм, приход
-enum RunEnd { SHIP, WIPE, EARLY }
+## SURRENDER дописан в конец (значения enum уходят в сейв — см. шапку):
+## сдача — решение игрока, а не гибель колонии, и звать её гибелью нельзя
+## (docs/00 §11.2, исход 4).
+enum RunEnd { SHIP, WIPE, EARLY, SURRENDER }
 ## Расширение контракта docs/02 §3.1 (этап 07): три состояния постройки.
 ## Именно три + два ортогональных флага (flooded, damaged), а не пять
 ## состояний: постройка бывает ACTIVE+flooded+damaged одновременно, и правила

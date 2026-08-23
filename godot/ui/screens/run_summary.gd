@@ -9,12 +9,22 @@ extends Control
 signal journal_requested()
 
 const COUNT_SEC: float = 0.5
+## Колонка содержимого не шире этого: на 4K строки разбивки иначе расходятся
+## по краям экрана и «Груз ... 8» перестаёт читаться как одна строка.
+const CONTENT_MAX_PX: float = 640.0
 
 var _outcome: Label = null
 var _outcome_note: Label = null
 var _rows: VBoxContainer = null
 var _total: Label = null
 var _gain: Label = null
+## «До следующей разблокировки N очков»: причина открыть Журнал, названная
+## вслух, а не догадка игрока.
+var _next: Label = null
+## Колонка содержимого и строка, которая её центрирует: ширину обеим
+## подрезает _notification(RESIZED).
+var _column: VBoxContainer = null
+var _column_row: HBoxContainer = null
 var _people: VBoxContainer = null
 var _seed: Label = null
 var _to_journal: PixelButton = null
@@ -30,22 +40,51 @@ func _ready() -> void:
 func _build() -> void:
 	if _rows != null:
 		return
+	# ⚠️ ПЛОТНОЕ затемнение, не 0.94: под полупрозрачным итогом читались
+	# ресурсы, шкала прилива и кнопка «Отзыв». Итог забега — момент, когда
+	# игра должна замолчать, а не подмигивать из-под текста.
 	var dim: ColorRect = ColorRect.new()
-	dim.color = Color(UITokens.PAPER.r, UITokens.PAPER.g, UITokens.PAPER.b, 0.94)
+	dim.name = "Dim"
+	dim.color = UITokens.PAPER
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(dim)
+	# Поля со ВСЕХ четырёх сторон: без верхнего заголовок наезжал на строку
+	# HUD, без правого числа разбивки лежали вплотную к краю окна.
 	var margin: MarginContainer = MarginContainer.new()
+	margin.name = "Margin"
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	margin.add_theme_constant_override("margin_left", UITokens.SPACE_6)
 	margin.add_theme_constant_override("margin_right", UITokens.SPACE_6)
+	margin.add_theme_constant_override("margin_top", UITokens.SPACE_5)
+	margin.add_theme_constant_override("margin_bottom", UITokens.SPACE_5)
+	# PASS у всей вёрстки: клик по любому месту экрана обязан досказать числа
+	# (см. _gui_input). STOP-контейнер съедал бы событие до корня.
+	margin.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(margin)
 	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.name = "Scroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
 	margin.add_child(scroll)
+	# Колонка не во всю ширину окна: на 1920 и выше «Груз ... 8» растягивалось
+	# от края до края и переставало читаться как одна строка.
+	var row: HBoxContainer = HBoxContainer.new()
+	row.name = "Row"
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	scroll.add_child(row)
 	var box: VBoxContainer = VBoxContainer.new()
-	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(box)
+	box.name = "Box"
+	# EXPAND вместе со SHRINK_CENTER: BoxContainer выдаёт ребёнку без EXPAND
+	# ровно его минимум, и центрировать становится не в чем — колонка молча
+	# прилипает к левому краю.
+	box.size_flags_horizontal = Control.SIZE_EXPAND | Control.SIZE_SHRINK_CENTER
+	box.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.add_child(box)
+	_column_row = row
+	_column = box
+	_fit_column()
 
 	_outcome = Label.new()
 	_outcome.theme_type_variation = &"LabelTitle"
@@ -64,6 +103,11 @@ func _build() -> void:
 	_gain = Label.new()
 	UILayout.wrap(_gain, 560.0)
 	box.add_child(_gain)
+	_next = Label.new()
+	_next.name = "NextUnlock"
+	_next.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	UILayout.wrap(_next, 560.0)
+	box.add_child(_next)
 
 	_people = VBoxContainer.new()
 	_people.name = "People"
@@ -90,6 +134,25 @@ func _build() -> void:
 		journal_requested.emit())
 	box.add_child(_to_journal)
 
+## Ширина колонки — минимум из потолка читаемости и того, что осталось от
+## окна после полей: на узком экране колонка обязана сжаться, а не вылезти.
+##
+## ⚠️ Строке-обёртке ширина задаётся ЯВНО. ScrollContainer растягивает
+## ребёнка по своему содержимому, а не по себе, и без этого HBox сжимался
+## до ширины колонки — центрировать было не в чем, и весь итог уезжал
+## к левому краю, оставляя половину экрана пустой.
+func _fit_column() -> void:
+	if _column == null:
+		return
+	var avail: float = maxf(size.x - float(UITokens.SPACE_6) * 2.0, 0.0)
+	if _column_row != null:
+		_column_row.custom_minimum_size.x = avail
+	_column.custom_minimum_size.x = minf(CONTENT_MAX_PX, avail)
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		_fit_column()
+
 func open_with(args: Dictionary) -> void:
 	_build()
 	var report: Dictionary = args.get("report", {}) as Dictionary
@@ -102,16 +165,20 @@ func open_with(args: Dictionary) -> void:
 	_fill_people(report)
 	_seed.text = tr("SUMMARY_SEED").format({"seed": int(report.get("seed", 0))})
 
+## Сдача — свой заголовок, а не «Колония погибла»: игрок, вышедший из паузы
+## с шестью живыми, читал про гибель, которой не было (docs/00 §11.2).
 static func _outcome_key(end_kind: int) -> String:
 	match end_kind:
 		int(SimTypes.RunEnd.SHIP): return "RUN_END_SHIP"
 		int(SimTypes.RunEnd.EARLY): return "RUN_END_EARLY"
+		int(SimTypes.RunEnd.SURRENDER): return "RUN_END_SURRENDER"
 	return "RUN_END_WIPE"
 
 static func _outcome_color(end_kind: int) -> Color:
 	match end_kind:
 		int(SimTypes.RunEnd.SHIP): return UIPalette.success()
 		int(SimTypes.RunEnd.EARLY): return UIPalette.warm()
+		int(SimTypes.RunEnd.SURRENDER): return UIPalette.warm()
 	return UIPalette.danger()
 
 ## Очки построчно с «подъездом» чисел. Одна Tween на весь экран с chain():
@@ -150,6 +217,7 @@ func _fill_score(report: Dictionary) -> void:
 	# Что игрок ПОЛУЧИЛ — отдельной строкой и всегда, даже при вайпе.
 	_gain.text = tr("RUN_GAIN").format({
 		"n": total, "points": Meta.points_total, "next": _affordable_count()})
+	_next.text = _next_unlock_line()
 	if Settings.reduce_motion:
 		_finish_numbers()               # «меньше движения» (docs/03 §3.6)
 
@@ -162,6 +230,27 @@ static func _affordable_count() -> int:
 		if Meta.points_total >= DB.unlock(id).cost:
 			n += 1
 	return n
+
+## Самая дешёвая непокупленная разблокировка — названная по имени и с ценой.
+## «В Журнал ушло 12 очков» само по себе не говорит игроку НИЧЕГО: что с ними
+## делать, он узнавал, только если сам заходил в Журнал. Самая дешёвая покупка
+## стоит 20 очков при типичном забеге в 43–48, то есть доступна уже после
+## первого забега — и об этом надо сказать вслух (docs/03 §3.8).
+func _next_unlock_line() -> String:
+	var best: UnlockDef = null
+	for id: String in DB.unlock_ids():
+		if Meta.has_unlock(id):
+			continue
+		var u: UnlockDef = DB.unlock(id)
+		if best == null or u.cost < best.cost:
+			best = u
+	if best == null:
+		return tr("RUN_NEXT_ALL")
+	if Meta.points_total >= best.cost:
+		return tr("RUN_NEXT_NOW").format({
+			"name": tr(best.display_key), "cost": best.cost})
+	return tr("RUN_NEXT_LEFT").format({
+		"name": tr(best.display_key), "n": best.cost - Meta.points_total})
 
 func _fill_people(report: Dictionary) -> void:
 	for c: Node in _people.get_children():
@@ -198,6 +287,11 @@ func _small(text: String) -> Label:
 	return label
 
 ## Пропуск анимации тапом: на двадцатом забеге ждать подъезда чисел невыносимо.
+##
+## ⚠️ Ловит ЛЮБОЙ клик по экрану, а не только по фону: вся вёрстка выше стоит
+## на MOUSE_FILTER_PASS. Раньше поля, скролл и колонка были STOP по умолчанию
+## и съедали клик на себе — игрок, кликнувший быстро, уходил в Журнал, так и
+## не увидев настоящих чисел.
 func _gui_input(event: InputEvent) -> void:
 	var touch: InputEventScreenTouch = event as InputEventScreenTouch
 	if touch != null and touch.pressed:

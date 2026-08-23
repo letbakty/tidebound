@@ -183,7 +183,15 @@ func _make_particles(node_name: String, amount: int, one_shot: bool) -> GPUParti
 ## ⚠️ speed_scale = 0 на GPUParticles2D не останавливает симуляцию надёжно
 ## (godot issue #77916). Надёжный способ — process_mode = DISABLED.
 ## На ×2/×3 ускоряем через speed_scale — там артефактов нет.
+##
+## ⚠️ Гейт по дереву обязателен: сигнал приходит и на выходе из сцены. При
+## закрытии игры ScreenRouter._exit_tree разбирает очередь модальных окон,
+## каждое снятие автопаузы зовёт cmd_set_speed — а этот узел из дерева уже
+## вынут, и get_tree() отдаёт null. Ловится только выходом из игры с открытым
+## Итогом забега (tools/playtest_run.gd, шаг «колония ниже порога»).
 func _on_speed_changed(mult: int) -> void:
+	if not is_inside_tree():
+		return
 	var mode: Node.ProcessMode = Node.PROCESS_MODE_DISABLED if mult == 0 \
 		else Node.PROCESS_MODE_INHERIT
 	for n: Node in get_tree().get_nodes_in_group(FX_GROUP):

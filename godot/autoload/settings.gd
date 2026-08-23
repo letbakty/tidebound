@@ -50,7 +50,11 @@ var hints_enabled: bool = true
 var pause_on_draft: bool = true
 var pause_on_cycle: bool = true
 var pause_on_crisis: bool = true
-var default_speed: int = 1
+## ×2, а не ×1. Замер: TICKS_PER_CYCLE=3000, TICKS_PER_SEC=10,
+## CYCLES_PER_RUN=12 — цикл 5 минут, забег 60 минут при ×1 и 30 при ×2.
+## Часовой забег по умолчанию вдвое длиннее медианной дневной сессии на ПК
+## (32–33 мин) и вдвое выше жанровой вилки рогалайта (20–30 мин).
+var default_speed: int = 2
 
 # --- Экран ----------------------------------------------------------------
 var ui_scale: float = 1.0
@@ -557,7 +561,7 @@ func from_dict(d: Dictionary) -> void:
 	pause_on_draft = bool(d.get("pause_on_draft", true))
 	pause_on_cycle = bool(d.get("pause_on_cycle", true))
 	pause_on_crisis = bool(d.get("pause_on_crisis", true))
-	default_speed = clampi(int(d.get("default_speed", 1)), 1, 3)
+	default_speed = clampi(int(d.get("default_speed", 2)), 1, 3)
 	ui_scale = clampf(float(d.get("ui_scale", 1.0)), UI_SCALE_MIN, UI_SCALE_MAX)
 	world_zoom = clampi(int(d.get("world_zoom", 3)), 2, 4)
 	fullscreen = bool(d.get("fullscreen", false))

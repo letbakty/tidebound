@@ -33,10 +33,29 @@ func _ready() -> void:
 
 ## screen_pos — точка жеста, world_pos — она же в координатах мира.
 func open_at(screen_pos: Vector2, world_pos: Vector2, gesture_active: bool) -> void:
-	_ids = Game.query_unlocked_buildings()
+	_ids = _ready_first(Game.query_unlocked_buildings())
 	_page = 0
 	_world_pos = world_pos
 	_radial.open_at(screen_pos, _slots(), gesture_active)
+
+## Сначала то, что игрок может построить ПРЯМО СЕЙЧАС (материалы есть и место
+## найдётся), остальное — на вторую страницу. Порядок внутри половин не
+## меняем: он алфавитный по DB.building_ids() и обязан быть стабильным, иначе
+## слоты прыгают от цикла к циклу и мышечная память не нарабатывается.
+##
+## Без этого первый слот на первом забеге — койка (`min_mark = 1`), то есть
+## первое, что видит новый игрок в главном меню действий, — недоступный ему
+## выбор (RETENTION-pass §2.3).
+static func _ready_first(ids: Array[String]) -> Array[String]:
+	var now: Array[String] = []
+	var later: Array[String] = []
+	for id: String in ids:
+		if Game.query_can_build_now(id):
+			now.append(id)
+		else:
+			later.append(id)
+	now.append_array(later)
+	return now
 
 func close() -> void:
 	_radial.close()

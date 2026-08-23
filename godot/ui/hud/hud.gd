@@ -11,6 +11,8 @@ signal agent_card_requested(agent_id: int)
 signal overlay_requested(mode: String)
 signal legend_requested()
 signal beacon_mode_requested()
+## Кнопка «Политики» в верхней строке: панель открывает Main.
+signal policies_requested()
 
 ## Фолбэк обязателен: на десктопе и в headless get_display_safe_area вернёт
 ## весь экран, разность окажется нулём и отступов не будет вовсе (research/20 §7).
@@ -25,6 +27,9 @@ const LEGEND_KEYS: Array[String] = ["HUD_LEGEND_TITLE", "HUD_LEGEND_LEVEL",
 	"HUD_LEGEND_MARKS", "HUD_LEGEND_PLATEAU", "HUD_LEGEND_DOTS",
 	"HUD_LEGEND_FORECAST", "HUD_LEGEND_SPRING", "HUD_LEGEND_STORM",
 	"HUD_LEGEND_VISIT", "HUD_LEGEND_QUIET"]
+## Ключ группировки персистентного тоста «колония на грани»: его снимают
+## по имени два разных события, и строка в трёх местах разъехалась бы.
+const TOAST_COLONY_EDGE: String = "colony_edge"
 
 var tide_gauge: TideGauge = null
 var top_bar: TopBar = null
@@ -74,6 +79,8 @@ func _build() -> void:
 	top_bar.agent_focus_requested.connect(_on_agent_focus)
 	top_bar.agent_card_requested.connect(func(id: int) -> void:
 		agent_card_requested.emit(id))
+	top_bar.policies_requested.connect(func() -> void:
+		policies_requested.emit())
 
 	var middle: HBoxContainer = HBoxContainer.new()
 	middle.name = "Middle"
@@ -211,6 +218,7 @@ func _connect_events() -> void:
 	Events.crisis_started.connect(_on_crisis_started)
 	Events.agent_drowning.connect(_on_agent_drowning)
 	Events.agent_died.connect(_on_agent_died)
+	Events.agent_spawned.connect(_on_agent_spawned)
 	Events.creature_spawned.connect(_on_creature_spawned)
 	Events.building_state_changed.connect(_on_building_state)
 	Events.building_removed.connect(func(id: int) -> void: _building_state.erase(id))
@@ -274,6 +282,11 @@ func _on_run_started(_seed_value: int) -> void:
 		Game.pop_pause()
 	notices.clear()
 	banner.hide_banner()
+	# Стек тостов только что очищен (ToastStack._on_run_started), а колония
+	# после «Продолжить» может стоять ровно на пороге: предупреждение обязано
+	# вернуться вместе с ней, иначе загрузка молча снимает единственный
+	# сигнал о том, что следующая смерть заканчивает забег.
+	_check_colony_edge()
 
 func _on_crisis_announced(type: int, cycle: int) -> void:
 	notices.push(NoticeQueue.Kind.BANNER, {
@@ -337,6 +350,22 @@ func _on_agent_died(id: int, cause: String) -> void:
 	_toast("death", tr("TOAST_DIED").format(
 		{"name": _dead_name(id), "cause": cause_text}),
 		Toast.Tone.DANGER, _agent_cell(id))
+	_check_colony_edge()
+
+## Колония на грани: живых ровно столько, сколько нужно, чтобы забег
+## закончился на СЛЕДУЮЩЕЙ границе цикла (Balance.WIPE_THRESHOLD, docs/00
+## §11.2). Порог без предупреждения — несправедливость, а не сложность,
+## поэтому тост персистентный: он живёт до конца цикла или до прихода
+## человека, а не гаснет через пять секунд вместе с тостом о смерти.
+func _check_colony_edge() -> void:
+	if Game.query_survivors().size() != Balance.WIPE_THRESHOLD:
+		return
+	_toast(TOAST_COLONY_EDGE, tr("TOAST_COLONY_EDGE").format(
+		{"n": Balance.WIPE_THRESHOLD}), Toast.Tone.DANGER, Vector2i.ZERO, 0.0)
+
+## Пришёл человек — колония уже не на грани.
+func _on_agent_spawned(_id: int) -> void:
+	toasts.dismiss(TOAST_COLONY_EDGE)
 
 func _on_creature_spawned(_id: int) -> void:
 	_toast("creature", tr("TOAST_CREATURE"), Toast.Tone.WARN)
@@ -362,6 +391,8 @@ func _on_building_state(id: int) -> void:
 ## Потери за цикл приходят одним отчётом — из него и делаем тост, а не
 ## слушаем каждый смытый стак отдельно.
 func _on_cycle_ended(report: Dictionary) -> void:
+	# Предупреждение живёт ровно один цикл: границу колония пережила.
+	toasts.dismiss(TOAST_COLONY_EDGE)
 	var washed: int = int(report.get("washed", 0))
 	if washed > 0:
 		_toast("washed", tr("TOAST_WASHED").format({"n": washed}), Toast.Tone.WARN)
