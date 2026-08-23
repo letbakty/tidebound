@@ -1,0 +1,17 @@
+# Windows-установщик Git по умолчанию ставит core.autocrlf=true. Без этого
+# файла клон на Windows подменяет переводы строк на CRLF, и семь shell-скриптов
+# репозитория умирают на первой же строке:
+#   bash: ./tools/playtest.sh: /usr/bin/env bash^M: bad interpreter
+# Godot к CRLF терпим, bash — нет, поэтому переводы строк фиксируются для всего.
+* text=auto eol=lf
+
+*.sh text eol=lf
+*.gd text eol=lf
+*.tres text eol=lf
+*.tscn text eol=lf
+*.md text eol=lf
+*.csv text eol=lf
+
+*.png binary
+*.wav binary
+*.ttf binary

@@ -9,7 +9,11 @@ extends SceneTree
 ## на этапе 00, когда ни одного теста ещё нет.
 
 const SUITES: Array[String] = [
-	"res://tests/test_data.gd",        # первым: битые .tres валят всё остальное
+	# Первыми — две проверки «а собран ли вообще проект»: дубль class_name
+	# роняет парсер целиком, битый .tres валит всё, что его грузит, и оба
+	# дают десяток следствий вместо одной причины.
+	"res://tests/test_project_integrity.gd",
+	"res://tests/test_data.gd",
 	"res://tests/test_clock.gd",
 	"res://tests/test_terrain.gd",
 	"res://tests/test_deposits.gd",
