@@ -16,3 +16,6 @@ Thumbs.db
 # включая отбракованные варианты.
 /art-rd/*
 !/art-rd/processed/
+
+# Steamworks SDK: заголовки Valve, распространять нельзя
+/vendor/
