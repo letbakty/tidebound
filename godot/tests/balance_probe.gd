@@ -69,9 +69,15 @@ const PROFILES: Array[Dictionary] = [
 		"card": "fast_haul",
 	},
 	{
+		# ⚠️ Единственный профиль, строящий вершу (balance.md, итерация 4,
+		# прогон F). Верша требует троса, поэтому перед ней в очереди стоит
+		# вся цепочка: горн → сушила (волокно) → канатная (трос). Замена
+		# очереди — смена прибора, и числа `gatherer` после неё сравнимы
+		# только с прогонами F и дальше.
 		"id": "gatherer",
 		"policies": [2, 2, 1, 1, 3, 1],
-		"build": ["ladder", "ladder", "ladder", "storage", "forge", "workbench"],
+		"build": ["ladder", "ladder", "ladder", "storage", "forge", "dryer",
+			"ropery", "weir", "workbench"],
 		"card": "deep_dive",
 	},
 	{
@@ -146,11 +152,27 @@ func _run_one(p: Dictionary, seed_value: int, cliff: CliffDef) -> Dictionary:
 	var zero_hits: Dictionary[String, int] = {"satiety": 0, "warmth": 0, "mood": 0}
 	var samples: int = 0
 	var idle_samples: int = 0
+	## Простой С ГРУЗОМ: агент в IDLE с непустой котомкой. Это ровно тот
+	## случай, который описала итерация 3: `_start_self_haul` не нашёл склада
+	## со свободным слотом и поставил человека стоять с добычей в руках.
+	## Считается вместе с idle, чтобы не заводить второй проход по агентам.
+	var idle_bag_samples: int = 0
+	## Заполненность складов: стаки / вместимость, усреднённая по замерам.
+	var fill_num: float = 0.0
+	var fill_den: float = 0.0
 	var sick_samples: int = 0
 	var deepest_mark: float = 99.0
 	var wet_samples: int = 0
 
-	# Шторм: отметки агентов в момент пика (начало Высокой воды 10-го цикла).
+	# Шторм: отметки агентов в момент пика.
+	#
+	# ⚠️ Пик шторма симуляция считает В НАЧАЛЕ Высокой воды (docs/00 §9.4,
+	# crisis.on_phase_started) — и убивает всех ниже STORM_DEATH_MARK ВНУТРИ
+	# того же w.tick(), до того как мы доберёмся до events_out. Считать полосу
+	# гибели по выжившим бессмысленно: там уже никого нет по построению.
+	# Отсюда «0.0 агентов в полосе гибели» итераций 1–3 при 48 смертях от
+	# шторма в итерации 3. Снимаем на тик РАНЬШЕ (_storm_peak_next): позиции
+	# те же (crisis.on_phase_started идёт до agents.tick), но полоса населена.
 	var storm_min_mark: float = 99.0
 	var storm_below_death: int = 0
 	var storm_in_wet_band: int = 0
@@ -176,6 +198,16 @@ func _run_one(p: Dictionary, seed_value: int, cliff: CliffDef) -> Dictionary:
 	var ebb_seen: Dictionary[int, bool] = {}
 
 	while ticks < MAX_TICKS:
+		if _storm_peak_next(w):
+			for ap: SimAgent in w.agents.agents:
+				if not ap.is_alive():
+					continue
+				var mp: float = w.agents.agent_mark_f(ap, w)
+				storm_min_mark = minf(storm_min_mark, mp)
+				if mp < float(Balance.STORM_DEATH_MARK):
+					storm_below_death += 1
+				elif mp <= float(Balance.STORM_WET_MARK_HI):
+					storm_in_wet_band += 1
 		w.tick()
 		ticks += 1
 		var storm_peak_now: bool = false
@@ -214,17 +246,8 @@ func _run_one(p: Dictionary, seed_value: int, cliff: CliffDef) -> Dictionary:
 						w.agents.agent_mark_f(a4, w), w.tide.level):
 					row["at_risk"] = int(row["at_risk"]) + 1
 		if storm_peak_now:
-			for a2: SimAgent in w.agents.agents:
-				if not a2.is_alive():
-					continue
-				var m: float = w.agents.agent_mark_f(a2, w)
-				storm_min_mark = minf(storm_min_mark, m)
-				if m < float(Balance.STORM_DEATH_MARK):
-					storm_below_death += 1
-				elif m <= float(Balance.STORM_WET_MARK_HI):
-					storm_in_wet_band += 1
-			# Урон построек шторм наносит мимо _damage_cycle (там только
-			# существа), поэтому считаем флаг damaged прямо на пике.
+			# Постройки — наоборот, ПОСЛЕ тика: урон шторм наносит мимо
+			# _damage_cycle (там только существа), и до пика флага ещё нет.
 			for bid: int in w.buildings.order:
 				storm_buildings += 1
 				if bool((w.buildings.buildings[bid] as Dictionary)["damaged"]):
@@ -261,12 +284,16 @@ func _run_one(p: Dictionary, seed_value: int, cliff: CliffDef) -> Dictionary:
 				if a3.state == SimTypes.AgentState.IDLE:
 					row["idle"] = int(row["idle"]) + 1
 					idle_samples += 1
+					if not a3.bag.is_empty():
+						idle_bag_samples += 1
 				if a3.sick:
 					sick_samples += 1
 				if a3.wet:
 					wet_samples += 1
 				deepest_mark = minf(deepest_mark, w.agents.agent_mark_f(a3, w))
 			for stg: Dictionary in w.storage.storages:
+				fill_num += float((stg["stacks"] as Array).size())
+				fill_den += float(int(stg["capacity"]))
 				if Balance.is_mark_flooded(Balance.cell_to_mark(stg["cell"] as Vector2i),
 						w.tide.level):
 					flooded_storages = maxi(flooded_storages, 1)
@@ -334,6 +361,9 @@ func _run_one(p: Dictionary, seed_value: int, cliff: CliffDef) -> Dictionary:
 		"sick_pct": 100.0 * float(sick_samples) / float(denom),
 		"wet_pct": 100.0 * float(wet_samples) / float(denom),
 		"idle_pct": 100.0 * float(idle_samples) / float(denom),
+		# Доля ПРОСТОЯ (не всего времени), приходящаяся на стояние с грузом.
+		"idle_bag_pct": 100.0 * float(idle_bag_samples) / float(maxi(idle_samples, 1)),
+		"fill_pct": 100.0 * fill_num / maxf(fill_den, 1.0),
 		"deepest_mark": int(deepest_mark),
 		"storm_min_mark": storm_min_mark,
 		"storm_below": storm_below_death,
@@ -367,6 +397,14 @@ func _run_one(p: Dictionary, seed_value: int, cliff: CliffDef) -> Dictionary:
 		"wreck5": _wreck_taken(w, -5),
 		"wreck6": _wreck_taken(w, -6),
 	}
+
+## Следующий w.tick() откроет Высокую воду штормового цикла — тот самый тик,
+## на котором сим считает пик шторма (docs/00 §9.4). Одна формула на проект:
+## переход считается там же, где его считает SimClock.tick().
+static func _storm_peak_next(w: SimWorld) -> bool:
+	return w.clock.phase == SimTypes.Phase.SIGNAL \
+		and w.clock.ticks_left_in_phase() == 1 \
+		and w.crisis.is_active(SimTypes.CrisisType.STORM)
 
 ## Сколько вынесли из «Обломков судна» на указанной отметке: ёмкость минус
 ## остаток (восполнения у них нет, поэтому разница и есть добытое).
@@ -528,6 +566,7 @@ static func _header() -> String:
 		+ "min_satiety,min_warmth,min_mood," \
 		+ "low_satiety_pct,low_warmth_pct,low_mood_pct," \
 		+ "zero_satiety,zero_warmth,zero_mood,sick_pct,wet_pct,idle_pct," \
+		+ "idle_bag_pct,fill_pct," \
 		+ "deepest_mark,storm_min_mark,storm_below,storm_wet_band," \
 		+ "storm_damaged,storm_buildings,cargo,survivor_points," \
 		+ "creatures,damage,stolen,flooded_storages," \
@@ -535,7 +574,7 @@ static func _header() -> String:
 		+ "got_scrap,got_catch,got_kelp,got_salt,got_water,wreck5,wreck6"
 
 static func _row(r: Dictionary) -> String:
-	return "%s,%d,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%d,%d,%d,%.2f,%.2f,%.2f,%d,%d,%d,%.2f,%.2f,%.2f,%d,%.2f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d" % [
+	return "%s,%d,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%d,%d,%d,%.2f,%.2f,%.2f,%d,%d,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%d,%.2f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d" % [
 		str(r["profile"]), int(r["seed"]), str(r["end"]), int(r["cycles"]),
 		int(r["score"]), int(r["alive"]), int(r["deaths"]),
 		int(r["drown"]), int(r["storm"]),
@@ -545,6 +584,7 @@ static func _row(r: Dictionary) -> String:
 		float(r["low_satiety_pct"]), float(r["low_warmth_pct"]), float(r["low_mood_pct"]),
 		int(r["zero_satiety"]), int(r["zero_warmth"]), int(r["zero_mood"]),
 		float(r["sick_pct"]), float(r["wet_pct"]), float(r["idle_pct"]),
+		float(r["idle_bag_pct"]), float(r["fill_pct"]),
 		int(r["deepest_mark"]), float(r["storm_min_mark"]),
 		int(r["storm_below"]), int(r["storm_wet_band"]),
 		int(r["storm_damaged"]), int(r["storm_buildings"]),
@@ -566,14 +606,16 @@ func _summary(agg: Array[Dictionary]) -> void:
 	print("забегов %d, профилей %d" % [agg.size(), ids.size()])
 
 	print("")
-	print("%-9s %6s %6s %6s %6s %6s %6s %6s %8s %7s" % ["профиль", "очки",
-		"груз", "вайпы", "смерт", "постр", "произв", "дно", "простой", "дух<30"])
+	print("%-9s %6s %6s %6s %6s %6s %6s %6s %8s %8s %7s" % ["профиль", "очки",
+		"груз", "вайпы", "смерт", "постр", "произв", "дно", "простой",
+		"с грузом", "склады"])
 	for id: String in ids:
 		var g: Array[Dictionary] = _by_profile(agg, id)
-		print("%-9s %6.1f %6.1f %6.0f %6.2f %6.1f %6.1f %6.1f %7.1f%% %6.1f%%" % [
+		print("%-9s %6.1f %6.1f %6.0f %6.2f %6.1f %6.1f %6.1f %7.1f%% %7.1f%% %6.1f%%" % [
 			id, _avg(g, "score"), _avg(g, "cargo"), _count_end(g, "wipe"),
 			_avg(g, "deaths"), _avg(g, "built"), _avg(g, "produced"),
-			_avg(g, "deepest_mark"), _avg(g, "idle_pct"), _avg(g, "low_mood_pct")])
+			_avg(g, "deepest_mark"), _avg(g, "idle_pct"),
+			_avg(g, "idle_bag_pct"), _avg(g, "fill_pct")])
 
 	# research/30 §5.2: доминирование считается на ОДИНАКОВЫХ сидах.
 	if ids.size() > 1:
@@ -623,6 +665,8 @@ func _summary(agg: Array[Dictionary]) -> void:
 		_avg(agg, "low_satiety_pct"), _avg(agg, "low_warmth_pct"), _avg(agg, "low_mood_pct")])
 	print("болезнь %.1f%% времени, мокрые %.1f%%" % [
 		_avg(agg, "sick_pct"), _avg(agg, "wet_pct")])
+	print("склады заполнены на %.1f%%, простоя с грузом в котомке %.1f%% от всего простоя" % [
+		_avg(agg, "fill_pct"), _avg(agg, "idle_bag_pct")])
 	print("шторм: минимальная отметка агента на пике %.1f (гибель ниже %d), " % [
 		_avg(agg, "storm_min_mark"), Balance.STORM_DEATH_MARK]
 		+ "в полосе гибели %.1f, в полосе намокания %.1f, " % [

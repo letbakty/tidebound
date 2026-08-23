@@ -80,7 +80,7 @@ static func test_greed_limits_distance(t: TestCtx) -> void:
 				continue
 			if w.terrain.nearest_ladder_dist(cell) > limit:
 				violations += 1
-	t.check_eq(violations, 0, "при Жадности 0 никто не берёт цели дальше 4 тайлов")
+	t.check_eq(violations, 0, "при Жадности 0 никто не берёт цели дальше лимита")
 
 ## TEST-10 · колония не запирается сама (SIM-07).
 ##
@@ -186,12 +186,21 @@ static func test_caution_three_brings_everyone_up(t: TestCtx) -> void:
 	w.jobs.mark_dirty()
 	t.run_ticks_no_cards(w, Balance.TICKS_PER_CYCLE)           # ровно до начала HIGH цикла 2
 	t.run_ticks_no_cards(w, 450 + 1500 + 300)
+	# ⚠️ Смотрим на ПИКЕ Высокой воды, а не на входе в фазу. В начале HIGH вода
+	# ещё на уровне Сигнала (−6), и агент, не долезший до −1, ничем не рискует:
+	# у него ещё двадцать секунд подъёма воды. Осторожность обещает не «успеть
+	# к границе фазы», а «не оказаться под водой», и порог −1 на входе был
+	# прокси, который срывался от посторонних правок — вместимость складов
+	# в итерации 4 сдвинула одного агента на −1.4, хотя не тонул никто
+	# (docs/balance.md §4.6).
+	t.run_ticks_no_cards(w, w.clock.high_peak_tick())
 	for a: SimAgent in w.agents.agents:
 		if not a.is_alive():
 			continue
-		t.check(w.agents.agent_mark_f(a, w) >= -1.0,
-			"при Осторожности 3 к началу HIGH никто не ниже −1 (%s на %.1f)"
-			% [a.agent_name, w.agents.agent_mark_f(a, w)])
+		var m: float = w.agents.agent_mark_f(a, w)
+		t.check(not Balance.is_markf_flooded(m, w.tide.level),
+			"при Осторожности 3 на пике Высокой воды никто не под водой (%s на %.1f, вода %.1f)"
+			% [a.agent_name, m, w.tide.level])
 
 ## Обратная сторона: Осторожность 0 + Жадность 3 = кто-то реально мокнет.
 static func test_reckless_policies_get_agents_wet(t: TestCtx) -> void:

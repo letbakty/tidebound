@@ -66,7 +66,7 @@ func _start(type: int, count: int, w: SimWorld) -> void:
 			# Сизигия поднимает плато высокой воды: склады на +1..+2 уходят
 			# под воду, и это финальное испытание забега.
 			w.tide.high_plateau = Balance.HIGH_LEVEL + Balance.SPRING_BONUS \
-				+ next_spring_bonus
+				+ minf(next_spring_bonus, Balance.SPRING_BONUS_MAX)
 			next_spring_bonus = 0.0
 			_spring_applied = true
 		SimTypes.CrisisType.STORM:

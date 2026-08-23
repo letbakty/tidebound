@@ -23,6 +23,10 @@ const TABLE: Array[Array] = [
 	["ingot",      "ITEM_INGOT",      10, 0,  SimTypes.FloodRule.OK,         2],
 	["fiber",      "ITEM_FIBER",      10, 0,  SimTypes.FloodRule.WET,        1],
 	["rations",    "ITEM_RATIONS",    10, 12, SimTypes.FloodRule.LOSE_HALF,  1],
+	# ⚠️ 6 очков пробовали (balance.md, итерация 4, прогон E) и откатили:
+	# деталь есть и на верстаке, поэтому надбавка за глубину досталась
+	# профилю, который на глубину не ходит. Не поднимать, не разделив
+	# деталь с карты и деталь со станка.
 	["part",       "ITEM_PART",        5, 0,  SimTypes.FloodRule.OK,         3],
 	["rope",       "ITEM_ROPE",        5, 0,  SimTypes.FloodRule.OK,         2],
 	["gear",       "ITEM_GEAR",        1, 0,  SimTypes.FloodRule.OK,         4],
