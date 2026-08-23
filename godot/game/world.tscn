@@ -19,7 +19,7 @@ script = ExtResource("1_world")
 
 [node name="ParallaxFar" type="Parallax2D" parent="."]
 scroll_scale = Vector2(0.1, 0.03)
-repeat_size = Vector2(640, 0)
+repeat_size = Vector2(512, 0)
 repeat_times = 3
 z_index = -120
 
@@ -30,25 +30,25 @@ position = Vector2(0, 120)
 
 [node name="ParallaxMist" type="Parallax2D" parent="."]
 scroll_scale = Vector2(0.25, 0.08)
-repeat_size = Vector2(640, 0)
-repeat_times = 3
+repeat_size = Vector2(320, 0)
+repeat_times = 5
 z_index = -110
 
 [node name="Sprite" type="Sprite2D" parent="ParallaxMist"]
 texture = ExtResource("12_par_mist")
 centered = false
-position = Vector2(0, 200)
+position = Vector2(0, 216)
 
 [node name="ParallaxClouds" type="Parallax2D" parent="."]
-scroll_scale = Vector2(0.4, 0.1)
-repeat_size = Vector2(640, 0)
+scroll_scale = Vector2(0.4, 0.03)
+repeat_size = Vector2(512, 0)
 repeat_times = 3
-z_index = -100
+z_index = -130
 
 [node name="Sprite" type="Sprite2D" parent="ParallaxClouds"]
 texture = ExtResource("13_par_clouds")
 centered = false
-position = Vector2(0, 24)
+position = Vector2(0, -8)
 
 [node name="Ground" type="TileMapLayer" parent="."]
 material = ExtResource("10_wet_mat")

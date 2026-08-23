@@ -1,7 +1,7 @@
 class_name MainMenu
 extends ScreenBase
-## Главное меню (docs/03 §3.3). Фон — статичная заглушка: живой мир под меню
-## стоил бы кадров и рисковал падать до старта игры.
+## Главное меню (docs/03 §3.3). Фон — статичная картинка, а не живой мир: мир
+## под меню стоил бы кадров и рисковал падать до старта игры.
 
 signal continue_requested()
 signal new_run_requested(seed_value: int)
@@ -10,12 +10,16 @@ signal settings_requested()
 signal credits_requested()
 signal quit_requested()
 
+const BG_ART: String = "res://assets/sprites/menu_bg.png"
+const BG_ALPHA: float = 0.55
+
 var _continue: PixelButton = null
 var _continue_note: Label = null
 var _journal: PixelButton = null
 var _seed_edit: LineEdit = null
 var _version: Label = null
 var _confirm: ConfirmDialog = null
+var _bg_art: TextureRect = null
 
 func _ready() -> void:
 	super()
@@ -23,7 +27,45 @@ func _ready() -> void:
 	show_back(false)
 	_build_menu()
 
+## Фон меню (assets/sprites/menu_bg.png, сборщик tools/gen_decor.gd).
+##
+## ⚠️ Масштаб только ЦЕЛЫЙ, с обрезкой по краям. STRETCH_KEEP_ASPECT_COVERED дал
+## бы на 1280×720 ровно ×2.5 — то есть пиксель картинки то в два, то в три
+## экранных, и вся возня с пиксель-артом теряет смысл на первом же экране,
+## который видит игрок.
+func _build_bg() -> void:
+	if _bg_art != null:
+		return
+	var art: Texture2D = load(BG_ART) as Texture2D
+	if art == null:
+		return
+	_bg_art = TextureRect.new()
+	_bg_art.name = "BgArt"
+	_bg_art.texture = art
+	_bg_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_bg_art.stretch_mode = TextureRect.STRETCH_SCALE
+	_bg_art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_bg_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Картинка приглушена: поверх неё идёт колонка кнопок, и контраст текста
+	# важнее видимости фона.
+	_bg_art.modulate = Color(1.0, 1.0, 1.0, BG_ALPHA)
+	add_child(_bg_art)
+	# Сразу над сплошной подложкой ScreenBase и под колонкой содержимого.
+	move_child(_bg_art, 1)
+	resized.connect(_fit_bg)
+	_fit_bg()
+
+func _fit_bg() -> void:
+	if _bg_art == null or _bg_art.texture == null:
+		return
+	var src: Vector2 = _bg_art.texture.get_size()
+	var k: float = maxf(size.x / src.x, size.y / src.y)
+	var scale: int = maxi(1, int(ceil(k)))
+	_bg_art.size = src * float(scale)
+	_bg_art.position = ((size - _bg_art.size) * 0.5).floor()
+
 func _build_menu() -> void:
+	_build_bg()
 	var subtitle: Label = Label.new()
 	subtitle.theme_type_variation = &"LabelSmall"
 	UILayout.wrap(subtitle, 520.0)

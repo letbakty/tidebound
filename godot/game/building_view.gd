@@ -1,17 +1,22 @@
 class_name BuildingView
 extends Node2D
-## Постройка на экране. Заглушка до настоящего арта, но по правилам пиксель-арта
-## (промпт 18 п.9): силуэт, два тона и светлая кромка сверху. Плоский
-## прямоугольник читается как «программерский арт» именно из-за их отсутствия.
+## Постройка на экране. Спрайт берётся по def_id из assets/sprites/buildings/
+## (сборщик — tools/gen_buildings.gd), origin — верх-левый угол клетки, ровно
+## тот, от которого считает can_place (research/29 §1).
+##
+## Если арта для дефа нет — остаётся прежняя программная заглушка: силуэт, два
+## тона и светлая кромка сверху (CONVENTIONS «нужен ассет, которого нет —
+## заглушка, не блокируйся»).
 ##
 ## План — полупрозрачный, стройка и ремонт — с полосой прогресса, сломанная
 ## мигает, затопленная уходит в холод.
 
+const ART_DIR: String = "res://assets/sprites/buildings/"
 const PLANNED_ALPHA: float = 0.35
 const DAMAGED_BLINK_HZ: float = 2.0
 const FLOOD_TINT: Color = Color("6fa8c4")
 
-## Цвет по назначению постройки — читаемость без арта.
+## Цвет по назначению постройки — читаемость заглушки без арта.
 const COLORS: Dictionary = {
 	"ladder": Color("8a6a3f"), "platform": Color("9a8055"),
 	"storage": Color("b09a6a"), "hearth": Color("c46a3a"),
@@ -25,6 +30,7 @@ const COLORS: Dictionary = {
 
 var building_id: int = -1
 
+var _sprite: Sprite2D = null
 var _body: ColorRect = null
 var _shade: ColorRect = null
 var _edge: ColorRect = null
@@ -41,19 +47,35 @@ func _ready() -> void:
 		queue_free()
 		return
 	var px: Vector2 = Vector2(_def.size) * float(WorldGeo.TILE)
+	var tex: Texture2D = load(ART_DIR + _def.id + ".png") as Texture2D
+	if tex != null:
+		_sprite = Sprite2D.new()
+		_sprite.texture = tex
+		_sprite.centered = false
+		add_child(_sprite)
+	else:
+		_build_stub(px)
+	_bar = ColorRect.new()
+	_bar.color = Color("7fd8a0")
+	_bar.position = Vector2(0.0, px.y - 3.0)
+	_bar.size = Vector2(0.0, 3.0)
+	_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_bar)
+	refresh()
+
+## Прежний программный силуэт: плоский прямоугольник читается как
+## «программерский арт» именно из-за отсутствия тона и кромки.
+func _build_stub(px: Vector2) -> void:
 	_body = ColorRect.new()
 	_body.size = px
 	_body.color = COLORS.get(_def.special, Color("909090"))
 	_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_body)
-	# Нижняя треть темнее: объём без единого пикселя арта.
 	_shade = ColorRect.new()
 	_shade.size = Vector2(px.x, maxf(2.0, px.y / 3.0))
 	_shade.position = Vector2(0.0, px.y - _shade.size.y)
 	_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_shade)
-	# Кромка сверху: свет всегда падает сверху, и это единственное, что
-	# отличает «объект» от «заливки».
 	_edge = ColorRect.new()
 	_edge.size = Vector2(px.x, 2.0)
 	_edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -65,13 +87,6 @@ func _ready() -> void:
 	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_label)
-	_bar = ColorRect.new()
-	_bar.color = Color("7fd8a0")
-	_bar.position = Vector2(0.0, px.y - 3.0)
-	_bar.size = Vector2(0.0, 3.0)
-	_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_bar)
-	refresh()
 
 func refresh() -> void:
 	if Game.world == null or _def == null:
@@ -81,14 +96,22 @@ func refresh() -> void:
 		return
 	var state: int = int(b["state"])
 	var a: float = PLANNED_ALPHA if state == int(SimTypes.BuildState.PLANNED) else 1.0
-	var tint: Color = COLORS.get(_def.special, Color("909090"))
-	if bool(b["flooded"]):
-		tint = tint.lerp(FLOOD_TINT, 0.5)
-	_body.color = Color(tint.r, tint.g, tint.b, a)
-	_shade.color = Color(tint.darkened(0.35).r, tint.darkened(0.35).g,
-		tint.darkened(0.35).b, a)
-	_edge.color = Color(tint.lightened(0.30).r, tint.lightened(0.30).g,
-		tint.lightened(0.30).b, a)
+	var flooded: bool = bool(b["flooded"])
+	if _sprite != null:
+		# Затопленная постройка уходит в холод модуляцией, а не вторым
+		# ассетом: отдельного спрайта «повреждена» у нас нет и не будет
+		# (ART-integration §2 п.5).
+		_sprite.modulate = Color(1, 1, 1, a) if not flooded \
+			else Color(FLOOD_TINT.r, FLOOD_TINT.g, FLOOD_TINT.b, a)
+	else:
+		var tint: Color = COLORS.get(_def.special, Color("909090"))
+		if flooded:
+			tint = tint.lerp(FLOOD_TINT, 0.5)
+		_body.color = Color(tint.r, tint.g, tint.b, a)
+		_shade.color = Color(tint.darkened(0.35).r, tint.darkened(0.35).g,
+			tint.darkened(0.35).b, a)
+		_edge.color = Color(tint.lightened(0.30).r, tint.lightened(0.30).g,
+			tint.lightened(0.30).b, a)
 	var px: Vector2 = Vector2(_def.size) * float(WorldGeo.TILE)
 	var progress: float = Game.world.buildings.build_progress(b)
 	var show_bar: bool = state == int(SimTypes.BuildState.UNDER_CONSTRUCTION) \

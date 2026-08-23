@@ -95,7 +95,7 @@ func _make_slot(stack: Dictionary) -> Control:
 	var icon: IconStub = IconStub.new()
 	row.add_child(icon)
 	var item_id: String = str(stack["item_id"])
-	icon.setup(item_id.substr(0, 1), ResourceChip.color_for(item_id), UITokens.SPACE_5)
+	icon.setup_item(item_id, ResourceChip.color_for(item_id), UITokens.SPACE_5)
 	var count: Label = Label.new()
 	count.theme_type_variation = &"LabelNum"
 	count.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED

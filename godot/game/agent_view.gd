@@ -1,26 +1,35 @@
 class_name AgentView
 extends Node2D
-## Спрайт агента: 16×24, четыре кадра ходьбы и два кадра работы
-## (assets/sprites/agent.png, генератор tools/gen_sprites.gd). Игровой логики
-## здесь нет — только отображение.
+## Спрайт агента: сетка 16×24 в assets/sprites/agent.png (сборщик —
+## tools/gen_agent.gd). Ряд = состояние, столбец = кадр. Игровой логики здесь
+## нет — только отображение.
 ##
-## Кадр выбирается по СОСТОЯНИЮ и по пройденному пути, а не по реальному
-## времени: на паузе агент обязан замереть, а на ×3 — перебирать ногами втрое
-## быстрее. Привязка к sim_seconds даёт и то и другое бесплатно.
+## Кадр выбирается по СОСТОЯНИЮ и по сим-времени, а не по реальному: на паузе
+## агент обязан замереть, а на ×3 — перебирать ногами втрое быстрее. Привязка
+## к sim_seconds даёт и то и другое бесплатно.
 
 const SHEET: String = "res://assets/sprites/agent.png"
+## Лежащий агент повёрнут (24×16) и в клетку листа не влезает.
+const DEAD_SPRITE: String = "res://assets/sprites/agent_dead.png"
 const W: int = 16
 const H: int = 24
-const WALK_FRAMES: int = 4
-const WORK_FRAMES: int = 2
-## Кадров ходьбы в секунду симуляции.
-const WALK_FPS: float = 6.0
-const WORK_FPS: float = 3.0
+const COLS: int = 8
+
+## Ряды листа. Порядок — контракт с tools/gen_agent.gd (сторожит тест).
+enum Row { IDLE, WALK, CARRY, WORK, DROWN, PANIC }
+
+## Кадров в секунду симуляции. Ходьба — полный цикл из восьми кадров за секунду.
+const WALK_FPS: float = 8.0
+const WORK_FPS: float = 6.0
+const PANIC_FPS: float = 8.0
+const DROWN_FPS: float = 4.0
 const BODY: Color = Color(1, 1, 1, 1)
 const BODY_WET: Color = Color("8fb4c4")
 const BODY_DEAD: Color = Color("5a5148")
 
-## Иконки состояний: буква над головой вместо арта.
+## Иконки состояний: буква над головой там, где поза сама по себе не читается
+## на 16 пикселях. У тонущего и паникующего своя анимация, но буква остаётся
+## единственным, что видно на дальнем зуме.
 const STATE_MARKS: Dictionary = {
 	SimTypes.AgentState.DROWNING: "Z",
 	SimTypes.AgentState.PANIC: "!",
@@ -96,8 +105,10 @@ func _refresh_look() -> void:
 	else:
 		_body.modulate = BODY
 	_mark.text = str(STATE_MARKS.get(st, ""))
-	_body.region_rect = Rect2(float(frame_for(st, _moving, Game.sim_seconds()) * W),
-		0.0, float(W), float(H))
+	var cell: Vector2i = cell_for(st, _moving, bool(info.get("carry", false)),
+		Game.sim_seconds())
+	_body.region_rect = Rect2(float(cell.x * W), float(cell.y * H),
+		float(W), float(H))
 	_body.position.y = -float(H)
 	# Флип — только у спрайта; отрицательный scale на родителе ломает Y-sort
 	# и переворачивает иконку состояния.
@@ -105,14 +116,27 @@ func _refresh_look() -> void:
 	_body.flip_h = facing < 0
 	_body.position.x = -float(W) * 0.5
 
-## Номер кадра в листе. Чистая функция — её же проверяет тест этапа 18.
-## Порядок кадров: 0..3 ходьба, 4..5 работа.
-static func frame_for(state: int, moving: bool, sim_time: float) -> int:
-	if state == SimTypes.AgentState.WORK or state == SimTypes.AgentState.GATHER:
-		return WALK_FRAMES + (int(sim_time * WORK_FPS) % WORK_FRAMES)
+## Клетка листа: x — кадр, y — ряд. Чистая функция, её же проверяет тест.
+static func cell_for(state: int, moving: bool, carrying: bool,
+		sim_time: float) -> Vector2i:
+	match state:
+		SimTypes.AgentState.DROWNING:
+			return Vector2i(_step(sim_time, DROWN_FPS), Row.DROWN)
+		SimTypes.AgentState.PANIC:
+			return Vector2i(_step(sim_time, PANIC_FPS), Row.PANIC)
+		SimTypes.AgentState.WORK, SimTypes.AgentState.GATHER:
+			return Vector2i(_step(sim_time, WORK_FPS), Row.WORK)
+	# Несёт груз — это видно по позе, а не по значку: котомка у нас и есть
+	# главный смысл ходьбы туда-обратно.
+	var row: int = Row.CARRY if carrying else Row.WALK
 	if not moving:
-		return 0
-	return int(sim_time * WALK_FPS) % WALK_FRAMES
+		# Стоящий с грузом остаётся в своём ряду: иначе груз мигал бы на
+		# каждой остановке у склада.
+		return Vector2i(0, row if carrying else Row.IDLE)
+	return Vector2i(_step(sim_time, WALK_FPS), row)
+
+static func _step(sim_time: float, fps: float) -> int:
+	return int(sim_time * fps) % COLS
 
 ## Прямоугольник для хит-теста без физики (World.pick_at).
 func hit_rect() -> Rect2:
@@ -120,6 +144,14 @@ func hit_rect() -> Rect2:
 
 func play_death_and_free(_cause: String) -> void:
 	if _body != null:
+		# Лежащее тело — отдельный файл: он шире клетки листа.
+		var dead: Texture2D = load(DEAD_SPRITE) as Texture2D
+		if dead != null:
+			_body.texture = dead
+			_body.region_enabled = false
+			_body.flip_h = false
+			_body.position = Vector2(-float(dead.get_width()) * 0.5,
+				-float(dead.get_height()))
 		_body.modulate = BODY_DEAD
 	var tw: Tween = create_tween()
 	tw.tween_property(self, "modulate:a", 0.0, 0.8)

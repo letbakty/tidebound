@@ -10,6 +10,12 @@ signal building_chosen(def_id: String, at_world: Vector2)
 signal cancelled()
 
 const PER_PAGE: int = RadialMenu.MAX_SLOTS - 1     # шестой слот — «ещё»
+const ICON_ATLAS: String = "res://assets/sprites/building_icons.png"
+const ICON_CELL: int = 24
+
+## Кадры атласа на весь интерфейс: радиал пересобирает слоты на каждой странице
+## и на каждом открытии.
+static var _icons: Dictionary[String, Texture2D] = {}
 
 var _radial: RadialMenu = null
 var _ids: Array[String] = []
@@ -48,11 +54,29 @@ func _slots() -> Array[Dictionary]:
 		out.append({
 			"label": d.display_key, "letter": id.substr(0, 1).to_upper(),
 			"color": UIPalette.warm(), "enabled": true, "def_id": id,
+			"icon": _icon_for(id),
 		})
 	if _ids.size() > PER_PAGE:
 		out.append({"label": "RADIAL_MORE", "letter": "+",
 			"color": UIPalette.accent(), "enabled": true, "def_id": ""})
 	return out
+
+## Иконка постройки из общего атласа (tools/gen_buildings.gd). Кадр считается
+## по DB.building_ids() — тому же отсортированному списку, по которому атлас и
+## собран. AtlasTexture кэшируем: радиал пересобирает слоты на каждой странице.
+static func _icon_for(def_id: String) -> Texture2D:
+	if _icons.has(def_id):
+		return _icons[def_id]
+	var atlas: Texture2D = load(ICON_ATLAS) as Texture2D
+	var idx: int = DB.building_ids().find(def_id)
+	if atlas == null or idx < 0:
+		_icons[def_id] = null
+		return null
+	var t: AtlasTexture = AtlasTexture.new()
+	t.atlas = atlas
+	t.region = Rect2(float(idx * ICON_CELL), 0.0, float(ICON_CELL), float(ICON_CELL))
+	_icons[def_id] = t
+	return t
 
 func _on_slot_picked(index: int) -> void:
 	var slots: Array[Dictionary] = _slots()

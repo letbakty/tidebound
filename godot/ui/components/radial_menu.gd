@@ -49,7 +49,10 @@ func _apply_theme() -> void:
 	queue_redraw()
 
 ## slots: [{"label": ключ локализации, "letter": String, "color": Color,
-##          "enabled": bool}]. Недоступные слоты владелец сюда не кладёт вовсе.
+##          "enabled": bool, "icon": Texture2D}]. Недоступные слоты владелец
+## сюда не кладёт вовсе. "icon" необязателен: есть — рисуем его вместо буквы,
+## нет — остаётся буква. Готовую текстуру кладёт владелец, чтобы компонент не
+## знал ни про постройки, ни про атласы (test_ui/components_are_pure).
 ## gesture_active — палец/ПКМ ещё удерживаются: отпускание сразу выберет сектор.
 func setup(slots: Array[Dictionary]) -> void:
 	_apply_defaults()
@@ -230,11 +233,20 @@ func _draw_slot(index: int) -> void:
 	var tint: Color = slot.get("color", UITokens.INK) as Color
 	if not enabled:
 		tint = UITokens.FAINT
-	var letter: String = str(slot.get("letter", "?"))
-	var ls: Vector2 = _font.get_string_size(letter, HORIZONTAL_ALIGNMENT_LEFT,
-		-1.0, _font_size)
-	draw_string(_font, Vector2(roundf(c.x - ls.x * 0.5), roundf(c.y + float(_font_size) * 0.3)),
-		letter, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _font_size, tint)
+	var icon: Texture2D = slot.get("icon", null) as Texture2D
+	if icon != null:
+		# Иконка в РОДНОМ размере и по целым координатам: дробный масштаб на
+		# пиксель-арте даёт «то два, то три экранных пикселя».
+		var half: Vector2 = (Vector2(icon.get_size()) * 0.5).floor()
+		draw_texture(icon, (c - half).floor(),
+			Color(1, 1, 1, 1) if enabled else Color(1, 1, 1, 0.35))
+	else:
+		var letter: String = str(slot.get("letter", "?"))
+		var ls: Vector2 = _font.get_string_size(letter, HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0, _font_size)
+		draw_string(_font, Vector2(roundf(c.x - ls.x * 0.5),
+			roundf(c.y + float(_font_size) * 0.3)),
+			letter, HORIZONTAL_ALIGNMENT_LEFT, -1.0, _font_size, tint)
 	var label: String = tr(str(slot.get("label", "")))
 	var lw: Vector2 = _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT,
 		-1.0, _font_size)

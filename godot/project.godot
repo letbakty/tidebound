@@ -11,16 +11,13 @@ config_version=5
 [application]
 
 config/name="Tidebound"
-; Потолок кадров: без него игра крутит меню на сотнях fps — на ноутбуке и
-; Deck это батарея и шум (research/26 §6.2). low_processor_mode НЕ включаем:
-; он для приложений, а у нас непрерывная анимация воды.
-run/max_fps=60
 config/description="Колония на приливной отмели"
 config/version="0.1.0"
 run/main_scene="res://game/main.tscn"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="Tidebound"
 config/features=PackedStringArray("4.7", "Mobile")
+run/max_fps=60
 config/icon="res://icon.png"
 
 [autoload]
@@ -47,17 +44,18 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-; Дробное масштабирование, а не integer: на 1366×768 целочисленное даёт
-; чёрные поля в четверть экрана (research/10 §1). Игрок может включить
-; целочисленное в настройках — там оно осознанный выбор, а не умолчание.
-window/stretch/scale_mode="fractional"
-; Вертикальная синхронизация — умолчание: без неё игра жарит GPU впустую
-; (research/26 §6.2). Отключается в настройках для замеров.
-window/vsync/vsync_mode=1
 
 [gui]
 
 theme/custom="res://ui/theme/main_theme.tres"
+
+[importer_defaults]
+
+texture={
+"compress/mode": 0,
+"detect_3d/compress_to": 0,
+"mipmaps/generate": false
+}
 
 [input]
 
@@ -201,10 +199,7 @@ capture_layers={
 
 [input_devices]
 
-; Жесты панорамы и пинча на Android приходят системой, а не эмулируются
-; из касаний (research/20 §3): без этого пинч на телефоне не работает.
 pointing/android/enable_pan_and_scale_gestures=true
-
 pointing/emulate_touch_from_mouse=true
 
 [internationalization]
@@ -213,27 +208,14 @@ locale/translations=PackedStringArray("res://assets/i18n/strings.en.translation"
 
 [physics]
 
-; 60 и не менять: физику мы не используем, но на _physics_process висит
-; аккумулятор сим-тика (research/11 §3), и снижение до 30 сделало бы грубее
-; и ввод, и время симуляции.
-common/physics_ticks_per_second=60
-; Подкрутка дельты вредит и камере, и аккумулятору (research/10 §2).
-common/physics_jitter_fix=0.0
-
 common/physics_jitter_fix=0.0
 
 [rendering]
 
-; Пиксель-арт: сглаживание кромок ему противопоказано, а стоит оно кадра.
-anti_aliasing/quality/msaa_2d=0
-anti_aliasing/quality/screen_space_aa=0
-; Светов на экране ≤8 (docs/00 §16), 2048 избыточно; читается только на старте.
-2d/shadow_atlas/size=1024
-; Фон кадра = фон игры: иначе кадр начинается с лишней заливки другим цветом.
-environment/defaults/default_clear_color=Color(0.039, 0.071, 0.086, 1)
-
 textures/canvas_textures/default_texture_filter=0
 renderer/rendering_method="mobile"
+2d/shadow_atlas/size=1024
+environment/defaults/default_clear_color=Color(0.039, 0.071, 0.086, 1)
 2d/snap/snap_2d_transforms_to_pixel=true
 2d/snap/snap_2d_vertices_to_pixel=true
 
@@ -242,15 +224,4 @@ renderer/rendering_method="mobile"
 sim_time={
 "type": "float",
 "value": 0.0
-}
-
-[importer_defaults]
-
-; Пиксель-арт: без сжатия, без мип-мапов, без «Detect 3D». Здесь, а не в
-; каждом .import руками: иначе следующий добавленный PNG приедет с VRAM-сжатием
-; и мылом, и заметят это через десять файлов (prompts/ART-integration §2 п.1).
-texture={
-"compress/mode": 0,
-"detect_3d/compress_to": 0,
-"mipmaps/generate": false
 }

@@ -57,7 +57,7 @@ func setup(id: String, count: int, trend: int) -> void:
 	_build()
 	item_id = id
 	_trend = signi(trend)
-	_icon.setup(letter_for(id), color_for(id), ICON_PX)
+	_icon.setup_item(id, color_for(id), ICON_PX)
 	_count.text = str(count)
 	# Ноль показывается нулём, а не исчезает (docs/03 §8).
 	tooltip_text = "ITEM_%s" % id.to_upper()

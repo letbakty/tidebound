@@ -374,9 +374,12 @@ func query_agent_look(id: int) -> Dictionary:
 		return {}
 	# mark и worst_need здесь, а не в query_agent: HUD дёргает срез на каждое
 	# agent_updated, а полный срез копирует котомку целиком (аудит B3, PERF-01).
+	# carry — ФЛАГ, а не котомка: спрайту нужна только поза «несёт», а копия
+	# стаков на каждом кадре и была тем, от чего этот срез отделяли.
 	return {"state": int(a.state), "wet": a.wet, "facing": a.facing,
 		"mark": world.agents.agent_mark_f(a, world),
 		"worst_need": minf(minf(a.satiety(), a.warmth()), a.mood()),
+		"carry": not a.bag.is_empty(),
 		"name": a.agent_name, "dead": a.state == SimTypes.AgentState.DEAD}
 
 ## Мировая позиция агента в пикселях — для AgentView каждый кадр.
@@ -574,6 +577,17 @@ func query_material_sources(def_id: String) -> Array[Vector2i]:
 				out.append(s["cell"] as Vector2i)
 				break
 	return out
+
+## Срез существа для CreatureView: грызёт постройку или просто идёт. Поза —
+## единственный канал, которым существо о себе сообщает: подписей у него нет.
+func query_creature_look(id: int) -> Dictionary:
+	if world == null:
+		return {}
+	for c: Dictionary in world.crisis.creatures:
+		if int(c["id"]) == id:
+			return {"gnaw": int(c["gnaw_ticks"]) > 0,
+				"leaving": bool(c["leaving"])}
+	return {}
 
 ## Мировая позиция существа — для CreatureView каждый кадр.
 func query_creature_pos(id: int) -> Vector2:

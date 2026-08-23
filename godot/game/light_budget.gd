@@ -17,10 +17,16 @@ const GLOW_TEXTURE: String = "res://assets/shaders/light_glow.tres"
 
 ## Цвет и сила света по типу источника. Тёплый свет против холодного низа —
 ## главный приём «дорогой» картинки (research/02).
+##
+## ⚠️ Сила света пересобрана вместе с настоящим артом. Прежние числа (1.15 /
+## 1.30 / 1.00) подбирались, когда шейдер Ground возводил цвет тайла в КВАДРАТ
+## и порода была на 40% темнее. На починенной базе сложение выжигало охряный
+## камень в белое пятно: очага не видно, видно засветку (backlog «Пересъём
+## атмосферы»).
 const KINDS: Dictionary = {
-	"hearth": {"color": Color("ffb14a"), "energy": 1.15, "scale": 2.2},
-	"forge": {"color": Color("ff8a3a"), "energy": 1.30, "scale": 1.8},
-	"lantern": {"color": Color("ffd27a"), "energy": 1.00, "scale": 1.6},
+	"hearth": {"color": Color("ffb14a"), "energy": 0.70, "scale": 2.2},
+	"forge": {"color": Color("ff8a3a"), "energy": 0.80, "scale": 1.8},
+	"lantern": {"color": Color("ffd27a"), "energy": 0.60, "scale": 1.6},
 }
 
 var _lights: Array[PointLight2D] = []

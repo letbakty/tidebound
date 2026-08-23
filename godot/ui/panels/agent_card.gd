@@ -8,6 +8,12 @@ extends BottomSheet
 
 signal focus_requested(agent_id: int)
 
+const PORTRAITS: String = "res://assets/sprites/portraits.png"
+const PORTRAIT: int = 32
+## Портрет закреплён за агентом его номером: карточка одного и того же агента
+## обязана открываться с тем же лицом, иначе колония расползается.
+static var _portrait_cache: Dictionary[int, Texture2D] = {}
+
 const NEEDS: Array[String] = ["satiety", "warmth", "mood"]
 const NEED_KEYS: Dictionary[String, String] = {
 	"satiety": "NEED_SATIETY", "warmth": "NEED_WARMTH", "mood": "NEED_MOOD",
@@ -17,6 +23,7 @@ const BAG_SLOTS: int = Balance.BAG_SLOTS
 var agent_id: int = -1
 
 var _name: Label = null
+var _portrait: TextureRect = null
 var _bio: Label = null
 var _state: Label = null
 var _traits: HBoxContainer = null
@@ -36,16 +43,42 @@ func _ready() -> void:
 	super()
 	_build_card()
 
+static func portrait_for(id: int) -> Texture2D:
+	var atlas: Texture2D = load(PORTRAITS) as Texture2D
+	if atlas == null:
+		return null
+	var count: int = maxi(1, atlas.get_width() / PORTRAIT)
+	var idx: int = posmod(id, count)
+	if _portrait_cache.has(idx):
+		return _portrait_cache[idx]
+	var t: AtlasTexture = AtlasTexture.new()
+	t.atlas = atlas
+	t.region = Rect2(float(idx * PORTRAIT), 0.0, float(PORTRAIT), float(PORTRAIT))
+	_portrait_cache[idx] = t
+	return t
+
 func _build_card() -> void:
 	if _name != null:
 		return
 	setup("PANEL_AGENT", true)
 
+	# Портрет рядом с именем: восемь силуэтов на колонию из двенадцати —
+	# лица на 32 px всё равно не читаются, различает силуэт и поза.
+	var head: HBoxContainer = HBoxContainer.new()
+	head.name = "Head"
+	add_content(head)
+	_portrait = TextureRect.new()
+	_portrait.name = "Portrait"
+	_portrait.custom_minimum_size = Vector2(float(PORTRAIT), float(PORTRAIT))
+	_portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_child(_portrait)
 	_name = Label.new()
 	_name.name = "Name"
 	_name.theme_type_variation = &"LabelTitle"
 	_name.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	add_content(_name)
+	_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	head.add_child(_name)
 
 	_bio = Label.new()
 	_bio.name = "Bio"
@@ -129,6 +162,7 @@ func _refresh() -> void:
 	if a.is_empty():
 		return
 	_name.text = str(a["name"])
+	_portrait.texture = portrait_for(agent_id)
 	_bio.text = tr(str(a["bio"]))
 	_state.text = tr("STATE_%d" % int(a["state"]))
 	for need: String in NEEDS:
@@ -181,7 +215,7 @@ func _refresh_bag(bag: Array, has_gear: bool) -> void:
 		if i < bag.size():
 			var stack: Dictionary = bag[i] as Dictionary
 			var item_id: String = str(stack["item_id"])
-			slot.setup(item_id.substr(0, 1),
+			slot.setup_item(item_id,
 				UIPalette.warm() if bool(stack.get("wet", false)) else UITokens.INK,
 				UITokens.SPACE_5)
 			# IconStub по умолчанию IGNORE — на нём тултипа не увидеть; и имя
@@ -193,4 +227,4 @@ func _refresh_bag(bag: Array, has_gear: bool) -> void:
 			slot.setup(".", UITokens.FAINT, UITokens.SPACE_5)
 	_gear.visible = has_gear
 	if has_gear:
-		_gear.setup("G", UIPalette.accent(), UITokens.SPACE_5)
+		_gear.setup_item("gear", UIPalette.accent(), UITokens.SPACE_5)
