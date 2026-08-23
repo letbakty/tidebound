@@ -101,12 +101,19 @@ func _build() -> void:
 	right.add_child(toasts)
 	toasts.focus_requested.connect(_on_toast_focus)
 
+	# ⚠️ «Отзыв» висит на КОРНЕ HUD, а не в ячейке строки: минимальная ширина
+	# верхней строки в живой игре (кнопки скоростей + четыре ресурса + чипы
+	# агентов) больше окна на Deck и при UI 125%, MarginContainer раздувается
+	# шире экрана — и единственная командная кнопка игры уезжала за правый край
+	# на 65 px, то есть не нажималась вовсе. Пустой HUD в тестах этого не
+	# показывает: минимум там считается по ненаполненной строке (test_edge_cases
+	# hud_fits_extreme_resolutions зелёный). Поймано кликом в playtest_run.
 	recall = RecallButton.new()
 	recall.name = "RecallButton"
 	recall.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	recall.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	recall.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	right.add_child(recall)
+	add_child(recall)
 
 	banner = BannerView.new()
 	banner.name = "Banner"
@@ -236,6 +243,10 @@ func _apply_safe_area() -> void:
 	_margin.add_theme_constant_override("margin_top", top)
 	_margin.add_theme_constant_override("margin_right", right)
 	_margin.add_theme_constant_override("margin_bottom", bottom)
+	# Кнопка отзыва живёт вне этого контейнера — отступы вырезаем ей отдельно.
+	if recall != null:
+		recall.offset_right = -float(right)
+		recall.offset_bottom = -float(bottom)
 
 ## Оверлеи мира: F2/F3/F4. Тумблеры, одновременно активен один.
 func _unhandled_input(event: InputEvent) -> void:

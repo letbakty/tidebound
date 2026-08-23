@@ -441,13 +441,18 @@ func _on_creature_left(id: int) -> void:
 	v.queue_free()
 
 # --- Координаты и хит-тест ------------------------------------------------
-# ЕДИНСТВЕННЫЙ хелпер конверсии экран↔мир на весь проект (docs/01 §1.1).
+# ЕДИНСТВЕННЫЙ хелпер конверсии вьюпорт↔мир на весь проект (docs/01 §1.1).
 # Конвертировать «на месте» в других файлах запрещено.
+#
+# ⚠️ Здесь именно МИРОВОЙ SubViewport (640×360), а не окно: точку окна сначала
+# делит на stretch_shrink Main._to_viewport. Прежние имена screen_to_world и
+# world_to_screen врали ровно в том месте, где на этом уже один раз ошиблись
+# (клик уезжал на 34 клетки) — поэтому в имени стоит «viewport».
 
-func screen_to_world(viewport_pos: Vector2) -> Vector2:
+func viewport_to_world(viewport_pos: Vector2) -> Vector2:
 	return get_viewport().get_canvas_transform().affine_inverse() * viewport_pos
 
-func world_to_screen(world_pos: Vector2) -> Vector2:
+func world_to_viewport(world_pos: Vector2) -> Vector2:
 	return get_viewport().get_canvas_transform() * world_pos
 
 ## Один хит-тест без физики на все будущие этапы (07, 09, 14).

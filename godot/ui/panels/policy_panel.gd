@@ -23,6 +23,9 @@ func _ready() -> void:
 	super()
 	set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
 	grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	# Не во всю высоту окна: внизу справа мёртвая зона «Отзыва», и шторка
+	# обязана над ней остановиться (docs/01 §2, антипаттерн Fallout Shelter).
+	offset_bottom = -float(UITokens.DEADZONE_PX)
 	custom_minimum_size = Vector2(WIDTH, 0.0)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	setup_ui()

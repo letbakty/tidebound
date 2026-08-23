@@ -365,3 +365,46 @@ static func test_reduce_motion_is_read(t: TestCtx) -> void:
 			users.append(path.get_file())
 	t.check(users.size() >= 3,
 		"«меньше движения» читают всего %d места: %s" % [users.size(), str(users)])
+
+## Радиал перехватывает мышь ТОЛЬКО в своём круге, хотя прямоугольник у него
+## во весь экран. Полноэкранный STOP накрывал HUD целиком, пока радиал открыт:
+## кнопка «Отзыв» под ним не нажималась (docs/01 §3).
+static func test_radial_captures_only_its_circle(t: TestCtx) -> void:
+	var tree: SceneTree = Engine.get_main_loop() as SceneTree
+	var radial: RadialMenu = RadialMenu.new()
+	tree.root.add_child(radial)
+	var slots: Array[Dictionary] = []
+	for i: int in 4:
+		slots.append({"label": "GALLERY_SLOT", "letter": str(i), "enabled": true})
+	var center: Vector2 = Vector2(300.0, 300.0)
+	radial.open_at(center, slots, false)
+	t.check(radial.call("_has_point", center), "центр радиала — его зона")
+	t.check(radial.call("_has_point", center + Vector2(RadialMenu.RADIUS, 0.0)),
+		"слот на радиусе — его зона")
+	t.check(not radial.call("_has_point",
+		center + Vector2(RadialMenu.OUTER_LIMIT + 8.0, 0.0)),
+		"за внешней границей радиал мышь не ловит")
+	# Клик мимо круга обязан ЗАКРЫВАТЬ радиал, а не блокировать HUD.
+	var cancels: Array[int] = []
+	radial.cancelled.connect(func() -> void: cancels.append(1))
+	var away: Vector2 = center + Vector2(0.0, RadialMenu.OUTER_LIMIT + 40.0)
+	var click: InputEventMouseButton = InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.position = away
+	click.pressed = true
+	radial._input(click)
+	t.check(not radial.is_open(), "тап мимо закрывает радиал")
+	t.check_eq(cancels.size(), 1, "и сообщает об отмене")
+	radial.queue_free()
+
+## Призрак стройки обязан ВЕРНУТЬСЯ к мыши: set_cursor_world (тач и геймпад)
+## выключал её навсегда, и после первого же выбора постройки призрак замирал
+## в точке, где открыли радиал.
+static func test_ghost_returns_to_mouse(t: TestCtx) -> void:
+	var ghost: BuildGhost = BuildGhost.new()
+	t.check(bool(ghost.get("_use_mouse")), "по умолчанию призрак ведёт мышь")
+	ghost.set_cursor_world(Vector2(100.0, 100.0))
+	t.check(not bool(ghost.get("_use_mouse")), "тап уводит его на последнюю точку")
+	ghost.follow_mouse()
+	t.check(bool(ghost.get("_use_mouse")), "follow_mouse возвращает мышь")
+	ghost.free()

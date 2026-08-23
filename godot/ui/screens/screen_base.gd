@@ -18,6 +18,11 @@ func _ready() -> void:
 	visible = false
 	build_base()
 
+## Каркас экрана. Контейнеры — IGNORE, перехватывает только КОРЕНЬ экрана:
+## иначе прозрачный полноэкранный Margin/Box/Content на самом верхнем слое (40)
+## съедает клики у HUD, панелей и банеров под собой — весь интерфейс забега
+## переставал нажиматься. Тот же приём уже применён в ui/hud/hud.gd.
+## Дети контейнеров при IGNORE ввод получают как обычно.
 func build_base() -> void:
 	if content != null:
 		return
@@ -35,14 +40,17 @@ func build_base() -> void:
 	margin.add_theme_constant_override("margin_right", UITokens.SPACE_6)
 	margin.add_theme_constant_override("margin_top", UITokens.SPACE_5)
 	margin.add_theme_constant_override("margin_bottom", UITokens.SPACE_5)
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(margin)
 
 	var box: VBoxContainer = VBoxContainer.new()
 	box.name = "Box"
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(box)
 
 	var header: HBoxContainer = HBoxContainer.new()
 	header.name = "Header"
+	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(header)
 	_title = Label.new()
 	_title.name = "Title"
@@ -58,6 +66,7 @@ func build_base() -> void:
 	content = VBoxContainer.new()
 	content.name = "Content"
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(content)
 
 func set_title(key: String) -> void:
@@ -67,7 +76,8 @@ func set_title(key: String) -> void:
 
 func show_back(on: bool) -> void:
 	build_base()
-	_back.visible = on
+	if _back != null:
+		_back.visible = on
 
 ## Кто получает фокус при открытии — иначе геймпад «теряет» курсор
 ## (research/20 §6).

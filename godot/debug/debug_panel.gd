@@ -424,7 +424,7 @@ func _on_place_beacon() -> void:
 	if world_view == null:
 		return
 	var vp: Viewport = world_view.get_viewport()
-	var world_pos: Vector2 = world_view.call("screen_to_world", vp.get_mouse_position())
+	var world_pos: Vector2 = world_view.call("viewport_to_world", vp.get_mouse_position())
 	Game.cmd_set_beacon(WorldGeo.world_to_cell(world_pos))
 
 ## Включает призрак размещения выбранной постройки.

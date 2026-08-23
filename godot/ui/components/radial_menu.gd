@@ -39,6 +39,15 @@ func _apply_defaults() -> void:
 	focus_mode = Control.FOCUS_ALL
 	visible = false
 
+## Перехват — ТОЛЬКО в круге вокруг центра, хотя прямоугольник во весь экран.
+## ⚠️ Полноэкранный STOP накрывал весь HUD, пока радиал открыт: «Отзыв» под ним
+## не нажимался. Клик снаружи радиал не блокирует — он его закрывает (_input).
+##
+## Прямоугольник стоит в (0,0) во весь экран, поэтому локальная точка равна
+## экранной, и _center из open_at сравнивается с ней напрямую.
+func _has_point(point: Vector2) -> bool:
+	return visible and point.distance_to(_center) <= OUTER_LIMIT
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_THEME_CHANGED:
 		_apply_theme()
@@ -173,6 +182,34 @@ func _release(pos: Vector2) -> void:
 		close()
 		cancelled.emit()
 	queue_redraw()
+
+## «Тап мимо закрывает» (docs/01 §3). Через _gui_input такие клики больше не
+## приходят — круг их не ловит, — поэтому ловим здесь и событие НЕ поглощаем:
+## кнопка HUD под курсором обязана отработать тем же кликом.
+func _input(event: InputEvent) -> void:
+	if not visible:
+		return
+	var pos: Vector2 = Vector2.INF
+	var pressed: bool = false
+	var touch: InputEventScreenTouch = event as InputEventScreenTouch
+	if touch != null:
+		pos = touch.position
+		pressed = touch.pressed
+	else:
+		var click: InputEventMouseButton = event as InputEventMouseButton
+		if click == null or click.button_index != MOUSE_BUTTON_LEFT:
+			return
+		pos = click.position
+		pressed = click.pressed
+	if _has_point(pos):
+		return                              # это уже работа _gui_input
+	if pressed:
+		close()
+		cancelled.emit()
+		return
+	# Отпускание за кругом — конец жеста «увёл палец в никуда»: разбирает его
+	# тот же _release, что и внутри, иначе два режима разойдутся.
+	_release(pos)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not visible:

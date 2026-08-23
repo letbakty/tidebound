@@ -265,3 +265,35 @@ static func test_draft_releases_only_its_own_pause(t: TestCtx) -> void:
 		"cmd_pick_card снимает паузу второй раз — счётчик уедет в чужую")
 	Game.pop_pause()
 	router.free()
+
+## ⚠️ Каркас экрана обязан быть прозрачным для мыши. Экраны лежат на самом
+## верхнем слое (40), и прозрачный полноэкранный Margin/Box/Content на нём
+## съедал клики у HUD, панелей и банеров: в забеге не нажималось ничего.
+## Перехват оставлен только КОРНЮ экрана — он и не должен пропускать вглубь.
+static func test_screen_frame_is_click_through(t: TestCtx) -> void:
+	# _ready() зовём руками: в headless-раннере виджеты в дерево не кладём
+	# (см. шапку tests/test_hud.gd).
+	var screen: ScreenBase = ScreenBase.new()
+	screen._ready()
+	t.check_eq(int(screen.mouse_filter), int(Control.MOUSE_FILTER_STOP),
+		"корень экрана перехватывает мышь сам")
+	for path: String in ["Margin", "Margin/Box", "Margin/Box/Header",
+			"Margin/Box/Content"]:
+		var node: Control = screen.get_node_or_null(NodePath(path)) as Control
+		t.check(node != null, "каркас содержит %s" % path)
+		if node == null:
+			continue
+		t.check_eq(int(node.mouse_filter), int(Control.MOUSE_FILTER_IGNORE),
+			"%s не перехватывает мышь" % path)
+	screen.free()
+
+## Экран забега — пустышка: ни узлов, ни прямоугольника. Каркас поверх живой
+## игры не нужен и вреден (см. тест выше).
+static func test_game_screen_has_no_frame(t: TestCtx) -> void:
+	var screen: GameScreen = GameScreen.new()
+	screen._ready()
+	t.check_eq(screen.get_child_count(), 0, "у экрана игры нет ни одного узла")
+	t.check_eq(int(screen.mouse_filter), int(Control.MOUSE_FILTER_IGNORE),
+		"и он не перехватывает мышь")
+	t.check(screen.content == null, "каркас не собран вовсе")
+	screen.free()

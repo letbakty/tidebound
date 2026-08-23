@@ -49,6 +49,16 @@ var _layer_roots: Array[Control] = []
 var _theme: Theme = null
 
 func _ready() -> void:
+	# ⚠️ Корень игры — полноэкранный Control, который ничего не рисует, и со
+	# STOP по умолчанию он съедал ВЕСЬ ввод мышью по миру: событие доходило до
+	# WorldContainer (PASS), поднималось по родителям и умирало здесь, так и не
+	# дойдя до _unhandled_input. Тап по колонисту, удержание ПКМ (радиал) и зум
+	# колесом мышью не работали вовсе — панорама жила только потому, что её
+	# ловит CameraRig ВНУТРИ мирового SubViewport.
+	# Тот же дефект, что и каркас пустого экрана (ui/screens/game_screen.gd),
+	# только слоем ниже. Проверено кликами: см. tools/playtest_run.gd, шаг
+	# «постройка ставится одной мышью».
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	Events.cycle_ended.connect(_on_cycle_ended)
 	Events.draft_ready.connect(_on_draft_ready)
 	Events.run_ended.connect(_on_run_ended)
@@ -204,13 +214,11 @@ func _spawn_screens() -> void:
 	credits.back_requested.connect(func() -> void:
 		router.goto(ScreenRouter.Screen.MAIN_MENU))
 
-	# Экран игры — пустышка: мир и HUD живут на своих слоях, роутер только
-	# включает их видимость.
-	var game_screen: ScreenBase = ScreenBase.new()
+	# Экран игры — пустышка без единого узла: мир и HUD живут на своих слоях,
+	# роутер только включает их видимость (см. ui/screens/game_screen.gd).
+	var game_screen: GameScreen = GameScreen.new()
 	game_screen.name = "GameScreen"
 	router.register(ScreenRouter.Screen.GAME, game_screen)
-	game_screen.modulate = Color(1.0, 1.0, 1.0, 0.0)
-	game_screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	_spawn_modals()
 
@@ -347,11 +355,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Панель закрывает PanelHost сам; сюда событие дойдёт только если
 		# открытых панелей нет — тогда это запрос окна паузы (docs/03 §2).
 		if not router.is_modal_open():
+			# Незавершённое размещение Esc отменяет ПЕРВЫМ: меню поверх призрака
+			# заставило бы игрока выходить из двух состояний подряд.
+			if _cancel_ghost():
+				get_viewport().set_input_as_handled()
+				return
 			router.open_modal(ScreenRouter.Modal.PAUSE, {}, true)
 			get_viewport().set_input_as_handled()
 		return
 	if router.current != ScreenRouter.Screen.GAME or router.is_modal_open():
 		return
+	# Правый клик — отмена размещения. Событие НЕ поглощаем: удержание той же
+	# кнопки открывает радиал, и жест из docs/00 §13 обязан остаться живым.
+	var rmb: InputEventMouseButton = event as InputEventMouseButton
+	if rmb != null and rmb.pressed and rmb.button_index == MOUSE_BUTTON_RIGHT:
+		_cancel_ghost()
 	if event.is_action_pressed("zoom_in"):
 		world_view.camera.zoom_in()
 		get_viewport().set_input_as_handled()
@@ -377,14 +395,29 @@ func set_beacon_mode(on: bool) -> void:
 	world_view.beacon.set_placing(on)
 
 func _screen_to_world(screen_pos: Vector2) -> Vector2:
-	# Конверсия ЕДИНСТВЕННАЯ на проект и живёт в World (docs/01 §1.1).
-	return world_view.screen_to_world(_to_viewport(screen_pos))
+	# Конверсия ЕДИНСТВЕННАЯ на проект: вьюпорт↔мир живёт в World (docs/01 §1.1),
+	# экран↔вьюпорт — здесь, потому что про контейнер знает только Main.
+	return world_view.viewport_to_world(_to_viewport(screen_pos))
+
+## Обратная дорога: точка мира → точка окна. Нужна проверке координат в
+## tools/playtest_run.gd и всему, что ставит UI «у объекта».
+func _world_to_screen(world_pos: Vector2) -> Vector2:
+	return world_view.world_to_viewport(world_pos) * _shrink() \
+		+ world_container.global_position
 
 ## Точка экрана → координаты мирового SubViewport: UI живёт в нативном
 ## разрешении, мир — в 640×360 с контейнером-множителем.
+##
+## ⚠️ ДЕЛЕНИЕ, а не умножение: 1280 пикселей окна — это 640 пикселей вьюпорта
+## при stretch_shrink = 2. Умножение уводило клик на 34 клетки от курсора, и
+## ошибка росла от левого верхнего угла к правому нижнему. Через эту точку
+## ходит ВЕСЬ ввод по миру: выбор колониста, панели, тултип депозита, маяк,
+## размещение постройки.
 func _to_viewport(screen_pos: Vector2) -> Vector2:
-	var scale: float = float(world_container.stretch_shrink)
-	return (screen_pos - world_container.global_position) * scale
+	return (screen_pos - world_container.global_position) / _shrink()
+
+func _shrink() -> float:
+	return maxf(float(world_container.stretch_shrink), 1.0)
 
 func _open_build_radial(screen_pos: Vector2) -> void:
 	panels.close()
@@ -406,11 +439,20 @@ func _on_world_tapped(screen_pos: Vector2) -> void:
 		set_beacon_mode(false)
 		return
 	if not world_view.ghost.def_id.is_empty():
-		# Тап мимо валидного места — отмена, а не молчание: звук отказа
-		# и снятый призрак. Успех озвучивает AudioService по building_placed.
-		if not Game.cmd_place_building(world_view.ghost.def_id, cell):
+		# Палец и курсор геймпада «наводят» призрак самим тапом: ховера у них
+		# нет, и без этого шага подсветка осталась бы в точке открытия радиала.
+		if not _pointer_is_mouse():
+			world_view.ghost.set_cursor_world(world_pos)
+		# Ставим в клетку ПРИЗРАКА, а не клика: игрок видел валидность именно
+		# её, и источник правды обязан быть один (docs/01 §3).
+		if Game.cmd_place_building(world_view.ghost.def_id,
+				world_view.ghost.current_cell()):
+			world_view.ghost.set_def("")     # поставили — призрак больше не нужен
+		else:
+			# Отказ призрак НЕ снимает: игрок видит причину отказа и пробует
+			# соседнюю клетку, а не открывает радиал заново тремя действиями.
+			# Снять — правым кликом или Esc. Успех озвучит AudioService.
 			AudioService.play_ui("ui_error")
-		world_view.ghost.set_def("")
 		return
 	var hit: Dictionary = world_view.pick_at(world_pos)
 	match str(hit["kind"]):
@@ -443,7 +485,28 @@ func _open_building_panel(id: int) -> void:
 
 func _on_building_chosen(def_id: String, at_world: Vector2) -> void:
 	world_view.ghost.set_def(def_id)
-	world_view.ghost.set_cursor_world(at_world)
+	# На ПК призрак ходит за курсором сам; палец и курсор геймпада ведут его
+	# последней точкой жеста (game/build_ghost.gd).
+	if _pointer_is_mouse():
+		world_view.ghost.follow_mouse()
+	else:
+		world_view.ghost.set_cursor_world(at_world)
+
+## Чем игрок целится прямо сейчас. Курсор геймпада включается только когда за
+## геймпад взялись, «mobile» — сборка под телефон: и там, и там ховера нет.
+func _pointer_is_mouse() -> bool:
+	if hud != null and hud.cursor != null and hud.cursor.active:
+		return false
+	return not OS.has_feature("mobile")
+
+## Снимает призрак стройки. true — было что снимать: Esc и правый клик сначала
+## отменяют начатое размещение и только потом делают своё обычное дело.
+func _cancel_ghost() -> bool:
+	if world_view == null or world_view.ghost.def_id.is_empty():
+		return false
+	world_view.ghost.set_def("")
+	AudioService.play_ui("ui_cancel")
+	return true
 
 ## Снос — необратим, поэтому через подтверждение (docs/03 §4.4).
 func _on_demolish(building_id: int) -> void:
