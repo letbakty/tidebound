@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/card_def.gd" id="1_a2rvw"]
+
+[resource]
+script = ExtResource("1_a2rvw")
+id = "sea_loan"
+display_key = "CARD_SEA_LOAN"
+desc_key = "CARD_SEA_LOAN_D"
+effects = Dictionary[String, float]({
+"low_time_mult": 1.4,
+"next_spring_add": 1.0
+})

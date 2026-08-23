@@ -217,6 +217,8 @@ func _update_flooding(w: SimWorld) -> void:
 		if now:
 			b["flooded_in_phase"] = true
 			_on_flooded(b, w)
+		else:
+			_on_emerged(b, w)
 		_pending.append(SimEvent.make("building_state_changed", {"id": id}))
 	_last_level = level
 
@@ -233,6 +235,33 @@ func _on_flooded(b: Dictionary, w: SimWorld) -> void:
 			apply_damage(int(b["id"]), w)
 		_:
 			pass                                        # лестницы, шлюз, фонарь — работают
+
+## Вода СОШЛА с постройки. Смысл пока ровно один: верша отдаёт улов за фазу,
+## в которой её накрывало (CONTENT-wave-1 §2).
+##
+## ⚠️ Момент выбран по срезу воды, а не на границе цикла рядом с плавником,
+## как предлагал промпт: верша стоит на −3..−1, на границе цикла там ещё
+## стоит высокая вода, а `StorageSystem._wash_ground` уносит любой стак,
+## лежащий под водой, в ТОТ ЖЕ тик (R3). Улов не дожил бы до носильщика ни
+## разу за забег, и постройка была бы молча мёртвой.
+##
+## Раз за фазу это выходит само: вода внутри фазы монотонна, значит пересечь
+## отметку сверху вниз можно только однажды, а `on_phase_started` пересобирает
+## `flooded_in_phase` на каждой новой фазе.
+func _on_emerged(b: Dictionary, w: SimWorld) -> void:
+	var d: BuildingDef = DB.building(str(b["def_id"]))
+	if d == null or d.special != "weir":
+		return
+	if int(b["state"]) != int(SimTypes.BuildState.ACTIVE) or bool(b["damaged"]):
+		return
+	if not bool(b["flooded_in_phase"]):
+		return
+	# Улов ложится на ПОЛ под вершей — той же дорогой, что плавник: стак на
+	# земле → работа носильщика → склад. Ни нового задания, ни нового события.
+	var cell: Vector2i = Vector2i((b["cell"] as Vector2i).x,
+		Balance.mark_to_floor_cell_y(int(b["mark"])))
+	w.storage.drop(cell, StackUtil.make("catch", Balance.WEIR_CATCH, false))
+	w.jobs.mark_dirty()
 
 func on_phase_started(_phase: int) -> void:
 	for id: int in order:

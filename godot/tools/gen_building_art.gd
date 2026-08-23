@@ -65,6 +65,17 @@ const BUILDINGS: Dictionary = {
 		"icon": "iconb_workbench_v1_01_pick.png"},
 }
 
+## Постройки, у которых отобранного арта ещё нет. Спрайт мира им НЕ пишется —
+## `game/building_view.gd` сам рисует программный силуэт (CONVENTIONS: «нет
+## ассета — заглушка, не блокируйся»). А вот кадр в атласе иконок обязателен:
+## атлас адресуется индексом по алфавиту `DB.building_ids()`, и пропуск сдвинул
+## бы ВСЕ иконки после него, а не оставил пустой слот радиала.
+## Список пуст = весь арт на месте; строку сюда добавляет тот, кто заводит
+## постройку, и убирает тот, кто приносит её картинки.
+const NO_ART: Dictionary = {
+	"weir": {"cells": Vector2i(2, 1)},
+}
+
 func _initialize() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
 	var ids: Array[String] = icon_order()
@@ -73,6 +84,10 @@ func _initialize() -> void:
 	icons.fill(Color(0, 0, 0, 0))
 	for i: int in ids.size():
 		var id: String = ids[i]
+		if NO_ART.has(id):
+			icons.blit_rect(_stub_icon(id), Rect2i(Vector2i.ZERO, ICON),
+				Vector2i(i * ICON.x, 0))
+			continue
 		var b: Dictionary = BUILDINGS[id]
 		var cells: Vector2i = b["cells"]
 		var img: Image = Art.load_pick(str(b["src"]), cells.x * TILE, cells.y * TILE)
@@ -92,8 +107,48 @@ func _initialize() -> void:
 
 ## Порядок иконок в атласе. Алфавит, а не порядок словаря: он же считается
 ## в ui/components/icon_stub.gd, и оба обязаны сойтись без общего файла.
+## Постройки без арта идут в тот же алфавит — иначе индексы разъедутся.
 static func icon_order() -> Array[String]:
 	var ids: Array[String] = []
 	ids.assign(BUILDINGS.keys())
+	ids.append_array(NO_ART.keys())
 	ids.sort()
 	return ids
+
+## Программная иконка для постройки без арта. Рисуется в цветах палитры
+## проекта, а не подобранными HEX (research/29 §3.1): вырви-глаз в радиале
+## рядом с настоящими иконками хуже пустого слота.
+##
+## Верша — плетёная снасть в воде: ряд кольев, поперечная плетёнка и урез
+## воды поверх нижней трети. Читается на 24 пикселях именно ритмом кольев.
+static func _stub_icon(id: String) -> Image:
+	var pal: PackedColorArray = Art.palette()
+	var img: Image = Image.create(ICON.x, ICON.y, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0, 0, 0, 0))
+	if id != "weir":
+		# Незнакомой постройке — честный «нет арта»: рамка, а не угадайка.
+		for x: int in ICON.x:
+			img.set_pixel(x, 0, Art.snap(Color8(120, 96, 72), pal))
+			img.set_pixel(x, ICON.y - 1, Art.snap(Color8(120, 96, 72), pal))
+		return img
+	var wood: Color = Art.snap(Color8(120, 96, 72), pal)
+	var wood_dark: Color = Art.snap(Color8(88, 68, 52), pal)
+	var water: Color = Art.snap(Color8(45, 107, 122), pal)
+	# Колья: шесть штук с шагом 4, вершины «ёлочкой» вниз к центру.
+	for k: int in 6:
+		var x: int = 2 + k * 4
+		var top: int = 5 + absi(k - 3)
+		for y: int in range(top, 21):
+			img.set_pixel(x, y, wood)
+			img.set_pixel(x + 1, y, wood_dark)
+	# Плетёнка: две поперечины поверх кольев.
+	for y2: int in [10, 16]:
+		for x2: int in range(2, 22):
+			img.set_pixel(x2, y2, wood_dark)
+	# Урез воды: нижняя треть под водой — в этом весь смысл постройки.
+	for x3: int in range(0, ICON.x):
+		img.set_pixel(x3, 18, water)
+		var c: Color = img.get_pixel(x3, 19)
+		if c.a <= 0.0:
+			img.set_pixel(x3, 19, water)
+	return img

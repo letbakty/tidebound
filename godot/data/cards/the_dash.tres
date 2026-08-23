@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/card_def.gd" id="1_q64ko"]
+
+[resource]
+script = ExtResource("1_q64ko")
+id = "the_dash"
+display_key = "CARD_THE_DASH"
+desc_key = "CARD_THE_DASH_D"
+effects = Dictionary[String, float]({
+"gather_speed_mult": 1.6,
+"low_time_mult": 0.6
+})

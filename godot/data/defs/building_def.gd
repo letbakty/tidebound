@@ -20,7 +20,7 @@ extends Resource
 @export var hp: int = 1
 ## Маркер логики: "ladder", "storage", "hearth", "lantern", "sluice", "dryer",
 ## "evaporator", "winch", "bunk", "raincatcher", "forge", "workbench",
-## "saltery", "ropery", "platform", "condenser".
+## "saltery", "ropery", "platform", "condenser", "weir".
 @export var special: String = ""
 ## "" = доступна сразу; иначе id разблокировки Журнала.
 @export var unlock_id: String = ""

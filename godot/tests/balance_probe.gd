@@ -157,6 +157,11 @@ func _run_one(p: Dictionary, seed_value: int, cliff: CliffDef) -> Dictionary:
 	var storm_damaged: int = 0
 	var storm_buildings: int = 0
 
+	## Добыто С КАРТЫ за забег: item_id -> сколько. Берётся из отчёта цикла
+	## (jobs.on_cycle_ended), то есть считает ровно добычу из депозитов —
+	## не производство и не плавник. Первая волна контента (CONTENT-wave-1 §1)
+	## обещала, что география начнёт влиять на экономику; проверяется это здесь.
+	var gathered: Dictionary[String, int] = {}
 	var creatures_spawned: int = 0
 	var damage_total: int = 0
 	var stolen_total: int = 0
@@ -191,6 +196,10 @@ func _run_one(p: Dictionary, seed_value: int, cliff: CliffDef) -> Dictionary:
 							and w.crisis.is_active(SimTypes.CrisisType.STORM):
 						storm_peak_now = true
 				"cycle_ended":
+					for gk: Variant in e.data.get("gathered", {}) as Dictionary:
+						var gid: String = str(gk)
+						gathered[gid] = int(gathered.get(gid, 0)) \
+							+ int((e.data["gathered"] as Dictionary)[gk])
 					damage_total += int(e.data.get("damage", 0))
 					for k: Variant in e.data.get("stolen", {}) as Dictionary:
 						stolen_total += int((e.data["stolen"] as Dictionary)[k])
@@ -343,7 +352,34 @@ func _run_one(p: Dictionary, seed_value: int, cliff: CliffDef) -> Dictionary:
 		"scrap": int(end_totals.get("scrap", 0)),
 		"kelp": int(end_totals.get("kelp", 0)),
 		"driftwood": int(end_totals.get("driftwood", 0)),
+		# --- Первая волна контента (CONTENT-wave-1) ---------------------------
+		# Добыто С КАРТЫ, по предметам: до волны их было три (утиль, добыча,
+		# водоросли), стало шесть.
+		"got_scrap": int(gathered.get("scrap", 0)),
+		"got_catch": int(gathered.get("catch", 0)),
+		"got_kelp": int(gathered.get("kelp", 0)),
+		"got_salt": int(gathered.get("salt", 0)),
+		"got_water": int(gathered.get("freshwater", 0)),
+		# «Обломки судна» — проба глубины. Считаем ОТДЕЛЬНО по двум отметкам:
+		# −5 доходят два профиля из пяти, −6 не доходит ни один, и разницу
+		# между «до глубины не добираются» и «глубина не нужна» видно только
+		# так. Ноль здесь — тоже результат, и он записывается числом.
+		"wreck5": _wreck_taken(w, -5),
+		"wreck6": _wreck_taken(w, -6),
 	}
+
+## Сколько вынесли из «Обломков судна» на указанной отметке: ёмкость минус
+## остаток (восполнения у них нет, поэтому разница и есть добытое).
+static func _wreck_taken(w: SimWorld, mark: int) -> int:
+	var n: int = 0
+	for d: Dictionary in w.terrain.deposits:
+		if str(d["kind"]) != "shipwreck":
+			continue
+		if Balance.cell_to_mark(d["cell"] as Vector2i) != mark:
+			continue
+		n += int((Balance.DEPOSIT_KINDS["shipwreck"] as Dictionary)["capacity"]) \
+			- int(d["amount"])
+	return n
 
 # --- Решения профиля ------------------------------------------------------
 
@@ -495,10 +531,11 @@ static func _header() -> String:
 		+ "deepest_mark,storm_min_mark,storm_below,storm_wet_band," \
 		+ "storm_damaged,storm_buildings,cargo,survivor_points," \
 		+ "creatures,damage,stolen,flooded_storages," \
-		+ "rations,catch,scrap,kelp,driftwood"
+		+ "rations,catch,scrap,kelp,driftwood," \
+		+ "got_scrap,got_catch,got_kelp,got_salt,got_water,wreck5,wreck6"
 
 static func _row(r: Dictionary) -> String:
-	return "%s,%d,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%d,%d,%d,%.2f,%.2f,%.2f,%d,%d,%d,%.2f,%.2f,%.2f,%d,%.2f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d" % [
+	return "%s,%d,%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%d,%d,%d,%.2f,%.2f,%.2f,%d,%d,%d,%.2f,%.2f,%.2f,%d,%.2f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d" % [
 		str(r["profile"]), int(r["seed"]), str(r["end"]), int(r["cycles"]),
 		int(r["score"]), int(r["alive"]), int(r["deaths"]),
 		int(r["drown"]), int(r["storm"]),
@@ -515,7 +552,10 @@ static func _row(r: Dictionary) -> String:
 		int(r["creatures"]), int(r["damage"]), int(r["stolen"]),
 		int(r["flooded_storages"]),
 		int(r["rations"]), int(r["catch"]), int(r["scrap"]),
-		int(r["kelp"]), int(r["driftwood"])]
+		int(r["kelp"]), int(r["driftwood"]),
+		int(r["got_scrap"]), int(r["got_catch"]), int(r["got_kelp"]),
+		int(r["got_salt"]), int(r["got_water"]),
+		int(r["wreck5"]), int(r["wreck6"])]
 
 func _summary(agg: Array[Dictionary]) -> void:
 	print("---")
@@ -594,6 +634,19 @@ func _summary(agg: Array[Dictionary]) -> void:
 	print("склады на конец: провизия %.1f, добыча %.1f, утиль %.1f, водоросли %.1f, плавник %.1f" % [
 		_avg(agg, "rations"), _avg(agg, "catch"), _avg(agg, "scrap"),
 		_avg(agg, "kelp"), _avg(agg, "driftwood")])
+	print("добыто С КАРТЫ за забег: утиль %.1f, добыча %.1f, водоросли %.1f, " % [
+		_avg(agg, "got_scrap"), _avg(agg, "got_catch"), _avg(agg, "got_kelp")]
+		+ "соль %.1f, вода %.1f" % [_avg(agg, "got_salt"), _avg(agg, "got_water")])
+	var w5: float = 0.0
+	var w6: float = 0.0
+	var runs5: int = 0
+	for r5: Dictionary in agg:
+		w5 += float(r5["wreck5"])
+		w6 += float(r5["wreck6"])
+		if int(r5["wreck5"]) > 0 or int(r5["wreck6"]) > 0:
+			runs5 += 1
+	print("обломки судна: с −5 вынесено %.0f деталей, с −6 — %.0f; " % [w5, w6]
+		+ "хоть одна деталь — в %d забегах из %d" % [runs5, agg.size()])
 
 static func _by_profile(agg: Array[Dictionary], id: String) -> Array[Dictionary]:
 	var out: Array[Dictionary] = []

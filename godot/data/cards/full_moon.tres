@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/card_def.gd" id="1_m6kbb"]
+
+[resource]
+script = ExtResource("1_m6kbb")
+id = "full_moon"
+display_key = "CARD_FULL_MOON"
+desc_key = "CARD_FULL_MOON_D"
+effects = Dictionary[String, float]({
+"low_plateau_add": -1.0,
+"next_spring_add": 1.0
+})

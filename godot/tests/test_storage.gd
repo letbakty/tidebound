@@ -103,9 +103,9 @@ static func test_spoilage(t: TestCtx) -> void:
 	w.storage.store(id, StackUtil.make("catch", 5, false))
 	w.storage.store(id, StackUtil.make("scrap", 5, false))
 	for c: int in 2:
-		t.run_ticks(w, Balance.TICKS_PER_CYCLE)
+		t.run_ticks_no_cards(w, Balance.TICKS_PER_CYCLE)
 	t.check_eq(w.storage.count_in(id, "catch"), 5, "через 2 цикла добыча ещё жива")
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE)
+	t.run_ticks_no_cards(w, Balance.TICKS_PER_CYCLE)
 	t.check_eq(w.storage.count_in(id, "catch"), 0, "через 3 цикла добыча пропала")
 	t.check_eq(w.storage.count_in(id, "scrap"), 5, "утиль не портится")
 
@@ -114,9 +114,9 @@ static func test_rations_spoil_at_12(t: TestCtx) -> void:
 	var id: int = _bare(w, 3)
 	w.storage.store(id, StackUtil.make("rations", 3, false))
 	for c: int in 11:
-		t.run_ticks(w, Balance.TICKS_PER_CYCLE)
+		t.run_ticks_no_cards(w, Balance.TICKS_PER_CYCLE)
 	t.check_eq(w.storage.count_in(id, "rations"), 3, "через 11 циклов провизия цела")
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE)
+	t.run_ticks_no_cards(w, Balance.TICKS_PER_CYCLE)
 	t.check_eq(w.storage.count_in(id, "rations"), 0, "через 12 циклов пропала")
 
 ## Порча и вода попадают в отчёт итога цикла, а не теряются молча.
@@ -124,7 +124,7 @@ static func test_cycle_report(t: TestCtx) -> void:
 	var w: SimWorld = _world(1)
 	var id: int = _bare(w, 3)
 	w.storage.store(id, StackUtil.make("catch", 4, false))
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE * 3 - 1)
+	t.run_ticks_no_cards(w, Balance.TICKS_PER_CYCLE * 3 - 1)
 	w.tick()
 	var report: Dictionary = {}
 	for e: SimEvent in w.events_out:
@@ -203,9 +203,9 @@ static func test_drying(t: TestCtx) -> void:
 	var low: int = w.storage.add_storage(Vector2i(6, Balance.mark_to_floor_cell_y(1)))
 	w.storage.store(high, StackUtil.make("driftwood", 2, true))
 	w.storage.store(low, StackUtil.make("driftwood", 2, true))
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE)
+	t.run_ticks_no_cards(w, Balance.TICKS_PER_CYCLE)
 	t.check(_is_wet(w, high, "driftwood"), "за один цикл ещё не высох")
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE)
+	t.run_ticks_no_cards(w, Balance.TICKS_PER_CYCLE)
 	t.check(not _is_wet(w, high, "driftwood"), "за два полных цикла высох")
 	t.check(_is_wet(w, low, "driftwood"), "ниже +2 сушки нет")
 

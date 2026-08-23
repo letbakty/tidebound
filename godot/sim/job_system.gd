@@ -550,8 +550,14 @@ func _check_auto_recall(w: SimWorld) -> void:
 		# цикле»: в сизигию это +2.
 		if w.agents.agent_mark_f(a, w) >= w.danger_mark():
 			continue
-		# Карта «Осторожно» отзывает всех раньше.
-		var personal: int = lead + int(w.cycle_modifiers.get("recall_earlier_sec", 0.0))
+		# Карта «Осторожно» отзывает всех раньше, «Глухой колокол» — позже.
+		# ⚠️ Кламп по нулю обязателен: у Осторожности 0 запас и так нулевой,
+		# а отрицательное `personal` сделало бы условие `left > personal*10`
+		# истинным ДАЖЕ на последнем тике Сигнала — авто-возврат не сработал
+		# бы вовсе, ни для кого. «Позже» должно упираться в «как без
+		# Осторожности», а не превращаться в «никогда».
+		var personal: int = maxi(0,
+			lead + int(w.cycle_modifiers.get("recall_earlier_sec", 0.0)))
 		if int(a.needs["mood"]) < Balance.NEED_LOW_ENTER_MILLI:
 			personal += Balance.PANIC_RECALL_BONUS_SEC
 		if left > personal * Balance.TICKS_PER_SEC:

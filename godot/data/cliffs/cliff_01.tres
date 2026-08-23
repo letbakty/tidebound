@@ -131,6 +131,38 @@ deposit_slots = Array[Dictionary]([{
 "kind": "ruins_deep",
 "mark": -8,
 "x": 46
+}, {
+"kind": "brine_pool",
+"mark": -1,
+"x": 17
+}, {
+"kind": "brine_pool",
+"mark": -2,
+"x": 24
+}, {
+"kind": "fresh_seep",
+"mark": -3,
+"x": 28
+}, {
+"kind": "fresh_seep",
+"mark": -4,
+"x": 31
+}, {
+"kind": "bone_shoal",
+"mark": -4,
+"x": 33
+}, {
+"kind": "bone_shoal",
+"mark": -5,
+"x": 36
+}, {
+"kind": "shipwreck",
+"mark": -5,
+"x": 40
+}, {
+"kind": "shipwreck",
+"mark": -6,
+"x": 43
 }])
 spawn_cell = Vector2i(6, 14)
 start_storage_cell = Vector2i(9, 14)

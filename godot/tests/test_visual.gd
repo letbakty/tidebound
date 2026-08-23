@@ -388,17 +388,36 @@ static func _layer_of(scene_src: String, node_name: String) -> int:
 static func test_building_art_matches_defs(t: TestCtx) -> void:
 	var gen: GDScript = load("res://tools/gen_building_art.gd") as GDScript
 	var table: Dictionary = gen.get("BUILDINGS") as Dictionary
+	# Постройки без арта перечислены поимённо (NO_ART): у них нет спрайта мира,
+	# и BuildingView рисует программный силуэт. Список — способ УВИДЕТЬ дыру,
+	# а не разрешение её не замечать: каждая постройка обязана быть ровно
+	# в одной из двух таблиц, и размер в клетках сверяется с дефом в обеих.
+	var no_art: Dictionary = gen.get("NO_ART") as Dictionary
 	var ids: Array[String] = DB.building_ids()
-	t.check_eq(table.size(), ids.size(), "в таблице арта столько же построек, сколько дефов")
+	t.check_eq(table.size() + no_art.size(), ids.size(),
+		"в таблицах арта столько же построек, сколько дефов")
 	for id: String in ids:
-		t.check(table.has(id), "для %s есть строка в gen_building_art" % id)
-		if not table.has(id):
+		var row: Dictionary = (no_art.get(id, table.get(id, {}))) as Dictionary
+		t.check(not row.is_empty(), "для %s есть строка в gen_building_art" % id)
+		if row.is_empty():
 			continue
+		t.check(not (table.has(id) and no_art.has(id)),
+			"%s числится и с артом, и без него" % id)
 		var def: BuildingDef = DB.building(id)
-		t.check_eq(Vector2i((table[id] as Dictionary)["cells"]), def.size,
+		t.check_eq(Vector2i(row["cells"]), def.size,
 			"%s: размер в клетках совпадает с дефом" % id)
-		var tex: Texture2D = load("res://assets/sprites/buildings/%s.png" % id) as Texture2D
-		t.check(tex != null, "%s: спрайт на месте" % id)
+		# ⚠️ Сначала exists(), потом load(): load() отсутствующего файла пишет
+		# в лог `ERROR: Resource file not found`, а раннер валит прогон по любой
+		# ошибке движка — проверка «спрайта нет» роняла бы сборку сама собой.
+		var path: String = "res://assets/sprites/buildings/%s.png" % id
+		if no_art.has(id):
+			t.check(not ResourceLoader.exists(path),
+				"%s: спрайта нет — рисуется заглушка" % id)
+			continue
+		t.check(ResourceLoader.exists(path), "%s: спрайт на месте" % id)
+		if not ResourceLoader.exists(path):
+			continue
+		var tex: Texture2D = load(path) as Texture2D
 		if tex == null:
 			continue
 		t.check_eq(tex.get_size(), Vector2(def.size) * float(WorldGeo.TILE),

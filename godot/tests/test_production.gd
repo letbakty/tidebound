@@ -127,6 +127,17 @@ static func test_salt_chain(t: TestCtx) -> void:
 	# затапливает каждый цикл. Отсюда и брался «производит один раз за забег»
 	# (docs/BUG-salt-chain.md). Сама цепочка при этом исправна.
 	t.check(_station(w, "storage", 3, 8) > 0, "второй склад поставлен")
+	# ⚠️ Убираем солёные заводи с карты. Тест меряет ЦЕПОЧКУ (испаритель даёт
+	# соль → солильня делает из неё провизию), и равенство «6 провизии за три
+	# цикла» держится только пока соль в колонии ТОЛЬКО из испарителя. После
+	# первой волны контента её приносят ещё и с карты, и солильня выдавала 32
+	# провизии — цифру, которая про изобилие, а не про цепочку.
+	var kept: Array[Dictionary] = []
+	for d: Dictionary in w.terrain.deposits:
+		if str(d["kind"]) != "brine_pool":
+			kept.append(d)
+	w.terrain.deposits = kept
+	w.jobs.mark_dirty()
 	w.storage.store(0, StackUtil.make("catch", 20, false))
 	w.storage.store(0, StackUtil.make("freshwater", 20, false))
 	w.policies.set_value(SimTypes.Policy.SUPPLY, 3)
@@ -137,6 +148,9 @@ static func test_salt_chain(t: TestCtx) -> void:
 	var produced: Dictionary[String, int] = {}
 	for i: int in Balance.TICKS_PER_CYCLE * 3:
 		w.tick()
+		# И без карты вылазки (как TestCtx.run_ticks_no_cards): она правит
+		# длину отлива, и в 9000 тиков перестаёт помещаться третий цикл.
+		w.run_state.draft.clear()
 		for e: SimEvent in w.events_out:
 			if e.type != "cycle_ended":
 				continue
@@ -156,27 +170,34 @@ static func test_salt_chain(t: TestCtx) -> void:
 static func test_evaporator_needs_dry_low(t: TestCtx) -> void:
 	var w: SimWorld = _world(19)
 	var evap: int = _station(w, "evaporator", -1, 14)
+	# Колония в этом сценарии ничего не собирает: соль теперь есть и на карте
+	# (солёные заводи), а тест считает соль на складах и обязан видеть только
+	# ту, что выпарил испаритель. Заготовка 0 запрещает класс целиком.
+	w.policies.set_value(SimTypes.Policy.SUPPLY, 0)
+	w.jobs.mark_dirty()
 	# Спокойный цикл: соль появляется.
-	t.run_ticks(w, 450 + 1500 + 5)
+	t.run_ticks_no_cards(w, 450 + 1500 + 5)
 	t.check_eq(int(w.storage.totals().get("salt", 0)), 1, "за сухой отлив — 1 соль")
 
 	# Второй цикл: накрываем испаритель посреди отлива.
-	t.run_ticks(w, 300 + 750 + 450 + 700)
+	t.run_ticks_no_cards(w, 300 + 750 + 450 + 700)
 	w.tide.level_override = 0.0
-	t.run_ticks(w, 5)
+	t.run_ticks_no_cards(w, 5)
 	# Флаг проверяем сразу: на границе следующей фазы он сбрасывается.
 	t.check(bool(w.buildings.buildings[evap]["flooded_in_phase"]),
 		"флаг «был затоплен за фазу» выставлен")
 	w.tide.level_override = NAN
-	t.run_ticks(w, 800 + 5)
+	t.run_ticks_no_cards(w, 800 + 5)
 	t.check_eq(int(w.storage.totals().get("salt", 0)), 1,
 		"после затопления посреди отлива соли не прибавилось")
 
 static func test_evaporator_stops_in_storm(t: TestCtx) -> void:
 	var w: SimWorld = _world(23)
 	_station(w, "evaporator", -1, 14)
+	w.policies.set_value(SimTypes.Policy.SUPPLY, 0)   # соль с карты сюда не идёт
+	w.jobs.mark_dirty()
 	w.is_storm = true
-	t.run_ticks(w, 450 + 1500 + 5)
+	t.run_ticks_no_cards(w, 450 + 1500 + 5)
 	t.check_eq(int(w.storage.totals().get("salt", 0)), 0, "в шторм соли нет")
 
 # --- Пассивная вода -------------------------------------------------------
@@ -245,9 +266,11 @@ static func test_winch_lifts_from_basket(t: TestCtx) -> void:
 static func test_output_merges_into_full_slots(t: TestCtx) -> void:
 	var w: SimWorld = _world(53)
 	var evap: int = _station(w, "evaporator", -1, 14)
+	w.policies.set_value(SimTypes.Policy.SUPPLY, 0)   # соль с карты сюда не идёт
+	w.jobs.mark_dirty()
 	t.check(evap > 0, "испаритель стоит")
 	# Забег начинается на Высокой воде: до Отлива испаритель просто затоплен.
-	t.run_ticks(w, 450 + 10)
+	t.run_ticks_no_cards(w, 450 + 10)
 	# Забиваем ВСЕ слоты всех складов, но один из них — неполным стаком соли.
 	for s: Dictionary in w.storage.storages:
 		var stacks: Array = s["stacks"] as Array
@@ -260,7 +283,7 @@ static func test_output_merges_into_full_slots(t: TestCtx) -> void:
 	t.check_eq(ProductionSystem.idle_reason(w.buildings.buildings[evap], w), "",
 		"место под соль есть — станция не жалуется")
 	# Конец отлива: испаритель отдаёт соль.
-	t.run_ticks(w, 1500 - 10 + 5)
+	t.run_ticks_no_cards(w, 1500 - 10 + 5)
 	t.check_eq(int(w.storage.totals().get("salt", 0)), 2,
 		"соль слилась с неполным стаком, а не просыпалась на землю")
 

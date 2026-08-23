@@ -97,10 +97,11 @@ static func test_trait_keys_are_known(t: TestCtx) -> void:
 				"черта %s: ключ '%s' не из TraitKeys" % [tid, key])
 
 static func test_all_buildings_present(t: TestCtx) -> void:
-	t.check_eq(DB.building_ids().size(), 17, "все 17 построек docs/00 §8 загружены")
+	t.check_eq(DB.building_ids().size(), 18, "все 18 построек docs/00 §8 загружены")
 	for id: String in ["ladder_wood", "ladder_steel", "platform", "storage",
 			"hearth", "bunk", "raincatcher", "forge", "workbench", "evaporator",
-			"saltery", "dryer", "ropery", "sluice", "lantern", "condenser", "winch"]:
+			"saltery", "dryer", "ropery", "sluice", "lantern", "condenser", "winch",
+			"weir"]:
 		t.check(DB.has_building(id), "есть постройка '%s'" % id)
 
 ## Опечатка в id ресурса делает рецепт или постройку молча непостроимой.
@@ -128,11 +129,20 @@ static func test_building_spec_details(t: TestCtx) -> void:
 		"горн под водой не работает")
 	t.check(DB.building("sluice").flood_rule == SimTypes.FloodRule.OK,
 		"шлюз под водой работает — в этом его смысл")
+	# Верша: затопление ей ПОЛЕЗНО, поэтому «не работает под водой» отменило бы
+	# постройку целиком, а диапазон отметок держит её внизу — там, где её
+	# накрывает каждой высокой водой (CONTENT-wave-1 §2).
+	t.check(DB.building("weir").flood_rule == SimTypes.FloodRule.OK,
+		"верша под водой работает — в этом её смысл")
+	t.check_eq(DB.building("weir").max_mark, -1, "верша не поднимается выше −1")
+	t.check_eq(DB.building("weir").min_mark, -3, "верша не опускается ниже −3")
+	t.check_eq(DB.building("weir").special, "weir", "у верши свой маркер логики")
 
 static func test_all_cards_present(t: TestCtx) -> void:
-	t.check_eq(DB.card_ids().size(), 6, "все 6 карт docs/00 §10")
+	t.check_eq(DB.card_ids().size(), 12, "все 12 карт docs/00 §10")
 	for id: String in ["deep_dive", "fast_haul", "careful", "great_ebb",
-			"calm_water", "the_find"]:
+			"calm_water", "the_find", "full_moon", "sea_loan", "travel_light",
+			"long_breath", "the_dash", "muffled_bell"]:
 		t.check(DB.has_card(id), "есть карта '%s'" % id)
 		var c: CardDef = DB.card(id)
 		t.check(c.rarity == "base" or c.rarity == "rare", "редкость карты %s задана" % id)

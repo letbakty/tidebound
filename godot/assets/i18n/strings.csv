@@ -100,6 +100,8 @@ BLD_SLUICE,Шлюз,Sluice
 BLD_LANTERN,Фонарь,Lantern
 BLD_CONDENSER,Конденсатор,Condenser
 BLD_WINCH,Лебёдка,Winch
+BLD_WEIR,Верша,Tide weir
+BLD_WEIR_D,"Работает затопленной: за каждую высокую воду, которая её накрыла, кладёт рядом сырую добычу","Works while flooded: after every high water that covers it, it leaves raw catch beside itself"
 ERR_LOCKED,Ещё не разблокировано,Not unlocked yet
 ERR_MARK,Не та отметка,Wrong mark
 ERR_OCCUPIED,Место занято,Space occupied
@@ -129,6 +131,18 @@ CARD_CALM_WATER,Тихая вода,Calm water
 CARD_CALM_WATER_D,Приход этого цикла отменён,This cycle's visit is cancelled
 CARD_THE_FIND,Находка,The find
 CARD_THE_FIND_D,На дне помечена гарантированная реликвия,A guaranteed relic is marked on the floor
+CARD_FULL_MOON,Полная луна,Full moon
+CARD_FULL_MOON_D,"Вода уходит на ярус ниже обычного; следующая сизигия выше","Water falls one tier lower than usual; the next spring tide runs higher"
+CARD_SEA_LOAN,Заём у моря,Sea's loan
+CARD_SEA_LOAN_D,"Отлив длиннее наполовину — в долг: следующая сизигия выше","The ebb runs half again as long — on credit: the next spring tide runs higher"
+CARD_TRAVEL_LIGHT,Налегке,Travel light
+CARD_TRAVEL_LIGHT_D,"Переносят намного быстрее, но котомка меньше на два слота","They carry much faster, but the bag holds two slots less"
+CARD_LONG_BREATH,Долгий вдох,Long breath
+CARD_LONG_BREATH_D,"Держатся под водой на пять секунд дольше, но добывают медленнее","They hold their breath five seconds longer, but gather slower"
+CARD_THE_DASH,Рывок,The dash
+CARD_THE_DASH_D,"Отлив короче на треть с лишним, зато добывают заметно быстрее","The ebb is a third shorter, but they gather noticeably faster"
+CARD_MUFFLED_BELL,Глухой колокол,Muffled bell
+CARD_MUFFLED_BELL_D,"Колокол слышно позже: возвращаются на пятнадцать секунд позже, зато добывают быстрее","The bell carries late: they return fifteen seconds later, but gather faster"
 UNL_STEEL_LADDER,Стальная лестница,Steel ladder
 UNL_STEEL_LADDER_D,Не ломается штормом,Storms do not break it
 UNL_CONDENSER,Конденсатор,Condenser
@@ -299,6 +313,10 @@ DEPOSIT_RUINS_NEAR,Ближние руины,Near ruins
 DEPOSIT_RUINS_DEEP,Дальние руины,Deep ruins
 DEPOSIT_SHALLOW,Отмель,Shallows
 DEPOSIT_KELP,Водоросли,Kelp bed
+DEPOSIT_BRINE_POOL,Солёная заводь,Brine pool
+DEPOSIT_FRESH_SEEP,Пресная линза,Fresh seep
+DEPOSIT_BONE_SHOAL,Костяная отмель,Bone shoal
+DEPOSIT_SHIPWRECK,Обломки судна,Shipwreck
 DEPOSIT_LEFT,Осталось {n} из {total} ({item}),{n} of {total} left ({item})
 DEPOSIT_REFILL,"Восполняется: +{n} за отлив","Refills: +{n} each ebb"
 DEPOSIT_NO_REFILL,Не восполняется,Does not refill

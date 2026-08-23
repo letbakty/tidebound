@@ -140,6 +140,11 @@ static func test_score_snapshot_taken_at_high_peak(t: TestCtx) -> void:
 	var cycle_at_arrival: int = -1
 	for i: int in Balance.TICKS_PER_CYCLE * 20:
 		w.tick()
+		# ⚠️ Забег идёт БЕЗ карт вылазки (как TestCtx.run_ticks_no_cards): тест
+		# про момент снимка очков, а `next_spring_add` у двух базовых карт
+		# поднял бы сизигийное плато 12-го цикла выше +2, и проверка мерила бы
+		# раздачу, а не пик Высокой воды.
+		w.run_state.draft.clear()
 		for e: SimEvent in w.events_out:
 			if e.type != "ship_arrived":
 				continue

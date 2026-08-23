@@ -18,15 +18,18 @@ static func _cell_on(mark: int, x: int, height: int) -> Vector2i:
 ## Прокручивает мир до нужного цикла и фазы. Считать тики нельзя: карты
 ## вылазки и шторм меняют длительность отлива, и фиксированное смещение
 ## после них разъезжается.
+## ⚠️ Тикает БЕЗ карт вылазки (TestCtx.run_ticks_no_cards): сьют меряет
+## кризисы, а `next_spring_add` у двух базовых карт поднимает сизигийное плато,
+## и «плато +2» превращалось бы в +3 или +4 в зависимости от раздачи.
 static func _until(t: TestCtx, w: SimWorld, cycle: int, phase: SimTypes.Phase,
 		into_phase: int = 5) -> void:
 	var guard: int = 0
 	while guard < Balance.TICKS_PER_CYCLE * 20:
 		if w.clock.cycle == cycle and w.clock.phase == phase:
 			break
-		t.run_ticks(w, 1)
+		t.run_ticks_no_cards(w, 1)
 		guard += 1
-	t.run_ticks(w, into_phase)
+	t.run_ticks_no_cards(w, into_phase)
 
 ## Достраивает спуск: без лестниц существам некуда плыть, а игроку — нечего
 ## терять на дне.

@@ -20,24 +20,24 @@ static func test_phase_boundaries(t: TestCtx) -> void:
 	t.check_eq(w.clock.phase, SimTypes.Phase.EBB, "забег начинается со Спада")
 	t.check_eq(w.clock.cycle, 1, "первый цикл — №1")
 
-	t.run_ticks(w, 449)
+	t.run_ticks_no_cards(w, 449)
 	t.check_eq(w.clock.phase, SimTypes.Phase.EBB, "тик 449 — ещё Спад")
-	t.run_ticks(w, 1)
+	t.run_ticks_no_cards(w, 1)
 	t.check_eq(w.clock.phase, SimTypes.Phase.LOW, "тик 450 — Низкая вода")
 
-	t.run_ticks(w, 1500 - 1)
+	t.run_ticks_no_cards(w, 1500 - 1)
 	t.check_eq(w.clock.phase, SimTypes.Phase.LOW, "тик 1949 — ещё Низкая")
-	t.run_ticks(w, 1)
+	t.run_ticks_no_cards(w, 1)
 	t.check_eq(w.clock.phase, SimTypes.Phase.SIGNAL, "тик 1950 — Сигнал")
 
-	t.run_ticks(w, 300 - 1)
+	t.run_ticks_no_cards(w, 300 - 1)
 	t.check_eq(w.clock.phase, SimTypes.Phase.SIGNAL, "тик 2249 — ещё Сигнал")
-	t.run_ticks(w, 1)
+	t.run_ticks_no_cards(w, 1)
 	t.check_eq(w.clock.phase, SimTypes.Phase.HIGH, "тик 2250 — Высокая вода")
 
-	t.run_ticks(w, 750 - 1)
+	t.run_ticks_no_cards(w, 750 - 1)
 	t.check_eq(w.clock.cycle, 1, "тик 2999 — цикл ещё первый")
-	t.run_ticks(w, 1)
+	t.run_ticks_no_cards(w, 1)
 	t.check_eq(w.clock.total_ticks(), Balance.TICKS_PER_CYCLE, "цикл = 3000 тиков")
 	t.check_eq(w.clock.cycle, 2, "тик 3000 — начался второй цикл")
 	t.check_eq(w.clock.phase, SimTypes.Phase.EBB, "новый цикл начинается со Спада")
@@ -46,7 +46,7 @@ static func test_phase_boundaries(t: TestCtx) -> void:
 ## Порядок событий на границе цикла — контракт автопаузы Итога цикла.
 static func test_cycle_boundary_events(t: TestCtx) -> void:
 	var w: SimWorld = _world(1)
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE - 1)
+	t.run_ticks_no_cards(w, Balance.TICKS_PER_CYCLE - 1)
 	w.tick()
 	var kinds: Array[String] = []
 	for e: SimEvent in w.events_out:
@@ -70,7 +70,7 @@ static func test_phase_scale(t: TestCtx) -> void:
 	w.is_storm = true
 	w.refresh_cycle_effects()
 	t.check_eq(w.clock.phase_len(SimTypes.Phase.LOW), 1050, "LOW короче на 30%")
-	t.run_ticks(w, 450 + 1050)
+	t.run_ticks_no_cards(w, 450 + 1050)
 	t.check_eq(w.clock.phase, SimTypes.Phase.SIGNAL, "укороченная LOW сменяется вовремя")
 
 # --- Вода -----------------------------------------------------------------
@@ -79,21 +79,21 @@ static func test_tide_curve(t: TestCtx) -> void:
 	var w: SimWorld = _world(1)
 	t.check_approx(w.tide.level, 0.0, 0.01, "тик 0: вода на отметке 0")
 
-	t.run_ticks(w, 450 + 750)                       # середина Низкой воды
+	t.run_ticks_no_cards(w, 450 + 750)                       # середина Низкой воды
 	t.check_approx(w.tide.level, -8.0, 0.01, "середина LOW: плато −8")
 
-	t.run_ticks(w, 750 + 300)                       # конец Сигнала
+	t.run_ticks_no_cards(w, 750 + 300)                       # конец Сигнала
 	t.check_eq(w.clock.phase, SimTypes.Phase.HIGH, "дошли до Высокой воды")
 	t.check_approx(w.tide.level, -6.0, 0.01, "конец SIGNAL: вода −6")
 
-	t.run_ticks(w, 750)                             # конец Высокой воды
+	t.run_ticks_no_cards(w, 750)                             # конец Высокой воды
 	t.check_approx(w.tide.level, 0.0, 0.01, "конец HIGH: вода вернулась к 0")
 
 	# Спад — монотонное падение: если кривая где-то «дёрнется» вверх,
 	# на шкале прилива это увидит игрок.
 	var prev: float = w.tide.level
 	for i: int in 449:
-		t.run_ticks(w, 1)
+		t.run_ticks_no_cards(w, 1)
 		if w.tide.level > prev + 0.0001:
 			t.check(false, "Спад не монотонен на тике %d фазы" % i)
 			break
@@ -120,9 +120,9 @@ static func test_tide_plateaus_are_mutable(t: TestCtx) -> void:
 	# Плато отлива двигает карта цикла — через неё и проверяем.
 	w.cycle_modifiers["low_plateau_add"] = -2.0
 	w.refresh_cycle_effects()
-	t.run_ticks(w, 450 + 750)
+	t.run_ticks_no_cards(w, 450 + 750)
 	t.check_approx(w.tide.level, -10.0, 0.01, "карта «Глубокий заход»: плато LOW −10")
-	t.run_ticks(w, 750 + 300 + 750)
+	t.run_ticks_no_cards(w, 750 + 300 + 750)
 	t.check_approx(w.tide.level, 2.0, 0.01, "сизигия: плато HIGH +2")
 
 ## Дебаг-оверрайд уровня (этап 03): подменяет кривую и НЕ попадает в сейв.

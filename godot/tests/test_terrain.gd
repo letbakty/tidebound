@@ -196,10 +196,10 @@ static func test_shallow_refills(t: TestCtx) -> void:
 			break
 	t.check(id >= 0, "отмель найдена")
 	w.terrain.take(id, 8)
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE)
+	t.run_ticks_no_cards(w, Balance.TICKS_PER_CYCLE)
 	var i: int = w.terrain.deposit_index(id)
 	t.check_eq(int(w.terrain.deposits[i]["amount"]), 4, "отмель восполнилась на +4 за отлив")
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE)
+	t.run_ticks_no_cards(w, Balance.TICKS_PER_CYCLE)
 	i = w.terrain.deposit_index(id)
 	t.check_eq(int(w.terrain.deposits[i]["amount"]), 8, "и не выше ёмкости 8")
 

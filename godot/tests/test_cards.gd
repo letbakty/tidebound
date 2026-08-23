@@ -31,7 +31,7 @@ static func _force_card(t: TestCtx, w: SimWorld, card_id: String) -> void:
 # --- Данные ---------------------------------------------------------------
 
 static func test_cards_match_spec(t: TestCtx) -> void:
-	t.check_eq(DB.card_ids().size(), 6, "все 6 карт docs/00 §10")
+	t.check_eq(DB.card_ids().size(), 12, "все 12 карт docs/00 §10")
 	var careful: CardDef = DB.card("careful")
 	t.check_approx(float(careful.effects["recall_earlier_sec"]), 30.0, 0.01,
 		"«Осторожно»: возврат на 30 с раньше")

@@ -54,6 +54,22 @@ const DEPOSITS: Array = [
 	{"kind": "ruins_deep", "mark": -6, "x": 42},
 	{"kind": "ruins_deep", "mark": -7, "x": 44},
 	{"kind": "ruins_deep", "mark": -8, "x": 46},
+	# Первая волна контента (CONTENT-wave-1 §1). Отметки — по замеру дна
+	# из docs/balance.md, итерация 2: turtle и builder не спускаются ниже −2,
+	# greedy и gatherer — ниже −5, поэтому новая работа лежит там, а не на дне.
+	# Правило «чем ценнее, тем дальше от лестниц» держится: лестницы профилей
+	# встают у ЛЕВОГО края площадки, и всё новое стоит правее середины.
+	{"kind": "brine_pool", "mark": -1, "x": 17},
+	{"kind": "brine_pool", "mark": -2, "x": 24},
+	{"kind": "fresh_seep", "mark": -3, "x": 28},
+	{"kind": "fresh_seep", "mark": -4, "x": 31},
+	{"kind": "bone_shoal", "mark": -4, "x": 33},
+	{"kind": "bone_shoal", "mark": -5, "x": 36},
+	# Проба глубины: одна пара на границе достижимого. −5 доходят два профиля
+	# из пяти, −6 не доходит ни один — разница между «глубина не работает»
+	# и «до глубины не добираются» видна только если стоят обе.
+	{"kind": "shipwreck", "mark": -5, "x": 40},
+	{"kind": "shipwreck", "mark": -6, "x": 43},
 ]
 
 const OUT_PATH: String = "res://data/cliffs/cliff_01.tres"

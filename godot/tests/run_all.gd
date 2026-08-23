@@ -12,6 +12,7 @@ const SUITES: Array[String] = [
 	"res://tests/test_data.gd",        # первым: битые .tres валят всё остальное
 	"res://tests/test_clock.gd",
 	"res://tests/test_terrain.gd",
+	"res://tests/test_deposits.gd",
 	"res://tests/test_storage.gd",
 	"res://tests/test_agents.gd",
 	"res://tests/test_jobs.gd",

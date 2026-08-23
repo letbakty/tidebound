@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="CardDef" format=3]
+
+[ext_resource type="Script" path="res://data/defs/card_def.gd" id="1_4xtjn"]
+
+[resource]
+script = ExtResource("1_4xtjn")
+id = "long_breath"
+display_key = "CARD_LONG_BREATH"
+desc_key = "CARD_LONG_BREATH_D"
+effects = Dictionary[String, float]({
+"drown_bonus_sec": 5.0,
+"gather_speed_mult": 0.9
+})

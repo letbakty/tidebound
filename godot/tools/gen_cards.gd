@@ -1,5 +1,5 @@
 extends SceneTree
-## Генератор 6 карт из таблицы docs/00 §10.
+## Генератор 12 карт из таблицы docs/00 §10.
 ##   godot --headless -s res://tools/gen_cards.gd && godot --headless --import --quit
 
 const OUT_DIR: String = "res://data/cards/"
@@ -18,6 +18,21 @@ const TABLE: Array[Array] = [
 		{"cancel_visit": 1.0}],
 	["the_find", "CARD_THE_FIND", "CARD_THE_FIND_D", "rare", "u_card_find",
 		{"mark_relic": 1.0}],
+	# Вторая шестёрка (CONTENT-wave-1 §3). Все — "base": редкая карта требует
+	# разблокировки, а разблокировки — вторая волна. До этой правки базовых
+	# карт было ТРИ, драфт тянул три из трёх, и выбора не было вовсе.
+	["full_moon", "CARD_FULL_MOON", "CARD_FULL_MOON_D", "base", "",
+		{"next_spring_add": 1.0, "low_plateau_add": -1.0}],
+	["sea_loan", "CARD_SEA_LOAN", "CARD_SEA_LOAN_D", "base", "",
+		{"low_time_mult": 1.4, "next_spring_add": 1.0}],
+	["travel_light", "CARD_TRAVEL_LIGHT", "CARD_TRAVEL_LIGHT_D", "base", "",
+		{"haul_speed_mult": 1.6, "bag_slots_add": -2.0}],
+	["long_breath", "CARD_LONG_BREATH", "CARD_LONG_BREATH_D", "base", "",
+		{"drown_bonus_sec": 5.0, "gather_speed_mult": 0.9}],
+	["the_dash", "CARD_THE_DASH", "CARD_THE_DASH_D", "base", "",
+		{"low_time_mult": 0.6, "gather_speed_mult": 1.6}],
+	["muffled_bell", "CARD_MUFFLED_BELL", "CARD_MUFFLED_BELL_D", "base", "",
+		{"recall_earlier_sec": -15.0, "gather_speed_mult": 1.2}],
 ]
 
 func _initialize() -> void:

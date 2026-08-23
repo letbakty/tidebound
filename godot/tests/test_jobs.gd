@@ -184,8 +184,8 @@ static func test_caution_three_brings_everyone_up(t: TestCtx) -> void:
 	w.policies.set_value(SimTypes.Policy.CAUTION, 3)
 	w.policies.set_value(SimTypes.Policy.GREED, 3)
 	w.jobs.mark_dirty()
-	t.run_ticks(w, Balance.TICKS_PER_CYCLE)           # ровно до начала HIGH цикла 2
-	t.run_ticks(w, 450 + 1500 + 300)
+	t.run_ticks_no_cards(w, Balance.TICKS_PER_CYCLE)           # ровно до начала HIGH цикла 2
+	t.run_ticks_no_cards(w, 450 + 1500 + 300)
 	for a: SimAgent in w.agents.agents:
 		if not a.is_alive():
 			continue
@@ -648,9 +648,18 @@ static func test_rest_ends_with_high_water(t: TestCtx) -> void:
 	for i: int in Balance.TICKS_PER_CYCLE * 2:
 		for a0: SimAgent in w.agents.agents:
 			a0.needs["fatigue"] = 0        # вымотаны: отдых им точно нужен
-		t_tick(w)
+		t.run_ticks_no_cards(w, 1)
 		if w.clock.phase != SimTypes.Phase.HIGH:
 			continue
+		# ⚠️ Снимаем Отзыв на каждом тике Высокой воды. Отозванный агент до
+		# границы цикла ходит в RETURN и отдых взять не может в принципе
+		# (`_do_return` не отпускает его в IDLE), а авто-возврат Осторожности
+		# на Сигнале забирает всех, кто в этот момент внизу. Сколько народу
+		# окажется внизу — свойство КАРТЫ, а не правила R11, которое здесь
+		# проверяется: после первой волны контента работы на дне стало больше,
+		# и на сиде 105 первый отдых уехал с первого цикла на шестой.
+		# Тест обязан ставить свою мизансцену, а не надеяться на раздачу.
+		w.agents.clear_recall()
 		for a: SimAgent in w.agents.agents:
 			if a.state == SimTypes.AgentState.REST:
 				rester = a
@@ -662,11 +671,11 @@ static func test_rest_ends_with_high_water(t: TestCtx) -> void:
 		return
 	# Докручиваем до Спада.
 	for i2: int in Balance.TICKS_PER_CYCLE:
-		t_tick(w)
+		t.run_ticks_no_cards(w, 1)
 		if w.clock.phase == SimTypes.Phase.EBB:
 			break
 	t.check_eq(w.clock.phase, SimTypes.Phase.EBB, "начался Спад")
-	t_tick(w)
+	t.run_ticks_no_cards(w, 1)
 	t.check(rester.state != SimTypes.AgentState.REST,
 		"на Спаде отдых прерван, а не тянется полфазы")
 

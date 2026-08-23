@@ -53,6 +53,17 @@ const DEPOSIT_KINDS: Dictionary = {
 	"ruins_deep": {"item": "scrap", "capacity": 20, "refill": 0, "mark_hi": -5, "mark_lo": -8},
 	"shallow": {"item": "catch", "capacity": 8, "refill": 4, "mark_hi": -1, "mark_lo": -5},
 	"kelp": {"item": "kelp", "capacity": 10, "refill": 2, "mark_hi": -2, "mark_lo": -5},
+	# Первая волна контента (CONTENT-wave-1 §1). До неё четыре вида давали
+	# ТРИ предмета из тринадцати: где бы игрок ни собирал, он получал одно и
+	# то же. Отметки взяты по замеру дна из docs/balance.md, итерация 2 —
+	# только там, где колония действительно бывает.
+	"brine_pool": {"item": "salt", "capacity": 6, "refill": 2, "mark_hi": -1, "mark_lo": -2},
+	"fresh_seep": {"item": "freshwater", "capacity": 6, "refill": 2, "mark_hi": -3, "mark_lo": -4},
+	"bone_shoal": {"item": "scrap", "capacity": 8, "refill": 1, "mark_hi": -4, "mark_lo": -5},
+	# Проба глубины: единственный новый вид БЕЗ восполнения и единственный,
+	# который даёт очки (деталь — 3). Стоит на границе достижимого, и его
+	# добыча — данные для следующей итерации баланса, а не контент.
+	"shipwreck": {"item": "part", "capacity": 4, "refill": 0, "mark_hi": -5, "mark_lo": -6},
 }
 ## Реликвия: 15% на депозит глубоких руин, но только на −7..−8, 1 штука.
 const RELIC_CHANCE: float = 0.15
@@ -63,6 +74,10 @@ const DRIFTWOOD_MIN: int = 3
 const DRIFTWOOD_MAX: int = 6
 const DRIFTWOOD_MARK_LO: int = 0
 const DRIFTWOOD_MARK_HI: int = 1
+
+## Верша (docs/00 §8): улов за фазу, в которой её накрыло водой. Кладётся
+## на пол под вершей тем же путём, что плавник, — стаком на землю.
+const WEIR_CATCH: int = 2
 
 # --- Предметы и склады (docs/00 §7, §11.1) --------------------------------
 const STORAGE_SLOTS: int = 12              # слот = один стак
