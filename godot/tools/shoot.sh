@@ -52,5 +52,10 @@ PID=$!
 WATCHDOG=$!
 wait "$PID"
 CODE=$?
+# ⚠️ Сначала sleep, потом сама подоболочка: убитая подоболочка оставляет
+# sleep сиротой, а он держит открытым stdout. Из-за этого любой конвейер
+# (`tools/playtest.sh | tail`) висел ещё столько, сколько оставалось таймауту,
+# уже ПОСЛЕ успешного прогона.
+pkill -P "$WATCHDOG" 2>/dev/null
 kill "$WATCHDOG" 2>/dev/null
 exit "$CODE"

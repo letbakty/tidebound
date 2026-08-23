@@ -8,6 +8,8 @@ extends RefCounted
 ## на финальном кадре окна, а не на текстуре тайла.
 ##
 ##   tools/shoot.sh out=<dir> zoom=3 ff=600 frames=3 every=30 hud=0 cell=x,y
+##   tools/shoot.sh out=<dir> focus=agent   # навести камеру на живого агента
+##   tools/shoot.sh out=<dir> stop=menu     # снять главное меню
 ##
 ## ⚠️ Запуск НЕ headless: без рендера снимать нечего.
 
@@ -29,6 +31,12 @@ var _frames: int = 1
 var _every: int = 30
 var _hud: bool = false
 var _cell: Vector2i = Vector2i(-1, -1)
+## На кого навести камеру: "agent" — на первого живого, "cell" — на _cell.
+## Пустая колония в кадре — самая частая причина «арта не видно».
+var _focus: String = ""
+## "menu" — снять главное меню и выйти: у него теперь свой арт, и проверять
+## его надо так же, как мир, — в игре, а не в просмотрщике.
+var _stop: String = ""
 var _seed: int = 20260822
 var _speed: int = 1
 ## Масштаб контента окна. -1 = как у игрока (ui_scale × DPI). Ставить 1.0
@@ -57,6 +65,8 @@ func _parse_args() -> void:
 			"seed": _seed = int(kv[1])
 			"speed": _speed = int(kv[1])
 			"cscale": _cscale = float(kv[1])
+			"focus": _focus = kv[1]
+			"stop": _stop = kv[1]
 
 			"cell":
 				var xy: PackedStringArray = kv[1].split(",")
@@ -91,6 +101,14 @@ func _drive() -> void:
 	if menu == null:
 		_die("главное меню не зарегистрировано")
 		return
+	if _stop == "menu":
+		if _cscale > 0.0:
+			_tree.root.content_scale_factor = _cscale
+		for _k: int in 30:
+			await _tree.process_frame
+		await _save_frames()
+		_tree.quit(0)
+		return
 	menu.new_run_requested.emit(_seed)
 	await _tree.process_frame
 	if not await _wait(func() -> bool: return Game.world != null):
@@ -113,7 +131,14 @@ func _drive() -> void:
 
 	var world: WorldView = _main.get("world_view") as WorldView
 	world.camera.set_zoom_step(_zoom)
-	if _cell.x >= 0:
+	if _focus == "agent":
+		var at: Vector2 = _first_agent_pos()
+		if at != Vector2.INF:
+			world.camera.focus_on(at, false)
+		else:
+			printerr("shoot: живых агентов нет, снимаю по cell")
+			_focus = ""
+	if _focus != "agent" and _cell.x >= 0:
 		world.camera.focus_on(WorldGeo.cell_center_world(_cell), false)
 	if not _hud:
 		var capture: CaptureMode = _main.get_node_or_null(^"CaptureMode") as CaptureMode
@@ -127,6 +152,10 @@ func _drive() -> void:
 	for _i: int in 30:
 		await _tree.process_frame
 
+	await _save_frames()
+	_tree.quit(0)
+
+func _save_frames() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_out_dir))
 	for i: int in _frames:
 		for _j: int in _every:
@@ -138,7 +167,17 @@ func _drive() -> void:
 		if err != OK:
 			push_error("shoot: save_png %s код %d" % [path, err])
 		printerr("кадр: %s (%dx%d)" % [path, img.get_width(), img.get_height()])
-	_tree.quit(0)
+
+## Первый живой агент. Смотреть арт надо там, где живёт колония: наведение по
+## клетке раз за разом приводило в пустую породу.
+func _first_agent_pos() -> Vector2:
+	if Game.world == null:
+		return Vector2.INF
+	for a: SimAgent in Game.world.agents.agents:
+		if a.state == SimTypes.AgentState.DEAD:
+			continue
+		return Game.query_agent_pos(a.id)
+	return Vector2.INF
 
 func _wait(cond: Callable) -> bool:
 	for _i: int in WAIT_FRAMES:

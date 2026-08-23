@@ -29,7 +29,14 @@ const CLOTH_DARK: Color = Color("46564f")
 const CREATURE_BODY: Color = Color("1c2a30")
 const CREATURE_EDGE: Color = Color("38505a")
 
+## ⚠️ С этапа 18 эти файлы собираются из настоящего арта (tools/gen_agent.gd и tools/gen_creature.gd).
+## Запуск без флага затёр бы арт заглушками, поэтому он требует явного
+## `-- stub` — заглушки нужны разве что для «чистого» проекта.
 func _initialize() -> void:
+	if not OS.get_cmdline_user_args().has("stub"):
+		print("заглушки не тронуты: настоящий арт собирает tools/gen_agent.gd / tools/gen_creature.gd. Нужны заглушки — добавь `-- stub`")
+		quit(0)
+		return
 	var ok: int = 0
 	ok += _write_agent()
 	ok += _write_creature()

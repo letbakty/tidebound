@@ -19,7 +19,14 @@ const LAYERS: Array[Array] = [
 	["parallax_clouds", 48, Color("2a4550"), 7, 18, 37],
 ]
 
+## ⚠️ С этапа 18 эти файлы собираются из настоящего арта (tools/gen_decor.gd).
+## Запуск без флага затёр бы арт заглушками, поэтому он требует явного
+## `-- stub` — заглушки нужны разве что для «чистого» проекта.
 func _initialize() -> void:
+	if not OS.get_cmdline_user_args().has("stub"):
+		print("заглушки не тронуты: настоящий арт собирает tools/gen_decor.gd. Нужны заглушки — добавь `-- stub`")
+		quit(0)
+		return
 	var n: int = 0
 	for row: Array in LAYERS:
 		n += _write(str(row[0]), int(row[1]), row[2] as Color, int(row[3]),
