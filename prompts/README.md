@@ -53,6 +53,7 @@
 
 | Очередь | Промпт | Кто трогает | Можно параллельно |
 |---|---|---|---|
+| **0** | `FIX-fresh-device.md` | `game/world.gd`, `game/building_view.gd`, `tools/*.bat`, `tests/test_project_integrity.gd`, `README.md` | ✅ кроме сессий с `world.gd` |
 | **0** | `FIX-first-run.md` | `.gitattributes`, корневой `README.md`, `godot/tools/doctor.gd`, `godot/tests/` | ✅ со всем — файлы ничьи |
 | **0** | `FIX-mouse-and-panels.md` | `game/main.gd`, `ui/screens/`, `ui/panels/`, `tools/playtest_run.gd` | ✅ с балансом и Steam |
 | **0** | `FIX-input-settings.md` | `autoload/settings.gd`, `ui/screens/settings_screen.gd`, `ui/hud/button_hints.gd`, `tools/gen_input_map.gd` | ❌ после `FIX-mouse-and-panels` |
