@@ -10,12 +10,18 @@ const BAD_COLOR: Color = Color(1.0, 0.4, 0.4, 0.55)
 const LINE_COLOR: Color = Color(0.91, 0.76, 0.44, 0.5)
 const DASH_PX: float = 6.0
 
+## Клетка призрака сменилась: наружу уходит она и причина отказа. Текст
+## отказа рисует HUD в нативном разрешении, а не мир: внутри вьюпорта 640×360
+## подпись занимает несколько пикселей высоты и на 1080p нечитаема вовсе —
+## именно поэтому первый живой игрок «не смог поставить постройку» и не узнал
+## почему (FIX-playtest-01 §3).
+signal placement_changed(cell: Vector2i, error_key: String)
+
 var def_id: String = ""
 ## Клетки складов, где лежит нужное. Считаются при смене постройки, а не
 ## каждый кадр: запрос в sim дорог, а склады за кадр не переезжают.
 var _sources: Array[Vector2i] = []
 var _error_key: String = ""
-var _font: Font = ThemeDB.fallback_font
 
 var _rect: ColorRect = null
 var _last_cell: Vector2i = Vector2i(-9999, -9999)
@@ -36,10 +42,12 @@ func set_def(id: String) -> void:
 	_sources = Game.query_material_sources(id) if visible else ([] as Array[Vector2i])
 	_error_key = ""
 	queue_redraw()
-	if visible:
-		var d: BuildingDef = DB.building(id)
-		if d != null:
-			_rect.size = Vector2(d.size) * float(WorldGeo.TILE)
+	if not visible:
+		placement_changed.emit(_last_cell, "")
+		return
+	var d: BuildingDef = DB.building(id)
+	if d != null:
+		_rect.size = Vector2(d.size) * float(WorldGeo.TILE)
 
 ## Для тача и курсора геймпада (этап 16): позиция берётся от последнего
 ## касания, а не от мыши — ховера у них нет.
@@ -84,12 +92,14 @@ func _refresh(world_pos: Vector2) -> void:
 	position = WorldGeo.cell_to_world(cell)
 	_error_key = Game.query_place_error(def_id, cell)
 	_rect.color = OK_COLOR if _error_key.is_empty() else BAD_COLOR
+	placement_changed.emit(cell, _error_key)
 	# Пунктир до складов считается в _draw через to_local, поэтому после
 	# переезда призрака он сам пересчитывается от новой точки; _sources от
 	# позиции не зависит вовсе (Game.query_material_sources берёт def_id).
 	queue_redraw()
 
-## Пунктирные линии до складов с материалами и причина отказа текстом.
+## Пунктирные линии до складов с материалами. Причина отказа рисуется НЕ здесь,
+## а на HUD (см. placement_changed): в мировом вьюпорте она нечитаема.
 func _draw() -> void:
 	if def_id.is_empty():
 		return
@@ -103,7 +113,22 @@ func _draw() -> void:
 			var seg: float = minf(DASH_PX, total - t)
 			draw_line(from + dir * t, from + dir * (t + seg), LINE_COLOR, 1.0)
 			t += DASH_PX * 2.0
-	if _error_key.is_empty():
-		return
-	draw_string(_font, Vector2(0.0, -4.0), tr(_error_key),
-		HORIZONTAL_ALIGNMENT_LEFT, -1.0, ThemeDB.fallback_font_size, BAD_COLOR)
+
+## Причина отказа человеческим текстом: не «Не та отметка», а «Койка ставится
+## не ниже яруса +1». Сообщение обязано называть требование, иначе игрок
+## переставляет призрак наугад (FIX-playtest-01 §3).
+func error_text() -> String:
+	if _error_key.is_empty() or def_id.is_empty():
+		return ""
+	var d: BuildingDef = DB.building(def_id)
+	if d == null or _error_key != "ERR_MARK":
+		return tr(_error_key)
+	var mark: int = Balance.cell_to_mark(
+		Vector2i(_last_cell.x, _last_cell.y + d.size.y - 1))
+	var key: String = "ERR_MARK_MAX" if mark > d.max_mark else "ERR_MARK_MIN"
+	var need: int = d.max_mark if mark > d.max_mark else d.min_mark
+	return tr(key).format({"name": tr(d.display_key), "mark": mark_text(need)})
+
+## Ярус со знаком: «+1» читается как высота, «1» — как порядковый номер.
+static func mark_text(mark: int) -> String:
+	return "+%d" % mark if mark > 0 else str(mark)

@@ -600,6 +600,64 @@ func _has_build_spot(def_id: String, d: BuildingDef) -> bool:
 				return true
 	return false
 
+## Все клетки, куда постройка встаёт прямо сейчас. Призрак краснеет там, где
+## нельзя, но НЕ говорит, где можно, — а новичок ищет место наугад и бросает
+## после третьей попытки (FIX-playtest-01 §3). Обход тот же, что у
+## _has_build_spot, и стоит столько же: зовётся на выбор постройки, не в кадре.
+func query_place_spots(def_id: String) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	if world == null:
+		return out
+	var d: BuildingDef = DB.building(def_id)
+	if d == null:
+		return out
+	for mark: int in range(Balance.TOP_MARK, Balance.BOTTOM_MARK - 1, -1):
+		var pidx: int = world.terrain.platform_of_mark(mark)
+		if pidx < 0:
+			continue
+		var pl: Dictionary = world.terrain.platforms[pidx]
+		var y: int = Balance.mark_to_floor_cell_y(mark)
+		if d.special != "ladder":
+			y -= d.size.y
+		for x: int in range(int(pl["x0"]), int(pl["x1"]) + 1):
+			if world.buildings.place_error(def_id, Vector2i(x, y), world).is_empty():
+				out.append(Vector2i(x, y))
+	return out
+
+## Почему свободный человек стоит: "greed" (мешает политика), "path" (нет
+## дороги) или "" (не из-за чего). Только чтение: по нему HintCard выбирает,
+## какой урок показать, — и не путает политику с отсутствием лестницы.
+func query_idle_reason() -> String:
+	if world == null:
+		return ""
+	return world.jobs.idle_reason(world)
+
+## Самая нижняя отметка, куда колония вообще может дойти по лестницам.
+## Стартовая лестница кончается на −2, и ниже путей нет — игрок этого не
+## видит и считает багом (FIX-playtest-01 §1).
+func query_deepest_reachable_mark() -> int:
+	if world == null or world.terrain.platforms.is_empty():
+		return Balance.TOP_MARK
+	var t: Terrain = world.terrain
+	# platforms отсортированы по УБЫВАНИЮ отметки: первая — верх утёса, дом.
+	var home: int = int(t.platforms[0]["id"])
+	var deepest: int = int(t.platforms[0]["mark"])
+	for p: Dictionary in t.platforms:
+		var mark: int = int(p["mark"])
+		if mark >= deepest:
+			continue
+		if not t.find_path(home, int(p["id"])).is_empty():
+			deepest = mark
+	return deepest
+
+## Груз на сухих складах в очках — то самое число, ради которого считается
+## цикл. Игра нигде не говорила, что от игрока хотят (FIX-playtest-01 §4);
+## это ровно то, что увезёт судно, если придёт сейчас.
+func query_cargo_points() -> int:
+	if world == null:
+		return 0
+	return int(world.run_state.compute_score(world).get("cargo", 0))
+
 ## Ближайшие склады, где лежит нужный материал — для линий призрака стройки
 ## (паттерн Against the Storm).
 func query_material_sources(def_id: String) -> Array[Vector2i]:

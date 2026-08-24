@@ -15,10 +15,19 @@ const MODE_FLOOD: String = "flood"
 const MODE_JOBS: String = "jobs"
 
 const COL_MARK: Color = Color("c9a15e", 0.5)
+## Клетки, куда выбранная постройка встаёт. Зелёный тот же, что у призрака.
+const COL_SPOT: Color = Color(0.45, 1.0, 0.5, 0.18)
+const COL_SPOT_EDGE: Color = Color(0.45, 1.0, 0.5, 0.45)
 const COL_FLOOD: Color = Color("d4553a", 0.20)
 const COL_FLOOD_EDGE: Color = Color("d4553a", 0.8)
 
 var mode: String = MODE_NONE
+## Постройка, выбранная в радиале. Пока она выбрана, поверх любого режима
+## светятся клетки, куда её МОЖНО поставить: красный призрак говорит «сюда
+## нельзя» и молчит о том, куда можно (FIX-playtest-01 §3).
+var _place_def: String = ""
+var _spots: Array[Vector2i] = []
+var _spot_size: Vector2i = Vector2i.ONE
 
 var _font: Font = ThemeDB.fallback_font
 var _font_size: int = ThemeDB.fallback_font_size
@@ -29,6 +38,27 @@ func _ready() -> void:
 	Events.phase_changed.connect(_redraw.unbind(2))
 	Events.crisis_announced.connect(_redraw.unbind(2))
 	Events.run_started.connect(_redraw.unbind(1))
+	# Занятые клетки меняются стройкой и сносом: подсветка «куда можно»
+	# обязана это увидеть. Пересчёт идёт только при выбранной постройке.
+	Events.building_placed.connect(_redraw.unbind(1))
+	Events.building_removed.connect(_redraw.unbind(1))
+
+## Клетки размещения пересчитываются на выбор постройки и на перестройку мира,
+## а не в кадре: обход утёса стоит пары тысяч проверок.
+func set_place_def(def_id: String) -> void:
+	_place_def = def_id
+	_refresh_spots()
+	queue_redraw()
+
+func _refresh_spots() -> void:
+	_spots.clear()
+	_spot_size = Vector2i.ONE
+	if _place_def.is_empty() or Game.world == null:
+		return
+	var d: BuildingDef = DB.building(_place_def)
+	if d != null:
+		_spot_size = d.size
+	_spots = Game.query_place_spots(_place_def)
 
 ## Повторный вызов того же режима выключает оверлей — тумблер, а не радио.
 func toggle(new_mode: String) -> void:
@@ -36,7 +66,10 @@ func toggle(new_mode: String) -> void:
 	queue_redraw()
 
 func _redraw() -> void:
-	if mode != MODE_NONE:
+	# Вода поднялась, лестницу достроили — набор пригодных клеток другой.
+	if not _place_def.is_empty():
+		_refresh_spots()
+	if mode != MODE_NONE or not _place_def.is_empty():
 		queue_redraw()
 
 func _process(_delta: float) -> void:
@@ -45,12 +78,24 @@ func _process(_delta: float) -> void:
 		queue_redraw()
 
 func _draw() -> void:
-	if Game.world == null or mode == MODE_NONE:
+	if Game.world == null:
 		return
+	if not _place_def.is_empty():
+		_draw_spots()
 	match mode:
 		MODE_MARKS: _draw_marks()
 		MODE_FLOOD: _draw_flood()
 		MODE_JOBS: _draw_jobs()
+
+## Куда встаёт выбранная постройка. Прямоугольник её размера, а не клетка:
+## койка 2×1 и лестница 1×3 занимают разное место, и подсветка обязана
+## показывать именно то, что появится.
+func _draw_spots() -> void:
+	var box: Vector2 = Vector2(_spot_size) * float(WorldGeo.TILE)
+	for cell: Vector2i in _spots:
+		var rect: Rect2 = Rect2(WorldGeo.cell_to_world(cell), box)
+		draw_rect(rect, COL_SPOT, true)
+		draw_rect(rect, COL_SPOT_EDGE, false, 1.0)
 
 func _map_width_px() -> float:
 	return float(Game.cliff_def().width * WorldGeo.TILE)

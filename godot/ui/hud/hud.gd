@@ -22,6 +22,8 @@ const LEGEND_LIFE_SEC: float = 12.0
 ## Легенда — десять строк текста, а не подпись к кнопке: узкий тултип превратил
 ## бы её в лапшу из одного слова в строке.
 const LEGEND_WIDTH_PX: float = 320.0
+## Подсказка размещения — одна фраза с требованием, а не абзац.
+const BUILD_HINT_WIDTH_PX: float = 280.0
 ## Строки легенды по порядку сверху вниз.
 const LEGEND_KEYS: Array[String] = ["HUD_LEGEND_TITLE", "HUD_LEGEND_LEVEL",
 	"HUD_LEGEND_MARKS", "HUD_LEGEND_PLATEAU", "HUD_LEGEND_DOTS",
@@ -44,6 +46,10 @@ var cursor: GamepadCursor = null
 ## Легенда шкалы прилива: тап по шкале (docs/01 §2). Тултип, а не панель —
 ## ничего не закрывает и уходит сам.
 var _legend: TooltipView = null
+## Причина отказа размещения. Живёт ЗДЕСЬ, а не в мире: в мировом вьюпорте
+## 640×360 подпись занимает несколько пикселей высоты, и на 1080p прочитать её
+## нельзя — игрок видел красный призрак без единого слова (FIX-playtest-01 §3).
+var _build_tip: TooltipView = null
 var _legend_timer: Timer = null
 var _margin: MarginContainer = null
 ## id -> {flooded, damaged}: тост показываем на ПЕРЕХОДЕ, а не на каждом
@@ -163,6 +169,10 @@ func _build() -> void:
 	_legend.name = "TideLegend"
 	_legend.visible = false
 	add_child(_legend)
+	_build_tip = TooltipView.new()
+	_build_tip.name = "BuildHint"
+	_build_tip.visible = false
+	add_child(_build_tip)
 	_legend_timer = Timer.new()
 	_legend_timer.name = "LegendLife"
 	_legend_timer.one_shot = true
@@ -196,6 +206,29 @@ func _show_legend() -> void:
 func hide_legend() -> void:
 	if _legend != null:
 		_legend.visible = false
+
+## Причина отказа размещения у призрака. text — уже переведённая строка,
+## at — точка ОКНА, куда смотрит игрок (её считает Main: только он знает
+## про растяжку мирового вьюпорта).
+func show_build_hint(text: String, at: Vector2) -> void:
+	if _build_tip == null:
+		return
+	if text.is_empty():
+		hide_build_hint()
+		return
+	_build_tip.setup(text, BUILD_HINT_WIDTH_PX)
+	_build_tip.visible = true
+	# Размер панели известен только после раскладки: до неё клампить нечем.
+	_build_tip.reset_size()
+	var pos: Vector2 = at - global_position \
+		- Vector2(_build_tip.size.x * 0.5, _build_tip.size.y + float(UITokens.SPACE_3))
+	_build_tip.position = pos.clamp(Vector2(float(UITokens.SPACE_2),
+		float(UITokens.SPACE_2)), size - _build_tip.size
+		- Vector2(float(UITokens.SPACE_2), float(UITokens.SPACE_2)))
+
+func hide_build_hint() -> void:
+	if _build_tip != null:
+		_build_tip.visible = false
 
 ## Легенда собирается одной строкой заранее и авто-перевода не получает: при
 ## смене языка на открытой легенде её надо пересобрать руками.

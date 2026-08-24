@@ -144,6 +144,7 @@ func _spawn_panels() -> void:
 	build_radial.name = "BuildRadial"
 	attach_ui(panel_layer, build_radial)
 	build_radial.building_chosen.connect(_on_building_chosen)
+	world_view.ghost.placement_changed.connect(_on_ghost_placement)
 
 	deposit_tip = DepositTooltip.new()
 	deposit_tip.name = "DepositTooltip"
@@ -233,6 +234,10 @@ func _spawn_screens() -> void:
 	# и показывает в первом уроке.
 	hud.top_bar.resized.connect(_place_hint_card)
 	_place_hint_card()
+	# Урок встаёт в общую очередь HUD и ждёт, пока экран освободится от банера
+	# кризиса и от модального окна (FIX-playtest-01 §4).
+	hints.set_notice_queue(hud.notices)
+	hints.set_busy_check(func() -> bool: return router.is_modal_open())
 	var save_mark: SaveIndicator = SaveIndicator.new()
 	save_mark.name = "SaveIndicator"
 	attach_ui(hud_layer, save_mark)
@@ -463,12 +468,16 @@ func _on_world_tapped(screen_pos: Vector2) -> void:
 		if Game.cmd_place_building(world_view.ghost.def_id,
 				world_view.ghost.current_cell()):
 			world_view.ghost.set_def("")     # поставили — призрак больше не нужен
+			world_view.overlay.set_place_def("")
 		else:
 			# Отказ призрак НЕ снимает: игрок видит причину отказа и пробует
 			# соседнюю клетку, а не открывает радиал заново тремя действиями.
 			# Снять — правым кликом или Esc. Успех озвучит AudioService.
 			AudioService.play_ui("ui_error")
 		return
+	# Тап ниже конца лестницы — единственный способ игрока спросить «почему
+	# туда никто не идёт»: приказов в игре нет (FIX-playtest-01 §1).
+	hints.note_world_cell(cell)
 	var hit: Dictionary = world_view.pick_at(world_pos)
 	match str(hit["kind"]):
 		"agent":
@@ -500,12 +509,25 @@ func _open_building_panel(id: int) -> void:
 
 func _on_building_chosen(def_id: String, at_world: Vector2) -> void:
 	world_view.ghost.set_def(def_id)
+	# Куда МОЖНО — видно сразу, а не подбирается наугад (FIX-playtest-01 §3).
+	world_view.overlay.set_place_def(def_id)
 	# На ПК призрак ходит за курсором сам; палец и курсор геймпада ведут его
 	# последней точкой жеста (game/build_ghost.gd).
 	if _pointer_is_mouse():
 		world_view.ghost.follow_mouse()
 	else:
 		world_view.ghost.set_cursor_world(at_world)
+
+## Причина отказа — на HUD, в нативном разрешении и у самого призрака.
+## Мир рисует её внутри вьюпорта 640×360, где она нечитаема (FIX-playtest-01 §3).
+func _on_ghost_placement(cell: Vector2i, error_key: String) -> void:
+	if hud == null:
+		return
+	if error_key.is_empty():
+		hud.hide_build_hint()
+		return
+	hud.show_build_hint(world_view.ghost.error_text(),
+		_world_to_screen(WorldGeo.cell_center_world(cell)))
 
 ## Чем игрок целится прямо сейчас. Курсор геймпада включается только когда за
 ## геймпад взялись, «mobile» — сборка под телефон: и там, и там ховера нет.
@@ -520,6 +542,7 @@ func _cancel_ghost() -> bool:
 	if world_view == null or world_view.ghost.def_id.is_empty():
 		return false
 	world_view.ghost.set_def("")
+	world_view.overlay.set_place_def("")
 	AudioService.play_ui("ui_cancel")
 	return true
 

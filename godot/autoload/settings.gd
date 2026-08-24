@@ -58,7 +58,13 @@ var default_speed: int = 2
 
 # --- Экран ----------------------------------------------------------------
 var ui_scale: float = 1.0
-var world_zoom: int = 3
+## ×2, а не ×3. Внутри мирового вьюпорта ×3 — это зум камеры 1.5, то есть
+## дробный масштаб: пиксель тайла становится то два, то три экранных, а на
+## 1080p сверху ложится ещё и растяжка канваса. Первый живой игрок записал
+## это словами «текстуры шакалятся и видны концы текстур»; на кадрах одной
+## сцены при ×2 каждый пиксель — чистый квадрат (FIX-playtest-01 §6.1).
+## Ступень ×3 осталась в настройках для тех, кому нужнее крупно.
+var world_zoom: int = 2
 var fullscreen: bool = false
 var vsync: bool = true
 var integer_scaling: bool = false
@@ -563,7 +569,7 @@ func from_dict(d: Dictionary) -> void:
 	pause_on_crisis = bool(d.get("pause_on_crisis", true))
 	default_speed = clampi(int(d.get("default_speed", 2)), 1, 3)
 	ui_scale = clampf(float(d.get("ui_scale", 1.0)), UI_SCALE_MIN, UI_SCALE_MAX)
-	world_zoom = clampi(int(d.get("world_zoom", 3)), 2, 4)
+	world_zoom = clampi(int(d.get("world_zoom", 2)), 2, 4)
 	fullscreen = bool(d.get("fullscreen", false))
 	vsync = bool(d.get("vsync", true))
 	integer_scaling = bool(d.get("integer_scaling", false))

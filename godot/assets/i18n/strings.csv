@@ -38,17 +38,17 @@ BIO_22,Спорит с приливом вслух,Argues with the tide out loud
 BIO_23,Собирает водоросли аккуратнее всех,Gathers kelp more carefully than anyone
 BIO_24,"Была кузнецом, пока не кончился уголь",Was a smith until the coal ran out
 BIO_25,"Не боится глубины, боится тишины","Not afraid of the deep, afraid of the silence"
-BIO_26,Носит в котомке чужой медальон,Carries someone else's locket in their bag
-BIO_27,Первым слышит шум прихода,First to hear the visit coming
+BIO_26,Носит в сумке чужой медальон,Carries someone else's locket in their bag
+BIO_27,"Первым слышит, как гости лезут из воды",First to hear the guests climbing out of the water
 BIO_28,Считает утёс живым,Considers the cliff a living thing
 BIO_29,Ушла в отлив и вернулась другой,Went out at ebb and came back changed
 BIO_30,Работает молча и уходит последним,Works in silence and leaves last
 TRAIT_DIVER,Ныряльщик,Diver
 TRAIT_DIVER_D,Задерживает дыхание 10 секунд вместо 5,Holds breath 10 seconds instead of 5
 TRAIT_DEEP_FEAR,Боязнь глубины,Fear of the deep
-TRAIT_DEEP_FEAR_D,Не спускается ниже отметки −5,Will not go below mark −5
+TRAIT_DEEP_FEAR_D,Не спускается ниже яруса −5,Will not go below height −5
 TRAIT_SINEW,Жила,Sinew
-TRAIT_SINEW_D,На один слот котомки больше,One extra bag slot
+TRAIT_SINEW_D,На один слот сумки больше,One extra bag slot
 TRAIT_GLUTTON,Прожорливый,Glutton
 TRAIT_GLUTTON_D,Сытость падает быстрее,Satiety drops faster
 TRAIT_SMITH,Кузнец,Smith
@@ -102,14 +102,16 @@ BLD_CONDENSER,Конденсатор,Condenser
 BLD_WINCH,Лебёдка,Winch
 BLD_WEIR,Верша,Tide weir
 BLD_WEIR_D,"Работает затопленной: за каждую высокую воду, которая её накрыла, кладёт рядом сырую добычу","Works while flooded: after every high water that covers it, it leaves raw catch beside itself"
-ERR_LOCKED,Ещё не разблокировано,Not unlocked yet
-ERR_MARK,Не та отметка,Wrong mark
-ERR_OCCUPIED,Место занято,Space occupied
-ERR_NO_SUPPORT,Не на что опереть,Nothing to stand on
-ERR_NO_LADDER_SPOT,Здесь лестница не встанет,A ladder cannot go here
-ERR_NO_LADDER,Шлюз ставится только на лестницу,A sluice only goes on a ladder
-ERR_NOT_BUILDABLE,Эту постройку не строят,This structure cannot be built
-ERR_NO_BASKET_SPOT,Под корзиной нет площадки,No platform below the basket
+ERR_LOCKED,Откроется в Журнале: пока не разблокировано,Unlocks in the Journal: not available yet
+ERR_MARK,Не тот ярус,Wrong height
+ERR_MARK_MIN,«{name}» ставится не ниже яруса {mark},“{name}” goes no lower than height {mark}
+ERR_MARK_MAX,«{name}» ставится не выше яруса {mark},“{name}” goes no higher than height {mark}
+ERR_OCCUPIED,Нужна свободная клетка: здесь уже занято,Needs an empty cell: this one is taken
+ERR_NO_SUPPORT,Нужен пол под постройкой: ставь на площадку яруса,Needs floor underneath: place it on a tier platform
+ERR_NO_LADDER_SPOT,"Лестница ставится с края площадки, под которой есть другая",A ladder goes at the edge of a platform with another one below
+ERR_NO_LADDER,Шлюз ставится только на клетку лестницы,A sluice only goes on a ladder cell
+ERR_NOT_BUILDABLE,Эту постройку строить нельзя,This structure cannot be built
+ERR_NO_BASKET_SPOT,Лебёдке нужна площадка ярусом ниже — под корзину,The winch needs a platform one tier below for its basket
 RCP_FORGE_INGOT,Слиток,Ingot
 RCP_WORKBENCH_PART,Деталь,Part
 RCP_SALTERY_RATIONS,Провизия,Rations
@@ -122,21 +124,21 @@ RCP_CONDENSER_WATER,Конденсат,Condensate
 CARD_DEEP_DIVE,Глубокий заход,Deep dive
 CARD_DEEP_DIVE_D,"Вода уходит ниже дна: нижний ярус открыт раньше, но времени на нём меньше","Water falls below the floor: the bottom tier opens sooner, but you get less time on it"
 CARD_FAST_HAUL,Быстрый сбор,Fast haul
-CARD_FAST_HAUL_D,"Переносить быстрее, но котомка меньше","Carry faster, but the bag is smaller"
+CARD_FAST_HAUL_D,"Переносить быстрее, но сумка меньше","Carry faster, but the bag is smaller"
 CARD_CAREFUL,Осторожно,Careful
 CARD_CAREFUL_D,"Возвращаются раньше и дольше держатся под водой, но добывают медленнее","They return earlier and hold their breath longer, but gather slower"
 CARD_GREAT_EBB,Великий отлив,Great ebb
-CARD_GREAT_EBB_D,"Вода уходит далеко: нижний ярус открыт надолго; следующая сизигия выше","Water falls far: the bottom tier stays open much longer; the next spring tide runs higher"
+CARD_GREAT_EBB_D,Вода уходит далеко: нижний ярус открыт надолго; следующая большая вода выше,Water falls far: the bottom tier stays open much longer; the next spring tide runs higher
 CARD_CALM_WATER,Тихая вода,Calm water
-CARD_CALM_WATER_D,Приход этого цикла отменён,This cycle's visit is cancelled
+CARD_CALM_WATER_D,Гости в этом цикле не придут,This cycle's visit is cancelled
 CARD_THE_FIND,Находка,The find
 CARD_THE_FIND_D,На дне помечена гарантированная реликвия,A guaranteed relic is marked on the floor
 CARD_FULL_MOON,Полная луна,Full moon
-CARD_FULL_MOON_D,"Вода уходит на ярус ниже обычного; следующая сизигия выше","Water falls one tier lower than usual; the next spring tide runs higher"
+CARD_FULL_MOON_D,Вода уходит на ярус ниже обычного; следующая большая вода выше,Water falls one tier lower than usual; the next spring tide runs higher
 CARD_SEA_LOAN,Заём у моря,Sea's loan
-CARD_SEA_LOAN_D,"Отлив длиннее наполовину — в долг: следующая сизигия выше","The ebb runs half again as long — on credit: the next spring tide runs higher"
+CARD_SEA_LOAN_D,Отлив длиннее наполовину — в долг: следующая большая вода выше,The ebb runs half again as long — on credit: the next spring tide runs higher
 CARD_TRAVEL_LIGHT,Налегке,Travel light
-CARD_TRAVEL_LIGHT_D,"Переносят намного быстрее, но котомка меньше на два слота","They carry much faster, but the bag holds two slots less"
+CARD_TRAVEL_LIGHT_D,"Переносят намного быстрее, но сумка меньше на два слота","They carry much faster, but the bag holds two slots less"
 CARD_LONG_BREATH,Долгий вдох,Long breath
 CARD_LONG_BREATH_D,"Держатся под водой на пять секунд дольше, но добывают медленнее","They hold their breath five seconds longer, but gather slower"
 CARD_THE_DASH,Рывок,The dash
@@ -181,11 +183,11 @@ POLICY_REPAIR,Ремонт,Repair
 POLICY_BUILD,Стройка,Building
 POLICY_SUPPLY,Заготовка,Stockpiling
 POLICY_REST,Отдых,Rest
-CRISIS_SPRING_TIDE,Сизигия,Spring tide
+CRISIS_SPRING_TIDE,Большая вода,Spring tide
 CRISIS_SPRING_TIDE_D,Высокая вода поднимется на два яруса выше обычного,High water will rise two tiers above normal
 CRISIS_STORM,Шторм,Storm
-CRISIS_STORM_D,"Волна бьёт по всему, что ниже отметки +3",The surge hits everything below mark +3
-CRISIS_VISIT,Приход,The visit
+CRISIS_STORM_D,"Волна бьёт по всему, что ниже яруса +3",The surge hits everything below height +3
+CRISIS_VISIT,Гости,The visit
 CRISIS_VISIT_D,Существа поднимаются со дна и грызут постройки,Creatures climb from the deep and gnaw at the buildings
 GALLERY_TITLE,Витрина компонентов,Component gallery
 GALLERY_LOCALE,Язык,Language
@@ -215,10 +217,12 @@ HUD_SPEED_2,x2,x2
 HUD_SPEED_3,x3,x3
 HUD_SPEED_TIP,"Скорость времени. На паузе доступно всё управление","Time speed. Everything stays usable while paused"
 HUD_CYCLE_OF,Цикл {n}/{total},Cycle {n}/{total}
+HUD_CARGO,Груз {n},Cargo {n}
+HUD_CARGO_TIP,"Столько очков увезёт судно, если придёт сейчас. Считается только то, что лежит на сухих складах",That is what the ship would take if it came now. Only what sits in dry storages counts
 HUD_RECALL,Отзыв,Recall
 HUD_RECALL_TIP,"Все возвращаются наверх. Второе нажатие подряд — бросить груз и бежать","Everyone climbs back. Press twice to drop cargo and run"
 HUD_BELOW_LEFT,Внизу осталось: {n},Still below: {n}
-HUD_TIDE_TOOLTIP,"Шкала прилива: отметки ярусов, уровень воды, плато отлива и прогноз на три цикла","Tide gauge: tier marks, water level, ebb plateau and a three-cycle forecast"
+HUD_TIDE_TOOLTIP,"Шкала прилива: высоты ярусов, уровень воды, плато отлива и прогноз на три цикла","Tide gauge: tier heights, water level, ebb plateau and a three-cycle forecast"
 PHASE_EBB,Спад,Ebb
 PHASE_LOW,Низкая вода,Low water
 PHASE_SIGNAL,Сигнал,Signal
@@ -244,10 +248,10 @@ PANEL_STATION,Станция,Station
 PANEL_BUILDING,Постройка,Building
 PANEL_STORAGE,Склад,Storage
 POLICY_HINT,"Прямых приказов нет: люди работают сами, а политики говорят, чего от них ждут","There are no direct orders: people work on their own, policies tell them what to expect"
-POLICY_0_0,Жадность 0: возвращаются с первым же грузом,Greed 0: they come back with the first load
-POLICY_0_1,Жадность 1: набирают половину котомки,Greed 1: they fill half the bag
-POLICY_0_2,Жадность 2: набирают полную котомку,Greed 2: they fill the whole bag
-POLICY_0_3,Жадность 3: берут всё до последнего,Greed 3: they take everything to the last piece
+POLICY_0_0,Жадность 0: не уходят дальше {n} шагов от лестницы,Greed 0: they go no further than {n} steps from a ladder
+POLICY_0_1,Жадность 1: не уходят дальше {n} шагов от лестницы,Greed 1: they go no further than {n} steps from a ladder
+POLICY_0_2,Жадность 2: не уходят дальше {n} шагов от лестницы,Greed 2: they go no further than {n} steps from a ladder
+POLICY_0_3,Жадность 3: без ограничения — идут за добычей куда угодно,Greed 3: no limit — they go anywhere for the haul
 POLICY_1_0,Осторожность 0: возвращаются в последний момент,Caution 0: they return at the last moment
 POLICY_1_1,Осторожность 1: возврат за 20 секунд до воды,Caution 1: return 20 seconds before the water
 POLICY_1_2,Осторожность 2: возврат за 40 секунд до воды,Caution 2: return 40 seconds before the water
@@ -271,9 +275,9 @@ POLICY_5_3,Отдых 3: отдыхают при первой усталости
 NEED_SATIETY,Сытость,Satiety
 NEED_WARMTH,Тепло,Warmth
 NEED_MOOD,Дух,Spirit
-AGENT_BAG,Котомка,Bag
+AGENT_BAG,Сумка,Bag
 AGENT_SHOW,К человеку,Show
-STATE_0,Без дела,Idle
+STATE_0,Ждёт,Waiting
 STATE_1,Идёт,Walking
 STATE_2,Работает,Working
 STATE_3,Несёт груз,Hauling
@@ -284,6 +288,17 @@ STATE_7,Ест,Eating
 STATE_8,В панике,Panicking
 STATE_9,Тонет,Drowning
 STATE_10,Погиб,Dead
+STATE_SHORT_0,Ждёт,Waiting
+STATE_SHORT_1,Идёт,Going
+STATE_SHORT_2,Работа,At work
+STATE_SHORT_3,Несёт,Carrying
+STATE_SHORT_4,Добыча,Gathering
+STATE_SHORT_5,Наверх,Climbing
+STATE_SHORT_6,Спит,Resting
+STATE_SHORT_7,Ест,Eating
+STATE_SHORT_8,Паника,Panic
+STATE_SHORT_9,Тонет,Drowning
+STATE_SHORT_10,Погиб,Dead
 ACT_REPAIR,Починить,Repair
 ACT_DEMOLISH,Снести,Demolish
 CONFIRM_DEMOLISH,"Постройку снесут, часть материалов вернётся на склад","The building comes down; some materials return to storage"
@@ -304,8 +319,8 @@ BUILDING_UNDER_CONSTRUCTION,Строится,Under construction
 BUILDING_FUEL,Топлива на {n} цикл(а); {state},Fuel for {n} more cycle(s); {state}
 BUILDING_LIT,горит,lit
 BUILDING_UNLIT,не горит,unlit
-STORAGE_MARK,Отметка {mark},Mark {mark}
-STORAGE_SPRING_WARN,В сизигию этот склад уйдёт под воду,A spring tide will put this storage under water
+STORAGE_MARK,Высота {mark},Height {mark}
+STORAGE_SPRING_WARN,В большую воду этот склад зальёт,A spring tide will put this storage under water
 STORAGE_WET,Мокрое,Wet
 STORAGE_SPOIL,До порчи,Until it spoils
 RADIAL_MORE,Ещё,More
@@ -488,15 +503,18 @@ SET_SCREEN_READER_HINT,Читает названия элементов экра
 HINT_TITLE,Урок,Lesson
 HINT_OK,Понятно,Got it
 HINT_POLICIES,"Приказов нет. Ты задаёшь шесть политик — люди делают остальное. Кнопка «Политики» в строке сверху, клавиша P","There are no orders. You set six policies — people do the rest. The Policies button is in the top row, key P"
+HINT_GOAL,"Через {n} циклов придёт судно. Всё, что окажется на сухих складах, уплывёт с ним и станет очками. Всё, что ниже воды, — не уплывёт",In {n} cycles the ship arrives. Everything sitting in dry storages sails with it and becomes points. Everything below the water does not
+HINT_GREED,"Люди не уходят дальше {n} шагов от лестницы — так стоит Жадность. Поднимите её в Политиках, и они пойдут дальше и глубже",People go no further than {n} steps from a ladder — that is the Greed policy. Raise it in Policies and they will range further and deeper
+HINT_NO_PATH,Ниже яруса {mark} пути нет: лестница кончается здесь. Постройте лестницу — радиал стройки на B,There is no way below height {mark}: the ladder ends here. Build a ladder — the build radial is on B
 HINT_SIGNAL,"Колокол: вода пошла вверх. «Отзыв» справа внизу возвращает людей наверх — по нему они бросают дела и лезут по лестницам","The bell: the water is rising. Recall, bottom right, brings people up — they drop everything and climb"
 HINT_HEIGHT,"Высота — это безопасность. Шкала слева показывает, где сейчас вода и когда она придёт: всё ниже уреза затопит","Height is safety. The gauge on the left shows where the water is and when it comes: everything below the line floods"
-HINT_STORM,"Шторм бьёт по всему, что ниже отметки +3. Успейте увести людей и починить постройки после","The storm hits everything below mark +3. Get people up in time and repair afterwards"
+HINT_STORM,"Шторм бьёт по всему, что ниже яруса +3. Успейте увести людей и починить постройки после",The storm hits everything below height +3. Get people up in time and repair afterwards
 HINT_VISIT,"Существа поднимаются со дна и грызут постройки. Фонарь отпугивает их","Creatures climb from the deep and gnaw at buildings. A lantern wards them off"
-HINT_SPRING,"В сизигию высокая вода поднимется на два яруса выше обычного — склады внизу зальёт","At a spring tide the high water rises two tiers above normal — the lower storages flood"
+HINT_SPRING,Большая вода: в этом цикле вода встанет на два яруса выше обычного — склады внизу зальёт,At a spring tide the high water rises two tiers above normal — the lower storages flood
 HINT_SPOIL,"Сырая добыча и провизия портятся. Солильня превращает добычу в провизию, которая живёт дольше","Raw catch and rations spoil. The saltery turns catch into rations that last longer"
 HINT_WASHED,"Оставленное внизу смывает водой. Отзыв возвращает людей наверх до прихода воды","What is left below gets washed away. Recall brings people up before the water"
 HINT_WET_WOOD,"Мокрый плавник не горит. Сушила высушивают два полена за цикл","Wet driftwood does not burn. The dryer dries two logs a cycle"
-HINT_FINAL_SPRING,"Последняя сизигия: в момент прихода судна вода встанет на два яруса выше обычного. Всё ценное надо заранее поднять на отметку +3 и выше — что окажется под водой, не засчитают","The last spring tide: when the ship arrives the water stands two tiers higher than usual. Move everything valuable to mark +3 or above beforehand — whatever ends up under water will not count"
+HINT_FINAL_SPRING,"Последняя большая вода: в момент прихода судна вода встанет на два яруса выше обычного. Всё ценное надо заранее поднять на ярус +3 и выше — что окажется под водой, не засчитают",The last spring tide: when the ship arrives the water stands two tiers higher than usual. Move everything valuable to height +3 or above beforehand — whatever ends up under water will not count
 SET_RESET_KEYS,Сбросить к умолчаниям,Reset to defaults
 SET_PRESS_KEY,Нажмите клавишу или кнопку геймпада,Press a key or a gamepad button
 ACT_PAN_LEFT,Панорама влево,Pan left
@@ -510,13 +528,13 @@ ACT_PAUSE_MENU,Пауза,Pause
 ACT_BUILD_RADIAL,Радиал стройки,Build radial
 HUD_LEGEND_TITLE,Шкала прилива,Tide gauge
 HUD_LEGEND_LEVEL,"► — уровень воды сейчас","► — water level right now"
-HUD_LEGEND_MARKS,"Риски слева — отметки ярусов, подписаны через одну","Ticks on the left are tier marks, labelled every other one"
+HUD_LEGEND_MARKS,"Риски слева — высоты ярусов, подписаны через одну","Ticks on the left are tier heights, labelled every other one"
 HUD_LEGEND_PLATEAU,"Пунктир — плато отлива: ниже вода не уйдёт","Dashed line is the ebb plateau: the water goes no lower"
-HUD_LEGEND_DOTS,"Точки — постройки на своих отметках; затопленные тускнеют","Dots are buildings at their marks; flooded ones dim"
+HUD_LEGEND_DOTS,Точки — постройки на своих ярусах; затопленные тускнеют,Dots are buildings at their heights; flooded ones dim
 HUD_LEGEND_FORECAST,"Полоска сверху — прогноз на три цикла:","The strip on top is a three-cycle forecast:"
-HUD_LEGEND_SPRING,"^ сизигия — вода выше обычного","^ spring tide — water higher than usual"
+HUD_LEGEND_SPRING,^ большая вода — вода выше обычного,^ spring tide — water higher than usual
 HUD_LEGEND_STORM,"! шторм — волны бьют по нижним ярусам","! storm — waves hit the lower tiers"
-HUD_LEGEND_VISIT,"* приход — в отмели кто-то есть","* visit — something is out on the flat"
+HUD_LEGEND_VISIT,* гости — в отмели кто-то есть,* visit — something is out on the flat
 HUD_LEGEND_QUIET,"- цикл без объявленного кризиса","- a cycle with no announced crisis"
 SET_ACTION,Действие,Action
 SET_SLOT_KEY_1,Клавиша,Key
@@ -545,7 +563,7 @@ PRESET_DEFAULT,По умолчанию,Default
 PRESET_ARROWS,Стрелки,Arrows
 PRESET_ONE_HAND,Одна рука,One hand
 PRESET_CUSTOM,Своя,Custom
-ACT_OVERLAY_MARKS,Отметки ярусов,Tier marks
+ACT_OVERLAY_MARKS,Высоты ярусов,Tier heights
 ACT_OVERLAY_FLOOD,Зона затопления,Flood zone
 ACT_OVERLAY_JOBS,Кто чем занят,Who does what
 ACT_CURSOR_TAP,Тап курсором,Cursor tap

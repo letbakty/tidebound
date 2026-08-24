@@ -84,5 +84,18 @@ func _on_policy_changed(policy: int, value: int) -> void:
 		_sliders[policy].set_value(value)
 
 ## «Осторожность 2: возврат за 40 секунд до воды» — значение словами.
+##
+## У Жадности подпись обязана называть СЛЕДСТВИЕ числом: «не дальше восьми
+## шагов от лестницы». Первый живой игрок увидел, что колонисты не спускаются,
+## назвал это багом — и был прав в том, что игра нигде не сказала ему про
+## предел (FIX-playtest-01 §1). Число берётся из Balance.GREED_LADDER_LIMIT,
+## а не из литерала в строке: балансный проход правит шкалу, и подпись
+## обязана поехать вместе с ней.
 func _describe(policy: int, value: int) -> String:
-	return tr("POLICY_%d_%d" % [policy, value])
+	var text: String = tr("POLICY_%d_%d" % [policy, value])
+	if policy == int(SimTypes.Policy.GREED):
+		var limit: int = Balance.GREED_LADDER_LIMIT[
+			clampi(value, 0, Balance.GREED_LADDER_LIMIT.size() - 1)]
+		if limit >= 0:
+			return text.format({"n": limit})
+	return text

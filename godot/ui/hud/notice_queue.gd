@@ -10,6 +10,12 @@ extends Node
 ## подсказка; тосты идут своим стеком и очередь их не задерживает.
 enum Kind { TOAST, HINT, BANNER }
 
+## Кто кого ЖДЁТ, а не только кто кого важнее. Подсказка ждёт закрытия банера:
+## на скриншоте четвёртого цикла у первого живого игрока висели разом банер
+## «Приход», драфт и карточка урока — три текста читает ноль человек
+## (FIX-playtest-01 §4).
+const WAITS_FOR: Dictionary[int, int] = {Kind.HINT: Kind.BANNER}
+
 signal show_banner(payload: Dictionary)
 signal show_hint(payload: Dictionary)
 signal show_toast(payload: Dictionary)
@@ -40,6 +46,9 @@ func _pump() -> void:
 		var kind: int = int(item["kind"])
 		if kind != int(Kind.TOAST) and _busy.has(kind):
 			rest.append(item)         # место занято — ждёт своей очереди
+			continue
+		if _busy.has(int(WAITS_FOR.get(kind, -1))):
+			rest.append(item)         # ждёт того, кто важнее
 			continue
 		if kind != int(Kind.TOAST):
 			_busy[kind] = true

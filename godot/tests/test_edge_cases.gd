@@ -158,7 +158,11 @@ static func test_hud_fits_extreme_resolutions(t: TestCtx) -> void:
 		return
 	var hud: Control = scene.instantiate() as Control
 	tree.root.add_child(hud)
-	for size: Vector2i in [Vector2i(800, 600), Vector2i(3840, 2160)]:
+	# 1920×1080 и 2560×1440 — не «крайности», а два самых обычных монитора.
+	# Первый живой отзыв пришёл именно с 1920×1080, и половина претензий к
+	# интерфейсу была про обрезанные края (FIX-playtest-01 §6.2).
+	for size: Vector2i in [Vector2i(800, 600), Vector2i(1280, 720),
+			Vector2i(1920, 1080), Vector2i(2560, 1440), Vector2i(3840, 2160)]:
 		hud.size = Vector2(size)
 		var need: Vector2 = hud.get_combined_minimum_size()
 		t.check(need.x <= float(size.x),
@@ -166,6 +170,37 @@ static func test_hud_fits_extreme_resolutions(t: TestCtx) -> void:
 		t.check(need.y <= float(size.y),
 			"HUD помещается по высоте в %dx%d (нужно %d)" % [size.x, size.y, int(need.y)])
 	hud.queue_free()
+
+## Верхняя строка обязана влезать в окно ПРИ ЛЮБОМ числе колонистов. Живой
+## HUD в сьюте не разложить (раскладка идёт кадрами), поэтому проверяем ту
+## самую арифметику, по которой строка решает, чем жертвовать.
+##
+## Пустой HUD этого не показывал никогда: минимум там считается по строке без
+## единого чипа, и тест был зелёным ровно тогда, когда у игрока последний
+## колонист уезжал за правый край.
+static func test_agent_row_always_fits(t: TestCtx) -> void:
+	var gap: float = 8.0
+	var wide: Array[float] = []
+	for _i: int in Balance.MAX_AGENTS:
+		wide.append(120.0)              # чип со словом статуса на русском
+	# Места вдоволь — все чипы со словом.
+	var roomy: Dictionary = TopBar.plan_agents(wide, gap, 2000.0)
+	t.check(not bool(roomy["compact"]), "на широком экране чипы со словом")
+	t.check_eq(int(roomy["shown"]), Balance.MAX_AGENTS, "видны все колонисты")
+	# Места мало — сначала точки, и все ещё видны.
+	var dots: Dictionary = TopBar.plan_agents(wide, gap, 500.0)
+	t.check(bool(dots["compact"]), "тесно — чипы сжимаются в точки")
+	t.check_eq(int(dots["shown"]), Balance.MAX_AGENTS, "точками влезают все")
+	# Места совсем мало — часть уходит за счётчик, но ряд ВЛЕЗАЕТ.
+	for avail: float in [80.0, 160.0, 240.0, 320.0]:
+		var plan: Dictionary = TopBar.plan_agents(wide, gap, avail)
+		var shown: int = int(plan["shown"])
+		var used: float = float(shown) * (float(UITokens.SPACE_5) + gap)
+		if shown < Balance.MAX_AGENTS:
+			used += float(UITokens.SPACE_6) + gap     # счётчик «+N»
+		t.check(used <= avail,
+			"в %d px ряд занял %d px (показано %d из %d)"
+			% [int(avail), int(used), shown, Balance.MAX_AGENTS])
 
 ## Цели касания на маленьком окне: content_scale_factor уменьшает интерфейс,
 ## и 48 px превращаются в 30 экранных. Для десктопа это допустимо, но знать

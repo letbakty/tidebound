@@ -461,6 +461,36 @@ func _greed_allows(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
 			pass
 	return w.terrain.nearest_ladder_dist(j["cell"] as Vector2i) <= float(limit)
 
+## ТОЛЬКО ДЛЯ ИНТЕРФЕЙСА, ничего не меняет: почему свободный человек стоит.
+##
+## "greed" — есть задача, до которой он бы дошёл, и отсекла её Жадность;
+## "path"  — задача есть, но пути к ней нет; "" — стоять не из-за чего.
+## Разница решает, какой урок показать: ползунок Жадности игрок двигает
+## мгновенно, а лестницу надо построить. Первая претензия первого живого
+## игрока — «не опускаются вниз, баг» (FIX-playtest-01 §1) — это про одно
+## из двух, и врать тут нельзя. Считать это в UI невозможно: фильтры живут
+## здесь, и повторять их значило бы завести второй источник правды.
+func idle_reason(w: SimWorld) -> String:
+	var path_seen: bool = false
+	for a: SimAgent in w.agents.agents:
+		if not a.is_alive() or a.job_id != -1 or not w.agents.can_take_job(a):
+			continue
+		for id: int in order:
+			var j: Dictionary = jobs.get(id, {})
+			if j.is_empty() or int(j["taken_by"]) != -1:
+				continue
+			if not applies_to(a, j, w):
+				continue
+			var reachable: bool = _reachable(a, j, w)
+			if not _greed_allows(a, j, w):
+				if reachable:
+					return "greed"      # дошёл бы, да политика не пускает
+				path_seen = true
+				continue
+			if not reachable:
+				path_seen = true
+	return "path" if path_seen else ""
+
 func _reachable(a: SimAgent, j: Dictionary, w: SimWorld) -> bool:
 	var pid: int = int(j["platform"])
 	if pid < 0:

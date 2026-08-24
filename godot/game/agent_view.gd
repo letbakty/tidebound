@@ -36,6 +36,12 @@ const STATE_MARKS: Dictionary = {
 	SimTypes.AgentState.REST: "z",
 	SimTypes.AgentState.EAT: "*",
 }
+## Знак над головой стоящего человека и через сколько СИМ-секунд простоя он
+## появляется. Агент без дела выглядел ровно как агент за работой, и первый
+## живой игрок увидел в этом «люди странно ведут» (FIX-playtest-01 §2).
+## Секунды сим-времени, а не реальные: на паузе простой не копится.
+const IDLE_MARK: String = "?"
+const IDLE_MARK_SEC: float = 3.0
 
 var agent_id: int = -1
 
@@ -43,6 +49,8 @@ var _body: Sprite2D = null
 var _mark: Label = null
 var _from: Vector2 = Vector2.ZERO
 var _to: Vector2 = Vector2.ZERO
+## Сим-время, с которого человек стоит без дела; −1 — занят.
+var _idle_since: float = -1.0
 var _t: float = 1.0
 var _moving: bool = false
 
@@ -104,7 +112,8 @@ func _refresh_look() -> void:
 		_body.modulate = BODY_WET
 	else:
 		_body.modulate = BODY
-	_mark.text = str(STATE_MARKS.get(st, ""))
+	_mark.text = _mark_for(st)
+	_mark.modulate = UIPalette.accent() if _mark.text == IDLE_MARK else Color.WHITE
 	var cell: Vector2i = cell_for(st, _moving, bool(info.get("carry", false)),
 		Game.sim_seconds())
 	_body.region_rect = Rect2(float(cell.x * W), float(cell.y * H),
@@ -115,6 +124,17 @@ func _refresh_look() -> void:
 	var facing: int = int(info.get("facing", 1))
 	_body.flip_h = facing < 0
 	_body.position.x = -float(W) * 0.5
+
+## Что висит над головой. Простой отмечается не сразу: человек, шагнувший
+## между двумя задачами, стоящим не считается.
+func _mark_for(state: int) -> String:
+	if state != int(SimTypes.AgentState.IDLE):
+		_idle_since = -1.0
+		return str(STATE_MARKS.get(state, ""))
+	var now: float = Game.sim_seconds()
+	if _idle_since < 0.0:
+		_idle_since = now
+	return IDLE_MARK if now - _idle_since >= IDLE_MARK_SEC else ""
 
 ## Клетка листа: x — кадр, y — ряд. Чистая функция, её же проверяет тест.
 static func cell_for(state: int, moving: bool, carrying: bool,

@@ -558,6 +558,11 @@ func _step_mouse_build() -> void:
 		% [str(cell), str(ghost.current_cell())])
 	_check(ghost.error_key().is_empty(),
 		"призрак показывает клетку валидной («%s»)" % ghost.error_key())
+	# 3а. Куда МОЖНО — подсвечено, а не подбирается наугад (FIX-playtest-01 §3).
+	var overlay: GameOverlay = (_main.get("world_view") as Node).get("overlay") as GameOverlay
+	var spots: Array = overlay.get("_spots") as Array
+	_check(spots.size() > 0,
+		"клетки, куда постройка встанет, подсвечены (%d штук)" % spots.size())
 	# 4. Клик по НЕвалидной клетке призрак не снимает: игрок видит причину и
 	# пробует соседнюю, а не открывает радиал заново тремя действиями.
 	var bad: Dictionary = _find_spot(def_id, false)
@@ -567,6 +572,16 @@ func _step_mouse_build() -> void:
 		_check(not ghost.def_id.is_empty(), "отказ не снял призрак")
 		_check(not ghost.error_key().is_empty(),
 			"и причина отказа показана («%s»)" % ghost.error_key())
+		# Причина обязана быть ЧИТАЕМОЙ: она живёт на HUD в нативном
+		# разрешении, а не в мировом вьюпорте 640×360, где занимает несколько
+		# пикселей высоты и на 1080p не читается вовсе (FIX-playtest-01 §3).
+		var tip: Control = _hud.get_node_or_null(^"BuildHint") as Control
+		if _check(tip != null and tip.visible, "причина отказа показана на HUD"):
+			var text: Label = tip.get_node_or_null(^"Text") as Label
+			_check(text != null and not text.text.is_empty()
+				and text.text != ghost.error_key(),
+				"и это фраза с требованием, а не ключ: «%s»"
+				% ("" if text == null else text.text))
 	# 5. Клик ставит постройку — именно туда, где показана валидность.
 	await _move_mouse(spot["screen"] as Vector2)
 	var before: int = Game.world.buildings.buildings.size()
