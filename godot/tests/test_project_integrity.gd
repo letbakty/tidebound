@@ -66,3 +66,18 @@ static func test_every_building_special_has_a_color(t: TestCtx) -> void:
 	t.check(missing.is_empty(),
 		"у каждой постройки есть цвет заглушки в BuildingView.COLORS"
 		+ " (иначе серый #909090): %s" % ", ".join(missing))
+
+## Поиск спрайта постройки не шумит в лог, когда спрайта нет.
+##
+## Проверка нужна не столько ради своего check(), сколько ради ЛОГА: голый
+## load() отсутствующего файла пишет `ERROR: Resource file not found`, а
+## раннер валит прогон по любой строке ERROR:. Верша — единственная постройка
+## без арта, и до этой проверки её силуэт красил лог у каждого, кто её
+## построит: сьюты BuildingView не собирали, playtest вершу не строит,
+## и нашлось это только на съёмке кадра.
+static func test_building_art_lookup_is_quiet(t: TestCtx) -> void:
+	for id: String in DB.building_ids():
+		var path: String = "res://assets/sprites/buildings/%s.png" % id
+		var tex: Texture2D = BuildingView.art_for(id)
+		t.check((tex != null) == ResourceLoader.exists(path),
+			"%s: art_for отдаёт спрайт тогда и только тогда, когда он есть" % id)

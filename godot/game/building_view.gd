@@ -33,6 +33,26 @@ const COLORS: Dictionary = {
 	"weir": Color("3d6b54"),
 }
 
+## Спрайт постройки или null, если его нет.
+##
+## ⚠️ Сначала exists(), потом load(). Голый load() на несуществующем пути
+## печатает «ERROR: Resource file not found» ДО того, как вернёт null — то
+## есть штатная ветка «арта нет, рисуем силуэт» оставляла в логе ошибку
+## движка. У верши спрайта нет намеренно (gen_building_art.gd, NO_ART), так
+## что каждая построенная верша красила лог; run_tests.sh и playtest.sh валят
+## прогон по любой строке ERROR:, но ни один из них вершу не строит — нашлось
+## это только тогда, когда её впервые поставили под съёмку.
+## exists() учитывает ремап: в экспорте исходного .png нет, там .ctex.
+##
+## Статический и отдельный от _ready намеренно: в сьюте ноду добавлять некуда
+## (run_all.gd работает раньше, чем корень дерева готов, и _ready бы не
+## выполнился), а проверять надо именно этот вызов.
+static func art_for(def_id: String) -> Texture2D:
+	var path: String = ART_DIR + def_id + ".png"
+	if not ResourceLoader.exists(path, "Texture2D"):
+		return null
+	return load(path) as Texture2D
+
 var building_id: int = -1
 
 var _sprite: Sprite2D = null
@@ -52,7 +72,7 @@ func _ready() -> void:
 		queue_free()
 		return
 	var px: Vector2 = Vector2(_def.size) * float(WorldGeo.TILE)
-	var tex: Texture2D = load(ART_DIR + _def.id + ".png") as Texture2D
+	var tex: Texture2D = art_for(_def.id)
 	if tex != null:
 		_sprite = Sprite2D.new()
 		_sprite.texture = tex
