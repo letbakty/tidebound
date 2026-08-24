@@ -1,5 +1,5 @@
 extends SceneTree
-## Доктор проекта: шесть проверок окружения ПЕРЕД первым запуском.
+## Доктор проекта: семь проверок окружения ПЕРЕД первым запуском.
 ##
 ##   godot --headless --path godot -s res://tools/doctor.gd
 ##
@@ -26,10 +26,39 @@ const LINK_EXTS: PackedStringArray = ["gd", "tscn", "tres"]
 ## прячет остальные пять проверок.
 const MAX_SHOWN: int = 8
 
-func _initialize() -> void:
+## Шапка печатается ОТСЮДА, а не из _initialize, и в этом весь смысл.
+##
+## Движок в Main::start() сначала загружает скрипт ключа -s, а уже потом
+## поднимает автолоады; _initialize() зовётся позже обоих. На свежем клоне
+## кэша глобальных классов нет, поэтому автолоады не парсятся, и человек,
+## которому README велел «начни с доктора», первым делом видел три красные
+## строки движка:
+##   SCRIPT ERROR: Parse Error: Identifier "SimTypes" not declared…
+##   ERROR: Failed to load script "res://autoload/audio_service.gd"…
+##   ERROR: Failed to instantiate an autoload…
+## и делал вывод, что проект сломан. _static_init() выполняется при ЗАГРУЗКЕ
+## скрипта — то есть раньше автолоадов, — и шапка успевает уйти в лог первой.
+## Ошибки безобидны и уходят после импорта; так и написано в разделе про него.
+static func _static_init() -> void:
+	if not _running_as_main_script():
+		return                                       # нас просто preload'нул сьют
+	_print_header()
+
+## Сьют preload'ит этот файл ради его static-функций, и шапка в середине
+## прогона тестов была бы мусором. Аргументы командной строки — единственное,
+## что отличает «доктора запустили» от «доктора прочитали».
+static func _running_as_main_script() -> bool:
+	for a: String in OS.get_cmdline_args():
+		if a.ends_with("tools/doctor.gd"):
+			return true
+	return false
+
+static func _print_header() -> void:
 	print("TIDEBOUND — доктор проекта")
 	print("проект: %s" % ProjectSettings.globalize_path("res://"))
 	print("")
+
+func _initialize() -> void:
 	var found: int = 0
 	var checks: Array[Array] = [
 		["вторая копия проекта внутри res://", nested_projects(),
@@ -49,14 +78,21 @@ func _initialize() -> void:
 			"версия зафиксирована в project.godot (config/features): младший"
 			+ " движок откажется открывать проект, старший молча обновит"
 			+ " формат сцен и ресурсов"],
-		["переводы строк в tools/*.sh", crlf_shell_scripts(),
+		["переводы строк в tools/", line_endings(),
 			"git config core.autocrlf false && git add --renormalize . &&"
-			+ " git checkout -- . В репозитории есть .gitattributes с eol=lf,"
-			+ " но у тех, кто клонировал раньше, дерево не поправится само"],
+			+ " git checkout -- . В репозитории есть .gitattributes (.sh —"
+			+ " eol=lf, .bat — eol=crlf), но у тех, кто клонировал раньше,"
+			+ " дерево не поправится само"],
 		["импорт ассетов выполнен", import_not_done(),
-			"godot --headless --path godot --import --quit — первый импорт"
-			+ " занимает около минуты; папка godot/.godot/ в репозиторий"
-			+ " не входит и создаётся сама"],
+			"godot --headless --path godot --import --quit ДВАЖДЫ — первый"
+			+ " проход открывает ресурсы раньше, чем импортировал их"
+			+ " зависимости, и печатает около двух десятков ошибок; второй"
+			+ " проходит вчистую. Папка godot/.godot/ в репозиторий не входит"
+			+ " и создаётся сама.\n        Ошибки автолоадов, если они были"
+			+ " выше этого отчёта («Identifier … not declared», «Failed to"
+			+ " instantiate an autoload»), — следствие того же несобранного"
+			+ " кэша: без него движку неоткуда узнать про глобальные классы."
+			+ " После шага с импортом их не будет"],
 	]
 	for probe: Array in checks:
 		var lines: PackedStringArray = probe[1] as PackedStringArray
@@ -194,15 +230,25 @@ static func wrong_engine_version() -> PackedStringArray:
 ## Установщик Git для Windows по умолчанию ставит core.autocrlf=true. После
 ## клона каждый .sh получает CRLF и умирает на первой строке:
 ## `/usr/bin/env bash^M: bad interpreter`.
-static func crlf_shell_scripts() -> PackedStringArray:
-	var bad: PackedStringArray = []
-	for path: String in _walk("res://tools", ["sh"]):
-		var bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
-		if bytes.find(13) >= 0:                      # 13 = CR
-			bad.append(path)
-	if bad.is_empty():
-		return []
-	return PackedStringArray(["CRLF в %d скриптах: %s" % [bad.size(), ", ".join(bad)]])
+##
+## С .bat всё ровно наоборот: cmd.exe понимает только CRLF, и переписанный
+## под LF батник — это ровно тот же класс поломки, только на другой машине.
+## Поэтому проверка симметричная: каждому расширению свой обязательный конец
+## строки, и оба перечислены в .gitattributes.
+static func line_endings() -> PackedStringArray:
+	var out: PackedStringArray = []
+	for probe: Array in [["sh", false, "CRLF"], ["bat", true, "LF"]]:
+		var ext: String = str(probe[0])
+		var need_cr: bool = bool(probe[1])
+		var bad: PackedStringArray = []
+		for path: String in _walk("res://tools", [ext]):
+			var bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
+			if (bytes.find(13) >= 0) != need_cr:     # 13 = CR
+				bad.append(path)
+		if not bad.is_empty():
+			out.append("%s в %d файлах .%s: %s"
+				% [str(probe[2]), bad.size(), ext, ", ".join(bad)])
+	return out
 
 # --- Проверка 7: импорт ---------------------------------------------------
 

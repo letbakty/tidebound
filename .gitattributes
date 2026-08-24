@@ -6,6 +6,9 @@
 * text=auto eol=lf
 
 *.sh text eol=lf
+# А .bat — наоборот: CRLF единственный формат, который понимает cmd.exe.
+# Без этой строки правило `* text=auto eol=lf` выше сломало бы их при клоне.
+*.bat text eol=crlf
 *.gd text eol=lf
 *.tres text eol=lf
 *.tscn text eol=lf

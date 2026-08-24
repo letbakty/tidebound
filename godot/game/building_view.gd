@@ -26,6 +26,11 @@ const COLORS: Dictionary = {
 	"dryer": Color("a89060"), "ropery": Color("94845a"),
 	"sluice": Color("5a7a90"), "lantern": Color("e0c060"),
 	"condenser": Color("70a0b0"), "winch": Color("808080"),
+	# Верша — единственная постройка без отобранного арта (gen_building_art.gd,
+	# NO_ART), то есть заглушку видно всегда. Без своего ключа она забирала
+	# серый по умолчанию и была неотличима от лебёдки. weed_dark из палитры:
+	# мокрое плетение, единственный зелёный среди построек.
+	"weir": Color("3d6b54"),
 }
 
 var building_id: int = -1

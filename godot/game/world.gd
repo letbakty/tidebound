@@ -18,11 +18,23 @@ const SOURCE_ID: int = 0
 const MARK_SAND_TOP: int = -1
 const MARK_RUINS_TOP: int = -6
 
+## Цвет заглушки депозита по виду. Ключи обязаны покрывать ВЕСЬ
+## Balance.DEPOSIT_KINDS: неизвестный вид уходил в Color.MAGENTA, и после
+## первой волны контента четыре депозита из восьми светились на карте
+## ядовито-розовым (#EE13E6 пипеткой на кадре чистого клона). Покрытие
+## сторожит tests/test_project_integrity.gd.
 const DEPOSIT_COLORS: Dictionary = {
 	"ruins_near": Color("8a8f7a"),
 	"ruins_deep": Color("6f7f8a"),
 	"shallow": Color("c9a26b"),
 	"kelp": Color("4f7a4a"),
+	# Волна контента. Цвета взяты именами из art/tidebound.gpl, а не подобраны
+	# на глаз: lamp — сухая соляная корка, surf — холодная пресная линза,
+	# bone — бледная кость отмели, rust_warm — ржавое дерево обломков.
+	"brine_pool": Color("f0d6aa"),
+	"fresh_seep": Color("2d6b7a"),
+	"bone_shoal": Color("d8d4c4"),
+	"shipwreck": Color("965836"),
 }
 
 @onready var ground: TileMapLayer = $Ground

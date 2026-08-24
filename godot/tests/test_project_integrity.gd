@@ -36,3 +36,33 @@ static func test_scanner_sees_the_project(t: TestCtx) -> void:
 		"обход дерева видит скрипты проекта (нашёл %d)" % Doctor.script_count())
 	t.check(Doctor.def_count() > 20,
 		"и дефы данных (нашёл %d)" % Doctor.def_count())
+
+## Презентация знает про ВСЕ данные, которыми её расширили.
+##
+## Эти две проверки живут здесь, а не в докторе: доктор работает текстом на
+## неимпортированном клоне и загруженных классов не видит, а тут нужны именно
+## константы WorldView и BuildingView.
+##
+## Ловят ровно то, что случилось: волна контента добавила четыре вида
+## депозитов в Balance.DEPOSIT_KINDS, а WorldView.DEPOSIT_COLORS об этом
+## не узнал — и половина депозитов на карте рисовалась Color.MAGENTA.
+static func test_every_deposit_kind_has_a_color(t: TestCtx) -> void:
+	var missing: PackedStringArray = []
+	for kind: String in Balance.DEPOSIT_KINDS:
+		if not WorldView.DEPOSIT_COLORS.has(kind):
+			missing.append(kind)
+	t.check(missing.is_empty(),
+		"у каждого вида депозита есть цвет в WorldView.DEPOSIT_COLORS"
+		+ " (иначе Color.MAGENTA на карте): %s" % ", ".join(missing))
+
+static func test_every_building_special_has_a_color(t: TestCtx) -> void:
+	var missing: PackedStringArray = []
+	for id: String in DB.building_ids():
+		var def: BuildingDef = DB.building(id)
+		if def == null or def.special.is_empty():
+			continue
+		if not BuildingView.COLORS.has(def.special):
+			missing.append("%s (special=%s)" % [id, def.special])
+	t.check(missing.is_empty(),
+		"у каждой постройки есть цвет заглушки в BuildingView.COLORS"
+		+ " (иначе серый #909090): %s" % ", ".join(missing))
